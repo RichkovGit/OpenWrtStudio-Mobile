@@ -29,41 +29,110 @@ class ForkopService {
     int controllerPort = 9090,
     String? secret,
   }) async {
-    // 1. Try Mihomo/Clash external controller API first
+    // 1. Try Sing-box / Mihomo / Clash external controller API on port 9090 (always HTTP)
     try {
-      final protocol = useHttps ? 'https' : 'http';
-      final url = '$protocol://$routerIp:$controllerPort/proxies';
+      final url = 'http://$routerIp:$controllerPort/proxies';
       final headers = <String, dynamic>{};
       if (secret != null && secret.isNotEmpty) {
         headers['Authorization'] = 'Bearer $secret';
       }
 
-      final response = await dio.get<Map<String, dynamic>>(
+      final response = await dio.get<dynamic>(
         url,
         options: Options(headers: headers),
       );
 
       if (response.statusCode == 200 && response.data != null) {
-        final proxiesMap = response.data!['proxies'] as Map<String, dynamic>?;
-        if (proxiesMap != null && proxiesMap.isNotEmpty) {
+        final Map<String, dynamic> body = response.data is String
+            ? jsonDecode(response.data as String) as Map<String, dynamic>
+            : Map<String, dynamic>.from(response.data as Map);
+        final proxiesMap = body['proxies'];
+        if (proxiesMap is Map && proxiesMap.isNotEmpty) {
           final nodes = <ForkopNode>[];
           proxiesMap.forEach((name, data) {
-            if (data is Map<String, dynamic>) {
-              final node = ForkopNode.fromJson({...data, 'name': name});
+            if (data is Map) {
+              final node = ForkopNode.fromJson({
+                ...Map<String, dynamic>.from(data),
+                'name': name.toString(),
+              });
               nodes.add(node);
             }
           });
-          Logger.info('Fetched ${nodes.length} nodes from Mihomo API');
-          return nodes;
+          if (nodes.isNotEmpty) {
+            Logger.info('Fetched ${nodes.length} nodes from external controller API');
+            return nodes;
+          }
         }
       }
     } catch (e) {
       Logger.debug(
-        'Mihomo external API unavailable ($e), falling back to ubus scan',
+        'External controller API unavailable on :$controllerPort ($e), trying ForkOP cache',
       );
     }
 
-    // 2. Fallback: query router via ubus / shell
+    // 2. Try ForkOP section cache via ubus file.read (/var/run/forkop/section-cache/main.json)
+    try {
+      final res = await apiService.call(
+        routerIp,
+        sysauth,
+        useHttps,
+        object: 'file',
+        method: 'read',
+        params: {'path': '/var/run/forkop/section-cache/main.json'},
+      );
+
+      if (res is List && res.isNotEmpty && res[0] == 0 && res.length > 1) {
+        final fileData = res[1] as Map<String, dynamic>?;
+        final content = fileData?['data'] as String?;
+        if (content != null && content.isNotEmpty) {
+          final cacheJson = jsonDecode(content) as Map<String, dynamic>;
+          final servers = cacheJson['servers'];
+          final outMeta =
+              cacheJson['outboundMetadata'] as Map<String, dynamic>? ?? {};
+          final nodes = <ForkopNode>[];
+
+          if (servers is Map) {
+            servers.forEach((tag, srv) {
+              final tagName = tag.toString();
+              final meta =
+                  outMeta[tagName] is Map ? outMeta[tagName] as Map : null;
+              final nodeType = meta?['type']?.toString() ?? 'vless';
+              nodes.add(
+                ForkopNode(
+                  name: tagName,
+                  type: ProxyType.fromString(nodeType),
+                  server: srv?.toString(),
+                ),
+              );
+            });
+          }
+
+          // Add urltest and priority groups as selector groups
+          final urltestGroups =
+              cacheJson['urltestGroups'] as Map<String, dynamic>?;
+          if (urltestGroups != null) {
+            urltestGroups.forEach((groupName, _) {
+              nodes.insert(
+                0,
+                ForkopNode(
+                  name: groupName,
+                  type: ProxyType.urltest,
+                ),
+              );
+            });
+          }
+
+          if (nodes.isNotEmpty) {
+            Logger.info('Fetched ${nodes.length} nodes from ForkOP section cache');
+            return nodes;
+          }
+        }
+      }
+    } catch (e) {
+      Logger.debug('ForkOP section cache read failed ($e), falling back to ubus scan');
+    }
+
+    // 3. Fallback: query router via ubus / shell
     try {
       const script = r'''
 if [ -f /etc/mihomo/config.yaml ]; then
@@ -249,5 +318,47 @@ echo \$?
       Logger.error('Failed to update subscription on router', e);
       return false;
     }
+  }
+
+  /// Fetches real subscriptions configured on the router via UCI forkop
+  Future<List<ForkopSubscription>> fetchSubscriptions({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    try {
+      final res = await apiService.call(
+        routerIp,
+        sysauth,
+        useHttps,
+        object: 'uci',
+        method: 'get',
+        params: {'config': 'forkop'},
+      );
+      if (res is List && res.isNotEmpty && res[0] == 0 && res.length > 1) {
+        final data = res[1] as Map<String, dynamic>?;
+        final values = data?['values'] as Map<String, dynamic>?;
+        if (values != null) {
+          final subs = <ForkopSubscription>[];
+          values.forEach((secName, secData) {
+            if (secData is Map && secData['.type'] == 'subscription_url') {
+              subs.add(
+                ForkopSubscription(
+                  id: secName,
+                  name: (secData['node_prefix'] ?? secName).toString(),
+                  url: (secData['url'] ?? '').toString(),
+                  nodeCount: 0,
+                  updatedAt: DateTime.now(),
+                ),
+              );
+            }
+          });
+          return subs;
+        }
+      }
+    } catch (e) {
+      Logger.debug('Failed to fetch UCI subscriptions: $e');
+    }
+    return [];
   }
 }

@@ -114,8 +114,8 @@ class ForkopNode {
     final history = json['history'] as List<dynamic>?;
     int? delay;
     if (history != null && history.isNotEmpty) {
-      final last = history.last as Map<String, dynamic>?;
-      if (last != null && last['delay'] is num) {
+      final last = history.last;
+      if (last is Map && last['delay'] is num) {
         delay = (last['delay'] as num).toInt();
       }
     } else if (json['delay'] is num) {

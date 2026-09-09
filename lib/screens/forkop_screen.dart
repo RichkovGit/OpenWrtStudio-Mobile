@@ -22,7 +22,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
   late ForkopService _forkopService;
 
   List<ForkopNode> _nodes = [];
-  final List<ForkopSubscription> _subscriptions = [];
+  List<ForkopSubscription> _subscriptions = [];
   String _activeMode = 'Rule';
   String? _selectedNodeName;
   bool _isLoading = false;
@@ -69,6 +69,12 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
         useHttps: router.activeUseHttps,
       );
 
+      final subs = await _forkopService.fetchSubscriptions(
+        routerIp: router.activeAddress,
+        sysauth: sysauth,
+        useHttps: router.activeUseHttps,
+      );
+
       // Find active node in selector
       String? activeName;
       for (final n in nodes) {
@@ -80,6 +86,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
 
       setState(() {
         _nodes = nodes;
+        _subscriptions = subs;
         if (activeName != null) {
           _selectedNodeName = activeName;
         }
@@ -401,8 +408,22 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                       // Tab 1: Nodes list
                       RefreshIndicator(
                         onRefresh: _loadData,
-                        child: _nodes.isEmpty
-                            ? const Center(child: Text('Нет доступных узлов'))
+                        child: _nodes.where((n) => !n.isGroup).isEmpty
+                            ? LayoutBuilder(
+                                builder: (context, constraints) =>
+                                    SingleChildScrollView(
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: constraints.maxHeight,
+                                    ),
+                                    child: const Center(
+                                      child: Text('Нет доступных узлов'),
+                                    ),
+                                  ),
+                                ),
+                              )
                             : ListView.builder(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: LuciSpacing.md,
@@ -531,49 +552,61 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                       ),
 
                       // Tab 2: Subscriptions
-                      ListView(
-                        padding: const EdgeInsets.all(LuciSpacing.md),
-                        children: [
-                          ..._subscriptions.map(
-                            (sub) => Card(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor:
-                                      colorScheme.secondaryContainer,
-                                  child: Icon(
-                                    Icons.rss_feed,
-                                    color: colorScheme.onSecondaryContainer,
+                      RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(LuciSpacing.md),
+                          children: [
+                            if (_subscriptions.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 40),
+                                child: Center(
+                                  child: Text('Нет настроенных подписок'),
+                                ),
+                              )
+                            else
+                              ..._subscriptions.map(
+                                (sub) => Card(
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                      backgroundColor:
+                                          colorScheme.secondaryContainer,
+                                      child: Icon(
+                                        Icons.rss_feed,
+                                        color: colorScheme.onSecondaryContainer,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      sub.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      sub.url,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    trailing: IconButton(
+                                      icon: const Icon(Icons.sync),
+                                      onPressed: () => _updateSubscription(sub),
+                                    ),
                                   ),
                                 ),
-                                title: Text(
-                                  sub.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  sub.url,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.sync),
-                                  onPressed: () => _updateSubscription(sub),
-                                ),
                               ),
+                            const SizedBox(height: 12),
+                            FilledButton.icon(
+                              onPressed: _showAddSubscriptionDialog,
+                              icon: const Icon(Icons.add),
+                              label: const Text('Добавить подписку'),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton.icon(
-                            onPressed: _showAddSubscriptionDialog,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Добавить подписку'),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ],
                   ),
