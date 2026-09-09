@@ -71,7 +71,7 @@ class CommandResult {
 }
 
 class CommandsService {
-  final ApiServiceInterface apiService;
+  final IApiService apiService;
 
   CommandsService({required this.apiService});
 

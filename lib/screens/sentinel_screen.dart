@@ -97,7 +97,7 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
       setState(() {
         _isHealing = false;
       });
-      _checkHealth();
+      await _checkHealth();
     }
   }
 
@@ -114,7 +114,8 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
 
     return Scaffold(
       appBar: LuciAppBar(
-        title: const Text('Sentinel Watchdog'),
+        title: 'Sentinel Watchdog',
+        showBack: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

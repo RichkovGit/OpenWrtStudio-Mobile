@@ -7,7 +7,7 @@ import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/utils/logger.dart';
 
 class ForkopService {
-  final ApiServiceInterface apiService;
+  final IApiService apiService;
   final Dio dio;
 
   ForkopService({required this.apiService, Dio? dioClient})

@@ -100,7 +100,8 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
 
     return Scaffold(
       appBar: LuciAppBar(
-        title: const Text('Быстрые команды и терминал'),
+        title: 'Быстрые команды и терминал',
+        showBack: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.clear_all),

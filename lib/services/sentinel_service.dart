@@ -3,7 +3,7 @@ import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/utils/logger.dart';
 
 class SentinelService {
-  final ApiServiceInterface apiService;
+  final IApiService apiService;
 
   SentinelService({required this.apiService});
 

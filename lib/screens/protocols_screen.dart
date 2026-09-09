@@ -89,10 +89,12 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      _scanProtocols();
-      setState(() {
-        _busyProtocolId = null;
-      });
+      await _scanProtocols();
+      if (mounted) {
+        setState(() {
+          _busyProtocolId = null;
+        });
+      }
     }
   }
 
@@ -132,10 +134,12 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
           behavior: SnackBarBehavior.floating,
         ),
       );
-      _scanProtocols();
-      setState(() {
-        _busyProtocolId = null;
-      });
+      await _scanProtocols();
+      if (mounted) {
+        setState(() {
+          _busyProtocolId = null;
+        });
+      }
     }
   }
 
@@ -146,7 +150,8 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
 
     return Scaffold(
       appBar: LuciAppBar(
-        title: const Text('VPN и Протоколы'),
+        title: 'VPN и Протоколы',
+        showBack: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

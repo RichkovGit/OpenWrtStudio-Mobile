@@ -265,7 +265,9 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
           behavior: SnackBarBehavior.floating,
         ),
       );
-      if (ok) _loadData();
+      if (ok) {
+        unawaited(_loadData());
+      }
     }
   }
 
@@ -282,7 +284,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: const LuciAppBar(title: Text('ForkOP Proxies')),
+      appBar: const LuciAppBar(title: 'ForkOP Proxies', showBack: true),
       body: Column(
         children: [
           // Mode & Action Bar
