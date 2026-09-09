@@ -7,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
+
 import 'logger.dart';
 
 /// SHA-256 fingerprint (hex) of the certificate's DER encoding.
@@ -415,14 +416,13 @@ class HttpClientManager {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      dialogContext,
-                    ).colorScheme.surfaceContainerHighest,
+                    color: Theme.of(dialogContext)
+                        .colorScheme
+                        .surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(
-                        dialogContext,
-                      ).colorScheme.outline.withValues(alpha: 0.2),
+                      color: Theme.of(dialogContext).colorScheme.outline
+                          .withValues(alpha: 0.2),
                     ),
                   ),
                   child: Column(
@@ -462,14 +462,12 @@ class HttpClientManager {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      dialogContext,
-                    ).colorScheme.errorContainer.withValues(alpha: 0.3),
+                    color: Theme.of(dialogContext).colorScheme.errorContainer
+                        .withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(
-                        dialogContext,
-                      ).colorScheme.error.withValues(alpha: 0.3),
+                      color: Theme.of(dialogContext).colorScheme.error
+                          .withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -485,9 +483,9 @@ class HttpClientManager {
                           dialogContext.l10n.certificateSafetyWarning,
                           style: Theme.of(dialogContext).textTheme.bodySmall
                               ?.copyWith(
-                                color: Theme.of(
-                                  dialogContext,
-                                ).colorScheme.error,
+                                color: Theme.of(dialogContext)
+                                    .colorScheme
+                                    .error,
                               ),
                         ),
                       ),

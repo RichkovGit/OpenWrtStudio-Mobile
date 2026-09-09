@@ -273,7 +273,10 @@ class AppState extends ChangeNotifier {
 
   Future<void> setAccentColor(Color color) async {
     _accentColor = color;
-    await _secureStorageService.writeValue(_accentColorKey, color.value.toRadixString(16));
+    await _secureStorageService.writeValue(
+      _accentColorKey,
+      color.value.toRadixString(16),
+    );
     notifyListeners();
   }
 
@@ -3177,9 +3180,8 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      final cmpType = typeOrder(
-        a.connectionType,
-      ).compareTo(typeOrder(b.connectionType));
+      final cmpType = typeOrder(a.connectionType)
+          .compareTo(typeOrder(b.connectionType));
       if (cmpType != 0) return cmpType;
       return a.hostname.toLowerCase().compareTo(b.hostname.toLowerCase());
     });

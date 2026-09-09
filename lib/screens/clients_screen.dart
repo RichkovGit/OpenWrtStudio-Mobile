@@ -589,9 +589,8 @@ class _UnifiedClientCardState extends State<_UnifiedClientCard>
                   Text(
                     value,
                     style: valueColor != null
-                        ? LuciTextStyles.detailValue(
-                            context,
-                          ).copyWith(color: valueColor)
+                        ? LuciTextStyles.detailValue(context)
+                              .copyWith(color: valueColor)
                         : LuciTextStyles.detailValue(context),
                     semanticsLabel: semanticsLabel ?? value,
                   ),

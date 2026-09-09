@@ -75,20 +75,23 @@ void main() {
   });
 
   group('OpenWrt Protocols Model Tests', () {
-    test('Default protocol list contains all required OpenWrtStudio protocols', () {
-      final protocols = ProtocolItem.defaultList();
-      final ids = protocols.map((p) => p.id).toList();
+    test(
+      'Default protocol list contains all required OpenWrtStudio protocols',
+      () {
+        final protocols = ProtocolItem.defaultList();
+        final ids = protocols.map((p) => p.id).toList();
 
-      expect(ids, contains('amneziawg'));
-      expect(ids, contains('wireguard'));
-      expect(ids, contains('sing-box'));
-      expect(ids, contains('mihomo'));
-      expect(ids, contains('passwall'));
-      expect(ids, contains('openvpn'));
-      expect(ids, contains('tailscale'));
-      expect(ids, contains('zerotier'));
-      expect(ids, contains('xray'));
-    });
+        expect(ids, contains('amneziawg'));
+        expect(ids, contains('wireguard'));
+        expect(ids, contains('sing-box'));
+        expect(ids, contains('mihomo'));
+        expect(ids, contains('passwall'));
+        expect(ids, contains('openvpn'));
+        expect(ids, contains('tailscale'));
+        expect(ids, contains('zerotier'));
+        expect(ids, contains('xray'));
+      },
+    );
 
     test('ProtocolItem status copyWith preserves attributes', () {
       const item = ProtocolItem(

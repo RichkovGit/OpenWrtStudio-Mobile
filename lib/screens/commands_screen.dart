@@ -69,7 +69,8 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
         if (res.stderr.isNotEmpty) {
           _consoleOutput += '[STDERR] ${res.stderr}\n';
         }
-        _consoleOutput += '[exit: ${res.exitCode}, time: ${res.executionTime.inMilliseconds}ms]\n';
+        _consoleOutput +=
+            '[exit: ${res.exitCode}, time: ${res.executionTime.inMilliseconds}ms]\n';
         _isExecuting = false;
       });
 
@@ -138,7 +139,9 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
                   child: ActionChip(
                     avatar: const Icon(Icons.terminal, size: 16),
                     label: Text(p.title),
-                    onPressed: _isExecuting ? null : () => _runCommand(p.command),
+                    onPressed: _isExecuting
+                        ? null
+                        : () => _runCommand(p.command),
                   ),
                 );
               },
@@ -187,7 +190,10 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                     ),
                     onSubmitted: (val) {
                       final trimmed = val.trim();
@@ -213,7 +219,10 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
                       ? const SizedBox(
                           width: 18,
                           height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.send),
                 ),

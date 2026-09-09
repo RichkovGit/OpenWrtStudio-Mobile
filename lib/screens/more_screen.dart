@@ -329,7 +329,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   icon: Icons.security,
                   iconColor: const Color(0xFF10B981),
                   title: 'VPN и Протоколы',
-                  subtitle: 'AmneziaWG, WireGuard, PassWall, Tailscale, ZeroTier',
+                  subtitle:
+                      'AmneziaWG, WireGuard, PassWall, Tailscale, ZeroTier',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -469,9 +470,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   title: context.l10n.logout,
                   subtitle: context.l10n.logoutDescription,
                   titleColor: Theme.of(context).colorScheme.error,
-                  subtitleColor: Theme.of(
-                    context,
-                  ).colorScheme.error.withValues(alpha: 0.7),
+                  subtitleColor: Theme.of(context).colorScheme.error
+                      .withValues(alpha: 0.7),
                   onTap: () => _showLogoutDialog(context),
                 ),
               ],
@@ -530,9 +530,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         subtitle: Text(
           subtitle,
           style: subtitleColor != null
-              ? LuciTextStyles.cardSubtitle(
-                  context,
-                ).copyWith(color: subtitleColor)
+              ? LuciTextStyles.cardSubtitle(context)
+                    .copyWith(color: subtitleColor)
               : LuciTextStyles.cardSubtitle(context),
           semanticsLabel: subtitle,
         ),

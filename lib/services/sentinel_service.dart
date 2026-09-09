@@ -44,9 +44,14 @@ fi
         params: ['-c', probeScript.toString()],
       );
 
-      final data = res is List && res.length > 1 ? res[1] as Map<String, dynamic>? : null;
+      final data = res is List && res.length > 1
+          ? res[1] as Map<String, dynamic>?
+          : null;
       final stdout = data?['stdout'] as String? ?? '';
-      final lines = stdout.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      final lines = stdout
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty);
 
       final statusMap = <String, (SentinelStatus, int?)>{};
       for (final line in lines) {
@@ -72,10 +77,7 @@ fi
             lastChecked: now,
           );
         }
-        return t.copyWith(
-          status: SentinelStatus.timeout,
-          lastChecked: now,
-        );
+        return t.copyWith(status: SentinelStatus.timeout, lastChecked: now);
       }).toList();
     } catch (e) {
       Logger.error('Failed to run Sentinel connectivity check', e);

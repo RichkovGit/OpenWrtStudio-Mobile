@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:luci_mobile/models/forkop_node.dart';
 import 'package:luci_mobile/models/forkop_subscription.dart';
@@ -9,13 +10,15 @@ class ForkopService {
   final ApiServiceInterface apiService;
   final Dio dio;
 
-  ForkopService({
-    required this.apiService,
-    Dio? dioClient,
-  }) : dio = dioClient ?? Dio(BaseOptions(
-          connectTimeout: const Duration(seconds: 4),
-          receiveTimeout: const Duration(seconds: 6),
-        ));
+  ForkopService({required this.apiService, Dio? dioClient})
+    : dio =
+          dioClient ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 4),
+              receiveTimeout: const Duration(seconds: 6),
+            ),
+          );
 
   /// Attempts to fetch nodes from Mihomo / Clash Meta External Controller REST API
   /// or falls back to querying the router via ubus systemExec.
@@ -55,7 +58,9 @@ class ForkopService {
         }
       }
     } catch (e) {
-      Logger.debug('Mihomo external API unavailable ($e), falling back to ubus scan');
+      Logger.debug(
+        'Mihomo external API unavailable ($e), falling back to ubus scan',
+      );
     }
 
     // 2. Fallback: query router via ubus / shell
@@ -79,27 +84,42 @@ fi
         params: ['-c', script],
       );
 
-      final data = res is List && res.length > 1 ? res[1] as Map<String, dynamic>? : null;
+      final data = res is List && res.length > 1
+          ? res[1] as Map<String, dynamic>?
+          : null;
       final stdout = data?['stdout'] as String? ?? '';
-      final lines = stdout.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      final lines = stdout
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
 
       final resultNodes = <ForkopNode>[];
       for (final line in lines) {
         if (line == 'none') break;
         String name = line;
         if (name.contains('name:')) {
-          name = name.split('name:').last.replaceAll("'", '').replaceAll('"', '').trim();
+          name = name
+              .split('name:')
+              .last
+              .replaceAll("'", '')
+              .replaceAll('"', '')
+              .trim();
         } else if (name.contains('"tag":')) {
           name = name.replaceAll('"tag":', '').replaceAll('"', '').trim();
         } else if (name.contains('remarks=')) {
-          name = name.split('remarks=').last.replaceAll("'", '').replaceAll('"', '').trim();
+          name = name
+              .split('remarks=')
+              .last
+              .replaceAll("'", '')
+              .replaceAll('"', '')
+              .trim();
         }
 
         if (name.isNotEmpty) {
-          resultNodes.add(ForkopNode(
-            name: name,
-            type: ProxyType.fromString(name),
-          ));
+          resultNodes.add(
+            ForkopNode(name: name, type: ProxyType.fromString(name)),
+          );
         }
       }
 
@@ -120,7 +140,8 @@ fi
     int timeoutMs = 5000,
   }) async {
     try {
-      final url = 'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(nodeName)}/delay';
+      final url =
+          'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(nodeName)}/delay';
       final headers = <String, dynamic>{};
       if (secret != null && secret.isNotEmpty) {
         headers['Authorization'] = 'Bearer $secret';
@@ -128,10 +149,7 @@ fi
 
       final response = await dio.get<Map<String, dynamic>>(
         url,
-        queryParameters: {
-          'url': testUrl,
-          'timeout': timeoutMs,
-        },
+        queryParameters: {'url': testUrl, 'timeout': timeoutMs},
         options: Options(headers: headers),
       );
 
@@ -154,10 +172,9 @@ fi
     String? secret,
   }) async {
     try {
-      final url = 'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(groupName)}';
-      final headers = <String, dynamic>{
-        'Content-Type': 'application/json',
-      };
+      final url =
+          'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(groupName)}';
+      final headers = <String, dynamic>{'Content-Type': 'application/json'};
       if (secret != null && secret.isNotEmpty) {
         headers['Authorization'] = 'Bearer $secret';
       }
@@ -211,7 +228,8 @@ fi
     String targetPath = '/etc/mihomo/config.yaml',
   }) async {
     try {
-      final script = '''
+      final script =
+          '''
 curl -k -s -L "$subscriptionUrl" -o "$targetPath.tmp" && mv "$targetPath.tmp" "$targetPath" && /etc/init.d/mihomo restart >/dev/null 2>&1
 echo \$?
 ''';
@@ -222,7 +240,9 @@ echo \$?
         command: '/bin/sh',
         params: ['-c', script],
       );
-      final data = res is List && res.length > 1 ? res[1] as Map<String, dynamic>? : null;
+      final data = res is List && res.length > 1
+          ? res[1] as Map<String, dynamic>?
+          : null;
       final stdout = (data?['stdout'] as String? ?? '').trim();
       return stdout.endsWith('0');
     } catch (e) {

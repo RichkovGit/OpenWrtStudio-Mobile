@@ -184,7 +184,10 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: item.isRunning
-                          ? BorderSide(color: statusColor.withAlpha(120), width: 1.5)
+                          ? BorderSide(
+                              color: statusColor.withAlpha(120),
+                              width: 1.5,
+                            )
                           : BorderSide.none,
                     ),
                     child: Padding(
@@ -202,9 +205,11 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                   item.category == ProtocolCategory.vpn
                                       ? Icons.vpn_lock
                                       : item.category == ProtocolCategory.proxy
-                                          ? Icons.shuffle
-                                          : Icons.device_hub,
-                                  color: item.isRunning ? Colors.green : colorScheme.onSurfaceVariant,
+                                      ? Icons.shuffle
+                                      : Icons.device_hub,
+                                  color: item.isRunning
+                                      ? Colors.green
+                                      : colorScheme.onSurfaceVariant,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -214,26 +219,33 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                   children: [
                                     Text(
                                       item.name,
-                                      style: theme.textTheme.titleMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       item.category.displayName,
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        color: colorScheme.onSurfaceVariant,
-                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: colorScheme.onSurfaceVariant,
+                                          ),
                                     ),
                                   ],
                                 ),
                               ),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
                                 decoration: BoxDecoration(
                                   color: statusColor.withAlpha(30),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: statusColor.withAlpha(100)),
+                                  border: Border.all(
+                                    color: statusColor.withAlpha(100),
+                                  ),
                                 ),
                                 child: Text(
                                   statusText,
@@ -261,7 +273,9 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                 const SizedBox(
                                   width: 24,
                                   height: 24,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               else if (!item.isInstalled)
                                 FilledButton.tonalIcon(
@@ -272,17 +286,20 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                               else ...[
                                 if (item.isRunning) ...[
                                   OutlinedButton(
-                                    onPressed: () => _controlService(item, 'stop'),
+                                    onPressed: () =>
+                                        _controlService(item, 'stop'),
                                     child: const Text('Стоп'),
                                   ),
                                   const SizedBox(width: 8),
                                   FilledButton.tonal(
-                                    onPressed: () => _controlService(item, 'restart'),
+                                    onPressed: () =>
+                                        _controlService(item, 'restart'),
                                     child: const Text('Перезапуск'),
                                   ),
                                 ] else ...[
                                   FilledButton(
-                                    onPressed: () => _controlService(item, 'start'),
+                                    onPressed: () =>
+                                        _controlService(item, 'start'),
                                     child: const Text('Запустить'),
                                   ),
                                 ],

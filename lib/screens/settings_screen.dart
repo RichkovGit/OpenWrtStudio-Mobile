@@ -59,9 +59,8 @@ class SettingsScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
                     child: Text(
                       context.l10n.theme,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   RadioGroup<ThemeMode>(
@@ -90,25 +89,31 @@ class SettingsScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                     child: Text(
                       'Цветовая схема (OpenWrt Studio)',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleSmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
                     child: Wrap(
                       spacing: 12,
                       runSpacing: 12,
                       children: AppState.accentPalettes.entries.map((entry) {
                         final name = entry.value.$1;
                         final color = entry.value.$2;
-                        final isSelected = appState.accentColor.value == color.value;
+                        final isSelected =
+                            appState.accentColor.value == color.value;
                         return InkWell(
                           onTap: () => appState.setAccentColor(color),
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: color.withAlpha(isSelected ? 50 : 20),
                               borderRadius: BorderRadius.circular(16),
@@ -132,7 +137,9 @@ class SettingsScreen extends ConsumerWidget {
                                 Text(
                                   name,
                                   style: TextStyle(
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     color: isSelected ? color : null,
                                   ),
                                 ),
@@ -148,9 +155,8 @@ class SettingsScreen extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                     child: Text(
                       context.l10n.dashboard,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   Card(
@@ -171,9 +177,9 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                         child: Icon(
                           Icons.dashboard_customize,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimaryContainer,
                           size: 24,
                         ),
                       ),
@@ -232,9 +238,9 @@ class SettingsScreen extends ConsumerWidget {
                         label: Text(context.l10n.exitReviewerMode),
                         style: FilledButton.styleFrom(
                           backgroundColor: Theme.of(context).colorScheme.error,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.onError,
+                          foregroundColor: Theme.of(context)
+                              .colorScheme
+                              .onError,
                         ),
                       ),
                     ),

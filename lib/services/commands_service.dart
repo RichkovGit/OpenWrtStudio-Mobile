@@ -93,7 +93,9 @@ class CommandsService {
       );
       sw.stop();
 
-      final data = res is List && res.length > 1 ? res[1] as Map<String, dynamic>? : null;
+      final data = res is List && res.length > 1
+          ? res[1] as Map<String, dynamic>?
+          : null;
       final code = (data?['code'] as num?)?.toInt() ?? 0;
       final stdout = data?['stdout'] as String? ?? '';
       final stderr = data?['stderr'] as String? ?? '';

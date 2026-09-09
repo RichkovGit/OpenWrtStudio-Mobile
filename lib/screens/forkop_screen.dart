@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
@@ -257,7 +258,9 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Подписка успешно обновлена!' : 'Ошибка обновления подписки'),
+          content: Text(
+            ok ? 'Подписка успешно обновлена!' : 'Ошибка обновления подписки',
+          ),
           backgroundColor: ok ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -279,9 +282,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: const LuciAppBar(
-        title: Text('ForkOP Proxies'),
-      ),
+      appBar: const LuciAppBar(title: Text('ForkOP Proxies')),
       body: Column(
         children: [
           // Mode & Action Bar
@@ -336,7 +337,9 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                             ? const SizedBox(
                                 width: 14,
                                 height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.speed, size: 18),
                         label: const Text('Пинг'),
@@ -368,155 +371,210 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.error_outline, size: 48, color: Colors.orange),
-                            const SizedBox(height: 12),
-                            Text('Не удалось загрузить данные:\n$_error', textAlign: TextAlign.center),
-                            const SizedBox(height: 12),
-                            FilledButton.tonal(
-                              onPressed: _loadData,
-                              child: const Text('Повторить'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 48,
+                          color: Colors.orange,
                         ),
-                      )
-                    : TabBarView(
-                        controller: _tabController,
-                        children: [
-                          // Tab 1: Nodes list
-                          RefreshIndicator(
-                            onRefresh: _loadData,
-                            child: _nodes.isEmpty
-                                ? const Center(child: Text('Нет доступных узлов'))
-                                : ListView.builder(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: LuciSpacing.md,
-                                      vertical: LuciSpacing.sm,
+                        const SizedBox(height: 12),
+                        Text(
+                          'Не удалось загрузить данные:\n$_error',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton.tonal(
+                          onPressed: _loadData,
+                          child: const Text('Повторить'),
+                        ),
+                      ],
+                    ),
+                  )
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      // Tab 1: Nodes list
+                      RefreshIndicator(
+                        onRefresh: _loadData,
+                        child: _nodes.isEmpty
+                            ? const Center(child: Text('Нет доступных узлов'))
+                            : ListView.builder(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: LuciSpacing.md,
+                                  vertical: LuciSpacing.sm,
+                                ),
+                                itemCount: _nodes.length,
+                                itemBuilder: (context, index) {
+                                  final node = _nodes[index];
+                                  if (node.isGroup)
+                                    return const SizedBox.shrink();
+
+                                  final isSelected =
+                                      _selectedNodeName == node.name;
+                                  final latColor = _getLatencyColor(
+                                    node.latencyMs,
+                                  );
+
+                                  return Card(
+                                    margin: const EdgeInsets.symmetric(
+                                      vertical: 4,
                                     ),
-                                    itemCount: _nodes.length,
-                                    itemBuilder: (context, index) {
-                                      final node = _nodes[index];
-                                      if (node.isGroup) return const SizedBox.shrink();
-
-                                      final isSelected = _selectedNodeName == node.name;
-                                      final latColor = _getLatencyColor(node.latencyMs);
-
-                                      return Card(
-                                        margin: const EdgeInsets.symmetric(vertical: 4),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          side: isSelected
-                                              ? BorderSide(color: colorScheme.primary, width: 2)
-                                              : BorderSide.none,
-                                        ),
-                                        child: ListTile(
-                                          onTap: () => _selectNode(node.name),
-                                          leading: CircleAvatar(
-                                            backgroundColor: isSelected
-                                                ? colorScheme.primaryContainer
-                                                : colorScheme.surfaceContainerHighest,
-                                            child: Icon(
-                                              Icons.alt_route,
-                                              color: isSelected
-                                                  ? colorScheme.primary
-                                                  : colorScheme.onSurfaceVariant,
-                                            ),
-                                          ),
-                                          title: Text(
-                                            node.name,
-                                            style: TextStyle(
-                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                            ),
-                                          ),
-                                          subtitle: Text(node.type.displayName),
-                                          trailing: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              if (node.latencyMs != null && node.latencyMs! > 0)
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: latColor.withAlpha(30),
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(color: latColor.withAlpha(100)),
-                                                  ),
-                                                  child: Text(
-                                                    '${node.latencyMs} ms',
-                                                    style: TextStyle(
-                                                      color: latColor,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 12,
-                                                    ),
-                                                  ),
-                                                )
-                                              else
-                                                IconButton(
-                                                  icon: const Icon(Icons.bolt, size: 20),
-                                                  onPressed: () async {
-                                                    final appState = ref.read(appStateProvider);
-                                                    final router = appState.selectedRouter;
-                                                    if (router == null) return;
-                                                    final delay = await _forkopService.testNodeDelay(
-                                                      routerIp: router.activeAddress,
-                                                      nodeName: node.name,
-                                                    );
-                                                    if (mounted) {
-                                                      setState(() {
-                                                        _nodes[index] = node.copyWith(latencyMs: delay);
-                                                      });
-                                                    }
-                                                  },
-                                                ),
-                                              const SizedBox(width: 4),
-                                              if (isSelected)
-                                                Icon(Icons.check_circle, color: colorScheme.primary),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-
-                          // Tab 2: Subscriptions
-                          ListView(
-                            padding: const EdgeInsets.all(LuciSpacing.md),
-                            children: [
-                              ..._subscriptions.map((sub) => Card(
-                                    margin: const EdgeInsets.symmetric(vertical: 6),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
+                                      side: isSelected
+                                          ? BorderSide(
+                                              color: colorScheme.primary,
+                                              width: 2,
+                                            )
+                                          : BorderSide.none,
                                     ),
                                     child: ListTile(
+                                      onTap: () => _selectNode(node.name),
                                       leading: CircleAvatar(
-                                        backgroundColor: colorScheme.secondaryContainer,
-                                        child: Icon(Icons.rss_feed, color: colorScheme.onSecondaryContainer),
+                                        backgroundColor: isSelected
+                                            ? colorScheme.primaryContainer
+                                            : colorScheme
+                                                  .surfaceContainerHighest,
+                                        child: Icon(
+                                          Icons.alt_route,
+                                          color: isSelected
+                                              ? colorScheme.primary
+                                              : colorScheme.onSurfaceVariant,
+                                        ),
                                       ),
-                                      title: Text(sub.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      subtitle: Text(
-                                        sub.url,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                      title: Text(
+                                        node.name,
+                                        style: TextStyle(
+                                          fontWeight: isSelected
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                        ),
                                       ),
-                                      trailing: IconButton(
-                                        icon: const Icon(Icons.sync),
-                                        onPressed: () => _updateSubscription(sub),
+                                      subtitle: Text(node.type.displayName),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (node.latencyMs != null &&
+                                              node.latencyMs! > 0)
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: latColor.withAlpha(30),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: latColor.withAlpha(
+                                                    100,
+                                                  ),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                '${node.latencyMs} ms',
+                                                style: TextStyle(
+                                                  color: latColor,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.bolt,
+                                                size: 20,
+                                              ),
+                                              onPressed: () async {
+                                                final appState = ref.read(
+                                                  appStateProvider,
+                                                );
+                                                final router =
+                                                    appState.selectedRouter;
+                                                if (router == null) return;
+                                                final delay =
+                                                    await _forkopService
+                                                        .testNodeDelay(
+                                                          routerIp: router
+                                                              .activeAddress,
+                                                          nodeName: node.name,
+                                                        );
+                                                if (mounted) {
+                                                  setState(() {
+                                                    _nodes[index] = node
+                                                        .copyWith(
+                                                          latencyMs: delay,
+                                                        );
+                                                  });
+                                                }
+                                              },
+                                            ),
+                                          const SizedBox(width: 4),
+                                          if (isSelected)
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: colorScheme.primary,
+                                            ),
+                                        ],
                                       ),
                                     ),
-                                  )),
-                              const SizedBox(height: 12),
-                              FilledButton.icon(
-                                onPressed: _showAddSubscriptionDialog,
-                                icon: const Icon(Icons.add),
-                                label: const Text('Добавить подписку'),
+                                  );
+                                },
                               ),
-                            ],
+                      ),
+
+                      // Tab 2: Subscriptions
+                      ListView(
+                        padding: const EdgeInsets.all(LuciSpacing.md),
+                        children: [
+                          ..._subscriptions.map(
+                            (sub) => Card(
+                              margin: const EdgeInsets.symmetric(vertical: 6),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor:
+                                      colorScheme.secondaryContainer,
+                                  child: Icon(
+                                    Icons.rss_feed,
+                                    color: colorScheme.onSecondaryContainer,
+                                  ),
+                                ),
+                                title: Text(
+                                  sub.name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  sub.url,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.sync),
+                                  onPressed: () => _updateSubscription(sub),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.icon(
+                            onPressed: _showAddSubscriptionDialog,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Добавить подписку'),
                           ),
                         ],
                       ),
+                    ],
+                  ),
           ),
         ],
       ),

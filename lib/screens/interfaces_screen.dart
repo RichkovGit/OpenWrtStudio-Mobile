@@ -5,7 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:luci_mobile/models/glinet_data.dart';
 import 'package:luci_mobile/models/interface.dart';
 import 'package:luci_mobile/utils/wifi_utils.dart';
+
 import 'dart:math';
+
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/widgets/luci_loading_states.dart';
@@ -2242,9 +2244,8 @@ class _WifiEditBottomSheetState extends ConsumerState<_WifiEditBottomSheet> {
   Widget _buildLabel(BuildContext context, String text) {
     return Text(
       text,
-      style: Theme.of(
-        context,
-      ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+      style: Theme.of(context).textTheme.titleSmall
+          ?.copyWith(fontWeight: FontWeight.w600),
     );
   }
 

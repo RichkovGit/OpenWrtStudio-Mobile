@@ -37,9 +37,8 @@ class LuciTextStyles {
   }
 
   static TextStyle detailLabel(BuildContext context) {
-    return Theme.of(context).textTheme.bodySmall!.copyWith(
-      color: Theme.of(context).colorScheme.onSurface,
-    );
+    return Theme.of(context).textTheme.bodySmall!
+        .copyWith(color: Theme.of(context).colorScheme.onSurface);
   }
 
   static TextStyle detailValue(BuildContext context) {
@@ -50,9 +49,8 @@ class LuciTextStyles {
   }
 
   static TextStyle errorText(BuildContext context) {
-    return Theme.of(context).textTheme.bodyMedium!.copyWith(
-      color: Theme.of(context).colorScheme.onErrorContainer,
-    );
+    return Theme.of(context).textTheme.bodyMedium!
+        .copyWith(color: Theme.of(context).colorScheme.onErrorContainer);
   }
 }
 

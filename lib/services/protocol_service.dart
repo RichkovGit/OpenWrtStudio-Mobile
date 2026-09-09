@@ -63,7 +63,9 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
         params: ['-c', scanScript],
       );
 
-      final data = res is List && res.length > 1 ? res[1] as Map<String, dynamic>? : null;
+      final data = res is List && res.length > 1
+          ? res[1] as Map<String, dynamic>?
+          : null;
       final stdout = data?['stdout'] as String? ?? '';
 
       final installedPkgs = <String>{};
@@ -107,10 +109,15 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
         final id = proto.id.toLowerCase();
 
         // 1. Check if package or module installed
-        final hasPkg = proto.packageNames.any((p) =>
-            installedPkgs.any((ip) => ip.contains(p.toLowerCase())));
-        final hasBin = proto.binaryNames.any((b) =>
-            foundBins.any((fb) => fb.endsWith(b.toLowerCase()) || fb.contains(b.toLowerCase())));
+        final hasPkg = proto.packageNames.any(
+          (p) => installedPkgs.any((ip) => ip.contains(p.toLowerCase())),
+        );
+        final hasBin = proto.binaryNames.any(
+          (b) => foundBins.any(
+            (fb) =>
+                fb.endsWith(b.toLowerCase()) || fb.contains(b.toLowerCase()),
+          ),
+        );
         final hasModule = kernelModules.contains(id);
         final hasService = serviceStates.containsKey(id);
 
@@ -120,7 +127,8 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
         final isRunning = (serviceStatus == 'running') || procRunning;
 
         // An active service/process guarantees the protocol is installed
-        final isInstalled = hasPkg || hasBin || hasModule || hasService || isRunning;
+        final isInstalled =
+            hasPkg || hasBin || hasModule || hasService || isRunning;
 
         return proto.copyWith(
           isInstalled: isInstalled,
@@ -166,7 +174,8 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
   }) async {
     if (packageNames.isEmpty) return false;
     final pkgs = packageNames.join(' ');
-    final script = '''
+    final script =
+        '''
 if command -v apk >/dev/null 2>&1; then
   apk add $pkgs
 elif command -v opkg >/dev/null 2>&1; then
@@ -183,7 +192,9 @@ echo \$?
         command: '/bin/sh',
         params: ['-c', script],
       );
-      final data = res is List && res.length > 1 ? res[1] as Map<String, dynamic>? : null;
+      final data = res is List && res.length > 1
+          ? res[1] as Map<String, dynamic>?
+          : null;
       final stdout = (data?['stdout'] as String? ?? '').trim();
       return stdout.endsWith('0');
     } catch (e) {

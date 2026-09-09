@@ -122,9 +122,8 @@ class ForkopNode {
       delay = (json['delay'] as num).toInt();
     }
 
-    final allList = (json['all'] as List<dynamic>?)
-            ?.map((e) => e.toString())
-            .toList() ??
+    final allList =
+        (json['all'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
         [];
 
     return ForkopNode(

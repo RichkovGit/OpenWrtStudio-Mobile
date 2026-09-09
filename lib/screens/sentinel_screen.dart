@@ -87,7 +87,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Автовосстановление выполнено!' : 'Ошибка автовосстановления'),
+          content: Text(
+            ok ? 'Автовосстановление выполнено!' : 'Ошибка автовосстановления',
+          ),
           backgroundColor: ok ? Colors.green : Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -104,7 +106,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final onlineCount = _targets.where((t) => t.status == SentinelStatus.online).length;
+    final onlineCount = _targets
+        .where((t) => t.status == SentinelStatus.online)
+        .length;
     final totalCount = _targets.length;
     final allGood = onlineCount == totalCount;
 
@@ -129,7 +133,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
               shape: RoundedRectangleBorder(
                 borderRadius: LuciCardStyles.standardRadius,
                 side: BorderSide(
-                  color: allGood ? Colors.green.withAlpha(120) : Colors.orange.withAlpha(120),
+                  color: allGood
+                      ? Colors.green.withAlpha(120)
+                      : Colors.orange.withAlpha(120),
                   width: 1.5,
                 ),
               ),
@@ -145,7 +151,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                               ? Colors.green.withAlpha(30)
                               : Colors.orange.withAlpha(30),
                           child: Icon(
-                            allGood ? Icons.verified_user : Icons.warning_amber_rounded,
+                            allGood
+                                ? Icons.verified_user
+                                : Icons.warning_amber_rounded,
                             color: allGood ? Colors.green : Colors.orange,
                             size: 28,
                           ),
@@ -156,7 +164,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                allGood ? 'Туннелирование активно' : 'Обнаружены сбои связности',
+                                allGood
+                                    ? 'Туннелирование активно'
+                                    : 'Обнаружены сбои связности',
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -183,7 +193,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                                 ? const SizedBox(
                                     width: 16,
                                     height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
                                 : const Icon(Icons.speed, size: 18),
                             label: const Text('Диагностика'),
@@ -254,11 +266,17 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                     backgroundColor: statusColor.withAlpha(25),
                     child: Icon(statusIcon, color: statusColor, size: 20),
                   ),
-                  title: Text(t.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    t.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text(t.host),
                   trailing: t.latencyMs != null && t.latencyMs! > 0
                       ? Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: statusColor.withAlpha(25),
                             borderRadius: BorderRadius.circular(8),

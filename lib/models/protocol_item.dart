@@ -89,11 +89,13 @@ class ProtocolItem {
       isRunning: json['isRunning'] as bool? ?? false,
       isEnabled: json['isEnabled'] as bool? ?? false,
       serviceName: json['serviceName'] as String? ?? '',
-      packageNames: (json['packageNames'] as List<dynamic>?)
+      packageNames:
+          (json['packageNames'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      binaryNames: (json['binaryNames'] as List<dynamic>?)
+      binaryNames:
+          (json['binaryNames'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -132,9 +134,14 @@ class ProtocolItem {
       id: 'wireguard',
       name: 'WireGuard',
       category: ProtocolCategory.vpn,
-      description: 'Extremely fast, modern, and secure VPN kernel-level tunnel.',
+      description:
+          'Extremely fast, modern, and secure VPN kernel-level tunnel.',
       serviceName: 'wireguard',
-      packageNames: ['kmod-wireguard', 'wireguard-tools', 'luci-proto-wireguard'],
+      packageNames: [
+        'kmod-wireguard',
+        'wireguard-tools',
+        'luci-proto-wireguard',
+      ],
       binaryNames: ['wg', 'wg-quick'],
       configName: 'network',
     ),
@@ -162,7 +169,8 @@ class ProtocolItem {
       id: 'passwall',
       name: 'PassWall 2',
       category: ProtocolCategory.proxy,
-      description: 'Comprehensive OpenWrt bypass and multi-protocol proxy director.',
+      description:
+          'Comprehensive OpenWrt bypass and multi-protocol proxy director.',
       serviceName: 'passwall',
       packageNames: ['passwall', 'luci-app-passwall', 'luci-app-passwall2'],
       binaryNames: ['passwall'],
