@@ -139,6 +139,7 @@ class AppState extends ChangeNotifier {
     await _loadReviewerMode();
     _initializeServices();
     await _loadThemeMode();
+    await _loadAccentColor();
     await loadRouters(); // Load routers on app start (sets selectedRouter)
     await _migrateGlobalDashboardPreferencesIfNeeded(); // Proactively migrate legacy prefs
     await _loadClientsViewMode();
@@ -247,6 +248,35 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  static const String _accentColorKey = 'accentColor';
+  Color _accentColor = const Color(0xFF00D2FF); // Cyber Cyan default
+  Color get accentColor => _accentColor;
+
+  static const Map<String, (String, Color)> accentPalettes = {
+    'cyan': ('Кибер Циан', Color(0xFF00D2FF)),
+    'emerald': ('Изумруд', Color(0xFF10B981)),
+    'neon': ('Неон', Color(0xFF8B5CF6)),
+    'sapphire': ('Сапфир', Color(0xFF3B82F6)),
+    'amber': ('Янтарь', Color(0xFFF59E0B)),
+    'ruby': ('Рубин', Color(0xFFEF4444)),
+  };
+
+  Future<void> _loadAccentColor() async {
+    final stored = await _secureStorageService.readValue(_accentColorKey);
+    if (stored != null) {
+      final val = int.tryParse(stored, radix: 16);
+      if (val != null) {
+        _accentColor = Color(val);
+      }
+    }
+  }
+
+  Future<void> setAccentColor(Color color) async {
+    _accentColor = color;
+    await _secureStorageService.writeValue(_accentColorKey, color.value.toRadixString(16));
+    notifyListeners();
+  }
+
   Future<void> _loadClientsViewMode() async {
     final stored = await _secureStorageService.readValue(_clientsAggregateKey);
     if (stored == 'true') {
@@ -317,6 +347,7 @@ class AppState extends ChangeNotifier {
 
   String? get sysauth => _authService?.sysauth;
   bool get isAuthenticated => _authService?.isAuthenticated ?? false;
+  IApiService? get apiService => _apiService;
   bool get hasRouters =>
       _routerService != null && _routerService!.routers.isNotEmpty;
   bool get isLoading => _isLoading;

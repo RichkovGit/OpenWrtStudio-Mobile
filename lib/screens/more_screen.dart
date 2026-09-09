@@ -15,6 +15,10 @@ import 'package:luci_mobile/screens/wifi_scan_screen.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
+import 'package:luci_mobile/screens/forkop_screen.dart';
+import 'package:luci_mobile/screens/protocols_screen.dart';
+import 'package:luci_mobile/screens/sentinel_screen.dart';
+import 'package:luci_mobile/screens/commands_screen.dart';
 
 class _MoreScreenSection extends StatelessWidget {
   final List<Widget> tiles;
@@ -303,6 +307,67 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const LuciSectionHeader('OpenWrt Studio Tools'),
+            _MoreScreenSection(
+              tiles: [
+                _buildMoreTile(
+                  context,
+                  icon: Icons.hub,
+                  iconColor: const Color(0xFF00D2FF),
+                  title: 'ForkOP Прокси и Серверы',
+                  subtitle: 'Mihomo, Sing-box, Xray, замер пинга, выбор узла',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ForkopScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.security,
+                  iconColor: const Color(0xFF10B981),
+                  title: 'VPN и Протоколы',
+                  subtitle: 'AmneziaWG, WireGuard, PassWall, Tailscale, ZeroTier',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ProtocolsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.shield,
+                  iconColor: const Color(0xFF8B5CF6),
+                  title: 'Sentinel Watchdog',
+                  subtitle: 'Мониторинг связности, проверка обхода, автохил',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SentinelScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.terminal,
+                  iconColor: const Color(0xFFF59E0B),
+                  title: 'Быстрые команды и Shell',
+                  subtitle: 'Сброс DNS, очистка RAM, правила FW4, консоль',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const CommandsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
             LuciSectionHeader(context.l10n.deviceManagement),
             Builder(
               builder: (context) {

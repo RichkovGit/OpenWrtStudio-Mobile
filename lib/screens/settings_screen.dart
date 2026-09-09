@@ -86,6 +86,63 @@ class SettingsScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'Цветовая схема (OpenWrt Studio)',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: AppState.accentPalettes.entries.map((entry) {
+                        final name = entry.value.$1;
+                        final color = entry.value.$2;
+                        final isSelected = appState.accentColor.value == color.value;
+                        return InkWell(
+                          onTap: () => appState.setAccentColor(color),
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: color.withAlpha(isSelected ? 50 : 20),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isSelected ? color : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: BoxDecoration(
+                                    color: color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? color : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
                   const Divider(height: 32),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),

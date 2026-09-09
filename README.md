@@ -1,104 +1,72 @@
-# LuCI Mobile
+# 📱 OpenWrt Studio Mobile (Android)
 
 <div align="center">
-  <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
-    <img src="store-badges/google.webp" alt="Get LuCI Mobile on Google Play" height="56"/>
-  </a>
-  <a href="https://apps.apple.com/app/luci-mobile/id6749455847">
-    <img src="store-badges/apple.webp" alt="Download LuCI Mobile on the App Store" height="56"/>
-  </a>
-  <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
-    <img src="store-badges/izzyondroid.webp" alt="Get LuCI Mobile on IzzyOnDroid" height="56"/>
-  </a>
-  <br><br>
-
-  <img src="https://shields.rbtlog.dev/simple/com.cogwheel.LuCIMobile" alt="Latest LuCI Mobile release"/>
-  <img src="https://img.shields.io/github/downloads/cogwheel0/luci-mobile/total?style=flat-square&amp;label=Downloads&amp;logo=github&amp;color=0A84FF" alt="Total GitHub downloads"/>
-  <br><br>
-
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" alt="LuCI Mobile dashboard on Android" width="320"/>
+  <h3>Расширенный мобильный клиент для OpenWrt на базе LuCI Mobile</h3>
+  <p>Все возможности стокового LuCI Mobile + мощный арсенал OpenWrt Studio прямо на вашем смартфоне.</p>
 </div>
 
-LuCI Mobile is an open-source Flutter client for OpenWrt routers. It talks to LuCI RPC so you can check router health, inspect clients and interfaces, scan Wi-Fi networks, and handle common admin tasks from a phone.
+---
 
-## What it does
+## 🌟 Возможности приложения
 
-- Saves multiple router profiles and switches between them. A profile can include a fallback address for access from another network.
-- Shows throughput, CPU load, memory use, uptime, wireless signal, and interface status on one dashboard.
-- Lists clients for every saved router or only the selected router. Search by hostname, IP address, MAC address, or vendor.
-- Shows wired and wireless interface details, traffic totals, addresses, radio state, and channel information.
-- Scans nearby Wi-Fi networks and can connect a router radio as a station.
-- Reboots a router after confirmation.
-- Follows the system theme or uses a selected light or dark theme.
+### ⚡ Расширенный функционал OpenWrt Studio:
+1. **🌐 ForkOP (Узлы, Серверы, Подписки)**:
+   - Поддержка ядер Mihomo (Clash Meta), Sing-box, PassWall 2, Xray.
+   - Список всех прокси-серверов и селекторов (VLESS, VMess, Shadowsocks, Trojan, Hysteria 2, WireGuard, AmneziaWG).
+   - Замер пинга (Latency / Delay test) в один клик по всем серверам.
+   - Быстрое переключение активного сервера в группах `PROXY` / `GLOBAL`.
+   - Выбор режима маршрутизации: `Rule` (по правилам), `Global` (весь трафик), `Direct` (напрямую).
+   - Импорт и обновление подписок по ссылке.
 
-Credentials and router profiles are stored through `flutter_secure_storage`. The app asks before trusting a self-signed HTTPS certificate. It does not include analytics, tracking, or advertising SDKs.
+2. **🛡️ VPN и Протоколы (Менеджер служб OpenWrt 24/25)**:
+   - 7-уровневое сканирование установленных протоколов: AmneziaWG, WireGuard, Sing-box, Mihomo, PassWall 2, OpenVPN, Tailscale, ZeroTier, Xray.
+   - Поддержка пакетных менеджеров `apk` (OpenWrt 24/25) и `opkg` (OpenWrt 23 и старше).
+   - Просмотр статуса (Работает / Остановлен / Не установлен).
+   - Быстрые кнопки управления: `Запустить`, `Остановить`, `Перезапуск`, `Установить`.
 
-## Screenshots
+3. **👁️ Sentinel Watchdog (Мобильный сторожевой таймер)**:
+   - Проверка обхода блокировок и связности ключевых сервисов (Google, YouTube, Telegram, GitHub, Cloudflare, RuTracker).
+   - Замер задержки в мс до каждого узла.
+   - Функция **Автохил**: перезапуск DNS (`dnsmasq`), сброс кэша и перезапуск туннеля в одно касание.
 
-| Dashboard | Login | Clients | Client details |
-| --- | --- | --- | --- |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" alt="Router dashboard" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_02.png" alt="Router login" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_03.png" alt="Connected clients" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_04.png" alt="Expanded client details" width="200"/> |
+4. **💻 Быстрые команды и Мини-терминал**:
+   - Быстрые действия: Очистка памяти RAM (`drop_caches`), перезагрузка правил Firewall 4 (`fw4 reload`), сброс DNS.
+   - Просмотр системных журналов `logread` и логов ядра `dmesg`.
+   - Ввод и выполнение любых команд shell прямо со смартфона.
 
-| Interfaces | Interface details | More |
-| --- | --- | --- |
-| <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_05.png" alt="Router interfaces" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_06.png" alt="Expanded interface details" width="200"/> | <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_07.png" alt="Router and app actions" width="200"/> |
+5. **🎨 Цветовые схемы OpenWrt Studio (Fluent & Material 3)**:
+   - Кибер Циан (`#00D2FF`)
+   - Изумрудный Оазис (`#10B981`)
+   - Киберпанк Неон (`#8B5CF6`)
+   - Королевский Сапфир (`#3B82F6`)
+   - Солнечный Янтарь (`#F59E0B`)
+   - Рубиновый Закат (`#EF4444`)
+   - Мгновенное переключение Светлой / Тёмной темы.
 
-## Install
+---
 
-Use [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile), the [Apple App Store](https://apps.apple.com/app/luci-mobile/id6749455847), or [IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile).
+### 📦 Стоковые функции LuCI Mobile (полностью сохранены):
+- Дашборд с нагрузкой CPU, RAM, аптаймом и графиками скорости в реальном времени.
+- Список подключенных клиентов (DHCP-аренды, Wi-Fi ассоциации, определение производителей устройств по MAC).
+- Управление проводными и беспроводными интерфейсами.
+- Сканирование сетей Wi-Fi вокруг роутера.
+- Поддержка профилей нескольких роутеров с безопасным хранением учетных данных (`flutter_secure_storage`).
 
-To run the source, install Flutter with Dart 3.8.1 or newer, then run:
+---
 
-```bash
-git clone https://github.com/cogwheel0/luci-mobile.git
-cd luci-mobile
-flutter pub get
-flutter run
-```
+## 🚀 Скачать APK для Android
 
-Useful checks:
+Готовые установочные файлы `.apk` собираются автоматически через GitHub Actions:
+- **[Страница релизов GitHub Releases](../../releases)**
 
-```bash
-flutter analyze
-flutter test
-```
+| Вариант | Описание |
+|---|---|
+| 📱 **OpenWrtStudio-Mobile-universal.apk** | Универсальный установщик для любых Android-устройств |
+| ⚡ **OpenWrtStudio-Mobile-arm64-v8a.apk** | Оптимизированный для современных 64-битных смартфонов (быстрее и компактнее) |
+| 🛠️ **OpenWrtStudio-Mobile-armeabi-v7a.apk** | Для 32-битных устаревших Android-устройств |
 
-## Router setup
+---
 
-The router must run OpenWrt with LuCI enabled. LuCI Mobile also needs the LuCI RPC and wireless information modules:
-
-```sh
-# OpenWrt using opkg
-opkg update
-opkg install rpcd-mod-luci rpcd-mod-iwinfo
-
-# OpenWrt using apk
-apk update
-apk add rpcd-mod-luci rpcd-mod-iwinfo
-
-/etc/init.d/rpcd restart
-```
-
-Check that the RPC object is available:
-
-```sh
-ubus list luci-rpc
-ubus call luci-rpc getNetworkDevices '{}'
-```
-
-## Troubleshooting
-
-- If the app cannot connect, open the same router address in a browser and check the scheme, port, firewall, and VPN route.
-- If login fails, verify the username, password, and administrator permissions in LuCI.
-- If the dashboard is empty, install the RPC modules above, restart `rpcd`, and run the two `ubus` checks.
-- Accept a self-signed certificate only after checking that its fingerprint belongs to your router.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow. Bug reports and focused pull requests are welcome.
-
-## License
-
-LuCI Mobile is licensed under [GPL-3.0](LICENSE). It is an independent project and is not affiliated with OpenWrt.
-
-Thanks to the OpenWrt and Flutter communities, the project contributors and testers, and [OpenWrtManager](https://github.com/hagaygo/OpenWrtManager) for early inspiration.
+## 📄 Лицензия
+Проект распространяется под свободной лицензией **GNU General Public License v3.0 (GPL-3.0)**.
+Оригинальный проект: [cogwheel0/luci-mobile](https://github.com/cogwheel0/luci-mobile).
