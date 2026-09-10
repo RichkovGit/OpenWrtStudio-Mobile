@@ -7,6 +7,22 @@
 
 ---
 
+## 📸 Скриншоты интерфейса
+
+| Простой режим | Экспертная панель | Управление клиентами |
+| :---: | :---: | :---: |
+| <img src="screenshots/01_simple_dashboard.jpg" width="240"/> | <img src="screenshots/02_expert_dashboard.jpg" width="240"/> | <img src="screenshots/03_clients_management.jpg" width="240"/> |
+
+| Сетевые интерфейсы | Sentinel Watchdog | VPN и Протоколы |
+| :---: | :---: | :---: |
+| <img src="screenshots/04_network_interfaces.jpg" width="240"/> | <img src="screenshots/05_sentinel_watchdog.jpg" width="240"/> | <img src="screenshots/06_vpn_protocols.jpg" width="240"/> |
+
+| ForkOP Прокси | Быстрые команды и терминал | Цветовые схемы | Сообщество и инструменты |
+| :---: | :---: | :---: | :---: |
+| <img src="screenshots/07_forkop_proxies.jpg" width="200"/> | <img src="screenshots/08_terminal_commands.jpg" width="200"/> | <img src="screenshots/09_custom_themes.jpg" width="200"/> | <img src="screenshots/10_community_and_tools.jpg" width="200"/> |
+
+---
+
 ## 🌟 Возможности приложения
 
 ### ⚡ Расширенный функционал OpenWrt Studio:
@@ -54,6 +70,14 @@
 
 ---
 
+## 💬 Сообщество и поддержка
+- 📢 **Telegram-канал программы**: [@OpenWrtStudio](https://t.me/OpenWrtStudio)
+- 📢 **Telegram-канал автора**: [@RichkovChannel](https://t.me/RichkovChannel)
+- 🐛 **Сообщить о баге (Bug Report)**: [GitHub Issues](https://github.com/RichkovGit/OpenWrtStudio/issues)
+- 🌐 **Десктопная версия**: [OpenWrtStudio](https://github.com/RichkovGit/OpenWrtStudio)
+
+---
+
 ## 🚀 Скачать APK для Android
 
 Готовые установочные файлы `.apk` собираются автоматически через GitHub Actions:
@@ -61,9 +85,10 @@
 
 | Вариант | Описание |
 |---|---|
-| 📱 **OpenWrtStudio-Mobile-universal.apk** | Универсальный установщик для любых Android-устройств |
-| ⚡ **OpenWrtStudio-Mobile-arm64-v8a.apk** | Оптимизированный для современных 64-битных смартфонов (быстрее и компактнее) |
-| 🛠️ **OpenWrtStudio-Mobile-armeabi-v7a.apk** | Для 32-битных устаревших Android-устройств |
+| 📱 **app-arm64-v8a-release.apk** | Оптимизированный для современных 64-битных смартфонов (быстрее и компактнее) |
+| 🛠️ **app-armeabi-v7a-release.apk** | Для 32-битных устаревших Android-устройств |
+| 💻 **app-x86_64-release.apk** | Для эмуляторов Android на ПК |
+| 📦 **app-release.aab** | Android App Bundle для публикации |
 
 ---
 
