@@ -105,6 +105,10 @@ class AppState extends ChangeNotifier {
 
   List<model.Router> get routers => _routerService?.routers ?? [];
   model.Router? get selectedRouter => _routerService?.selectedRouter;
+  model.Router? get activeRouter => selectedRouter;
+  IApiService? get apiService => _apiService ?? ServiceContainer.instance.factory.createApiService();
+  bool get isConnected => _authService?.isAuthenticated ?? (_authService?.sysauth != null);
+  bool get isAuthenticated => _authService?.isAuthenticated ?? (_authService?.sysauth != null);
 
   VoidCallback? onRouterBackOnline;
 
@@ -124,12 +128,30 @@ class AppState extends ChangeNotifier {
   bool get useHttps => _authService?.useHttps ?? false;
   String? get activeIp => _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
 
+
+  Future<dynamic> systemExec({
+    required String command,
+    List<String> params = const [],
+  }) async {
+    final ip = activeIp;
+    final token = sysauth;
+    if (ip == null || token == null) return null;
+    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
+    return await api.systemExec(
+      ip,
+      token,
+      useHttps,
+      command: command,
+      params: params,
+    );
+  }
+
   // --- Client Management Methods ---
   Future<bool> kickClient(String mac) async {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
-    final api = _apiService ?? ServiceFactory.apiService;
+    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
     try {
       final cmd = 'ubus call hostapd.phy0-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null; '
                   'ubus call hostapd.phy1-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null';
@@ -149,7 +171,7 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
-    final api = _apiService ?? ServiceFactory.apiService;
+    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
     final cleanMac = mac.replaceAll(':', '_');
     try {
       String cmd;
@@ -184,7 +206,7 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
-    final api = _apiService ?? ServiceFactory.apiService;
+    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
     final cleanName = name.trim().isEmpty ? 'StaticDevice' : name.trim().replaceAll(' ', '_');
     try {
       final cmd = 'for s in \$(uci show dhcp | grep -i "$mac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '

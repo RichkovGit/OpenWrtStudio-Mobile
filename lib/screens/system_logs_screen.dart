@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/services/service_factory.dart';
 
 class SystemLogsScreen extends ConsumerStatefulWidget {
   const SystemLogsScreen({super.key});
@@ -25,14 +24,11 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
   Future<void> _fetchLogs() async {
     setState(() => _loading = true);
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
 
     try {
-      final res = await ServiceFactory.apiService.systemExec(
-        router.ip, router.token ?? '', router.useHttps,
+      final res = await appState.systemExec(
         command: '/sbin/logread',
-        params: ['-e', _filter.isEmpty ? '' : _filter, '-l', '200'],
+        params: _filter.isEmpty ? ['-l', '200'] : ['-e', _filter, '-l', '200'],
       );
 
       String content = '';
@@ -41,8 +37,7 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
       }
       if (content.isEmpty) {
         // Fallback to dmesg
-        final dmesg = await ServiceFactory.apiService.systemExec(
-          router.ip, router.token ?? '', router.useHttps,
+        final dmesg = await appState.systemExec(
           command: '/bin/dmesg',
           params: [],
         );
@@ -65,14 +60,14 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Системный журнал'),
+        title: const Text('Системный журнал (Syslog)'),
         actions: [
           IconButton(
             icon: const Icon(Icons.copy),
-            tooltip: 'Копировать всё',
-            onPressed: () {
+            tooltip: 'Копировать лог',
+            onPressed: _logContent.isEmpty ? null : () {
               Clipboard.setData(ClipboardData(text: _logContent));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Логи скопированы в буфер')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Лог скопирован в буфер')));
             },
           ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchLogs),
@@ -81,37 +76,50 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(12),
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'Фильтр (sing-box, dnsmasq, kernel)...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                hintText: 'Фильтр (например: dnsmasq, dropbear, clash)...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _filter.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          setState(() => _filter = '');
+                          _fetchLogs();
+                        },
+                      )
+                    : null,
+                filled: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
-              onChanged: (val) {
-                _filter = val.trim();
+              onSubmitted: (val) {
+                setState(() => _filter = val.trim());
+                _fetchLogs();
               },
-              onSubmitted: (_) => _fetchLogs(),
             ),
           ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : Container(
-                    margin: const EdgeInsets.all(8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: SingleChildScrollView(
-                      child: SelectableText(
-                        _logContent.isEmpty ? 'Логи пусты' : _logContent,
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.greenAccent),
+                : _logContent.isEmpty
+                    ? const Center(child: Text('Журнал пуст'))
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0F172A),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF334155)),
+                          ),
+                          child: SelectableText(
+                            _logContent,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFFE2E8F0)),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
           ),
         ],
       ),

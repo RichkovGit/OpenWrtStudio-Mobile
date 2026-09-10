@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/services/service_factory.dart';
 
 class ProcessesScreen extends ConsumerStatefulWidget {
   const ProcessesScreen({super.key});
@@ -23,12 +22,9 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
   Future<void> _fetchProcesses() async {
     setState(() => _loading = true);
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
 
     try {
-      final res = await ServiceFactory.apiService.systemExec(
-        router.ip, router.token ?? '', router.useHttps,
+      final res = await appState.systemExec(
         command: '/bin/ps',
         params: ['-w'],
       );
@@ -62,15 +58,13 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
 
   Future<void> _killProcess(String pid, int signal, String actionName) async {
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
-
-    await ServiceFactory.apiService.systemExec(
-      router.ip, router.token ?? '', router.useHttps,
+    await appState.systemExec(
       command: '/bin/kill',
       params: ['-$signal', pid],
     );
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Процесс $pid: $actionName')));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Процесс $pid: $actionName')));
+    }
     await _fetchProcesses();
   }
 
@@ -98,17 +92,13 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
                         child: Text(p['pid'], style: const TextStyle(fontSize: 11, color: Color(0xFF00D2FF))),
                       ),
                       title: Text(p['command'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('Пользователь: ${p['user']} • Статус: ${p['stat']}', style: const TextStyle(fontSize: 11)),
-                      trailing: PopupMenuButton<String>(
-                        onSelected: (val) {
-                          if (val == 'term') _killProcess(p['pid'], 15, 'Завершить (SIGTERM)');
-                          if (val == 'kill') _killProcess(p['pid'], 9, 'Принудительно завершить (SIGKILL)');
-                          if (val == 'hup') _killProcess(p['pid'], 1, 'Перезапустить (SIGHUP)');
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'hup', child: Text('Перезапустить (HUP)')),
-                          const PopupMenuItem(value: 'term', child: Text('Завершить (TERM)')),
-                          const PopupMenuItem(value: 'kill', child: Text('Принудительно завершить (KILL -9)', style: TextStyle(color: Colors.redAccent))),
+                      subtitle: Text('Пользователь: ${p['user']} • Статус: ${p['stat']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                      trailing: PopupMenuButton<int>(
+                        icon: const Icon(Icons.more_vert, size: 20),
+                        onSelected: (sig) => _killProcess(p['pid'], sig, sig == 15 ? 'SIGTERM (завершение)' : 'SIGKILL (принудительно)'),
+                        itemBuilder: (ctx) => const [
+                          PopupMenuItem(value: 15, child: Text('Завершить (SIGTERM)')),
+                          PopupMenuItem(value: 9, child: Text('Принудительно убить (SIGKILL)')),
                         ],
                       ),
                     );

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/services/service_factory.dart';
 
 class ThermalScreen extends ConsumerStatefulWidget {
   const ThermalScreen({super.key});
@@ -25,12 +24,9 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
   Future<void> _fetchTemps() async {
     setState(() => _loading = true);
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
 
     try {
-      final res = await ServiceFactory.apiService.systemExec(
-        router.ip, router.token ?? '', router.useHttps,
+      final res = await appState.systemExec(
         command: '/bin/sh',
         params: ['-c', 'cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null'],
       );
@@ -58,44 +54,59 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Температура датчиков'),
+        title: const Text('Датчики температуры'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchTemps),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Padding(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildSensorCard('Процессор (CPU Thermal)', _cpuTemp, Icons.memory),
-                  const SizedBox(height: 12),
-                  _buildSensorCard('Wi-Fi 2.4 GHz (Mt7915 Phy0)', _wifi0Temp, Icons.wifi),
-                  const SizedBox(height: 12),
-                  _buildSensorCard('Wi-Fi 5 GHz (Mt7915 Phy1)', _wifi1Temp, Icons.wifi_tethering),
-                ],
-              ),
+              children: [
+                _buildSensorCard('Процессор CPU', 'MediaTek MT7981B', _cpuTemp, Icons.memory),
+                const SizedBox(height: 12),
+                _buildSensorCard('Wi-Fi 2.4 GHz', 'MediaTek MT7976C (phy0)', _wifi0Temp, Icons.wifi),
+                const SizedBox(height: 12),
+                _buildSensorCard('Wi-Fi 5 GHz', 'MediaTek MT7976C (phy1)', _wifi1Temp, Icons.wifi_tethering),
+              ],
             ),
     );
   }
 
-  Widget _buildSensorCard(String title, double temp, IconData icon) {
-    Color color = Colors.greenAccent;
-    if (temp > 75) color = Colors.orangeAccent;
-    if (temp > 85) color = Colors.redAccent;
+  Widget _buildSensorCard(String title, String subtitle, double temp, IconData icon) {
+    Color tempColor = Colors.green;
+    if (temp >= 70) tempColor = Colors.orange;
+    if (temp >= 80) tempColor = Colors.red;
 
     return Card(
       elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withOpacity(0.15),
-          child: Icon(icon, color: color),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: tempColor.withOpacity(0.15), shape: BoxShape.circle),
+              child: Icon(icon, color: tempColor, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+            Text(
+              '${temp.toStringAsFixed(1)} °C',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: tempColor),
+            ),
+          ],
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: Text(temp < 75 ? 'Температура в норме' : 'Повышенный нагрев', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
-        trailing: Text('${temp.toStringAsFixed(1)}°C', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 18)),
       ),
     );
   }

@@ -22,6 +22,9 @@ class Router {
   });
 
   /// The address currently in use (based on last successful connection).
+  String get ip => activeAddress;
+  String? get token => null;
+
   String get activeAddress =>
       activeAddressIndex == 1 && hasFallback ? alternateAddress! : ipAddress;
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/services/service_factory.dart';
 
 class StartupServicesScreen extends ConsumerStatefulWidget {
   const StartupServicesScreen({super.key});
@@ -23,12 +22,9 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
   Future<void> _fetchServices() async {
     setState(() => _loading = true);
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
 
     try {
-      final res = await ServiceFactory.apiService.systemExec(
-        router.ip, router.token ?? '', router.useHttps,
+      final res = await appState.systemExec(
         command: '/bin/ls',
         params: ['/etc/init.d'],
       );
@@ -51,15 +47,13 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
 
   Future<void> _runAction(String svc, String action) async {
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
-
-    await ServiceFactory.apiService.systemExec(
-      router.ip, router.token ?? '', router.useHttps,
+    await appState.systemExec(
       command: '/etc/init.d/$svc',
       params: [action],
     );
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Служба $svc: выполнено $action')));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Служба $svc: выполнено $action')));
+    }
   }
 
   @override
@@ -79,14 +73,26 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
               itemBuilder: (ctx, i) {
                 final svc = _services[i];
                 return ListTile(
-                  leading: const Icon(Icons.settings_applications, color: Color(0xFF00D2FF)),
-                  title: Text(svc, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  leading: const Icon(Icons.miscellaneous_services, color: Color(0xFF00D2FF)),
+                  title: Text(svc, style: const TextStyle(fontWeight: FontWeight.w600)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(icon: const Icon(Icons.play_arrow, color: Colors.greenAccent), tooltip: 'Старт', onPressed: () => _runAction(svc, 'start')),
-                      IconButton(icon: const Icon(Icons.restart_alt, color: Colors.orangeAccent), tooltip: 'Перезапустить', onPressed: () => _runAction(svc, 'restart')),
-                      IconButton(icon: const Icon(Icons.stop, color: Colors.redAccent), tooltip: 'Остановить', onPressed: () => _runAction(svc, 'stop')),
+                      IconButton(
+                        icon: const Icon(Icons.play_arrow, color: Colors.green),
+                        tooltip: 'Запустить',
+                        onPressed: () => _runAction(svc, 'start'),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.restart_alt, color: Colors.orange),
+                        tooltip: 'Перезапустить',
+                        onPressed: () => _runAction(svc, 'restart'),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.stop, color: Colors.red),
+                        tooltip: 'Остановить',
+                        onPressed: () => _runAction(svc, 'stop'),
+                      ),
                     ],
                   ),
                 );

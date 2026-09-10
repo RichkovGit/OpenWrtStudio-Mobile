@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/services/service_factory.dart';
 
 class DiagnosticsScreen extends ConsumerStatefulWidget {
   const DiagnosticsScreen({super.key});
@@ -12,10 +12,11 @@ class DiagnosticsScreen extends ConsumerStatefulWidget {
 
 class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   final TextEditingController _targetCtrl = TextEditingController(text: '8.8.8.8');
-  bool _running = false;
+  String _selectedTool = 'ping';
   String _output = '';
+  bool _running = false;
 
-  Future<void> _runCommand(String tool) async {
+  Future<void> _executeDiagnostic(String tool) async {
     final target = _targetCtrl.text.trim();
     if (target.isEmpty) return;
 
@@ -25,8 +26,6 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     });
 
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
 
     String cmd = '/bin/ping';
     List<String> args = ['-c', '4', target];
@@ -40,8 +39,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     }
 
     try {
-      final res = await ServiceFactory.apiService.systemExec(
-        router.ip, router.token ?? '', router.useHttps,
+      final res = await appState.systemExec(
         command: cmd,
         params: args,
       );
@@ -71,7 +69,18 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Диагностика сети')),
+      appBar: AppBar(
+        title: const Text('Сетевая диагностика'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.copy),
+            onPressed: _output.isEmpty ? null : () {
+              Clipboard.setData(ClipboardData(text: _output));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Результат скопирован')));
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -79,9 +88,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
             TextField(
               controller: _targetCtrl,
               decoration: InputDecoration(
-                labelText: 'Целевой хост или IP',
-                hintText: '8.8.8.8 или ya.ru',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                labelText: 'Хост или IP-адрес',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
             ),
             const SizedBox(height: 12),
@@ -91,23 +99,23 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.network_ping),
                     label: const Text('Ping'),
-                    onPressed: _running ? null : () => _runCommand('ping'),
+                    onPressed: _running ? null : () => _executeDiagnostic('ping'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.route),
-                    label: const Text('Трассировка'),
-                    onPressed: _running ? null : () => _runCommand('traceroute'),
+                    icon: const Icon(Icons.alt_route),
+                    label: const Text('Traceroute'),
+                    onPressed: _running ? null : () => _executeDiagnostic('traceroute'),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.dns),
-                    label: const Text('DNS'),
-                    onPressed: _running ? null : () => _runCommand('nslookup'),
+                    label: const Text('NSLookup'),
+                    onPressed: _running ? null : () => _executeDiagnostic('nslookup'),
                   ),
                 ),
               ],
@@ -119,14 +127,17 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF334155)),
                 ),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    _output.isEmpty ? 'Выберите диагностическую утилиту выше' : _output,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Colors.greenAccent),
-                  ),
-                ),
+                child: _running
+                    ? const Center(child: CircularProgressIndicator())
+                    : SingleChildScrollView(
+                        child: SelectableText(
+                          _output.isEmpty ? 'Выберите утилиту выше для запуска диагностики...' : _output,
+                          style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Color(0xFFE2E8F0)),
+                        ),
+                      ),
               ),
             ),
           ],

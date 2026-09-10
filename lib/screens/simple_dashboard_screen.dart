@@ -32,13 +32,14 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   Future<void> _loadInitialState() async {
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
+    final ip = appState.activeIp;
+    final token = appState.sysauth;
+    if (ip == null || token == null) return;
     try {
       final info = await _forkopService.fetchOverviewInfo(
-        routerIp: router.ip,
-        sysauth: router.token ?? '',
-        useHttps: router.useHttps,
+        routerIp: ip,
+        sysauth: token,
+        useHttps: appState.useHttps,
       );
       if (mounted) {
         setState(() {
@@ -61,19 +62,20 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   Future<void> _toggleForkopMaster() async {
     final appState = ref.read(appStateProvider);
-    final router = appState.activeRouter;
-    if (router == null) return;
+    final ip = appState.activeIp;
+    final token = appState.sysauth;
+    if (ip == null || token == null) return;
 
     setState(() => _isLoadingAction = true);
     final next = !_forkopActive;
     bool success;
     if (next) {
       success = await _forkopService.restartForkop(
-        routerIp: router.ip, sysauth: router.token ?? '', useHttps: router.useHttps,
+        routerIp: ip, sysauth: token, useHttps: appState.useHttps,
       );
     } else {
       success = await _forkopService.stopForkop(
-        routerIp: router.ip, sysauth: router.token ?? '', useHttps: router.useHttps,
+        routerIp: ip, sysauth: token, useHttps: appState.useHttps,
       );
     }
     setState(() {
