@@ -16,7 +16,7 @@ class SimpleDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
-  final ForkopService _forkopService = ForkopService();
+  final ForkopService _forkopService = ForkopService(apiService: ServiceContainer.instance.factory.createApiService());
   bool _forkopActive = true;
   String _selectedPreset = 'Blanc (Основной)';
   bool _showWifiPassword = false;
@@ -36,15 +36,13 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     final token = appState.sysauth;
     if (ip == null || token == null) return;
     try {
-      final info = await _forkopService.fetchOverviewInfo(
-        routerIp: ip,
-        sysauth: token,
-        useHttps: appState.useHttps,
+      final res = await appState.systemExec(
+        command: '/bin/sh',
+        params: ['-c', 'pgrep sing-box >/dev/null && echo 1 || echo 0'],
       );
-      if (mounted) {
-        setState(() {
-          _forkopActive = info.isRunning;
-        });
+      if (res is List && res.length > 1 && res[1] is Map) {
+        final out = (res[1]['stdout'] ?? '').toString().trim();
+        if (mounted) setState(() => _forkopActive = out.contains('1'));
       }
     } catch (_) {}
   }
@@ -167,7 +165,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await appState.refreshDashboard();
+          await appState.fetchDashboardData();
           await _loadInitialState();
         },
         child: ListView(

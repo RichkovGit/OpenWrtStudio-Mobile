@@ -106,9 +106,10 @@ class AppState extends ChangeNotifier {
   List<model.Router> get routers => _routerService?.routers ?? [];
   model.Router? get selectedRouter => _routerService?.selectedRouter;
   model.Router? get activeRouter => selectedRouter;
-  IApiService? get apiService => _apiService ?? ServiceContainer.instance.factory.createApiService();
-  bool get isConnected => _authService?.isAuthenticated ?? (_authService?.sysauth != null);
-  bool get isAuthenticated => _authService?.isAuthenticated ?? (_authService?.sysauth != null);
+  bool get isConnected => isAuthenticated;
+  bool get useHttps => _authService?.useHttps ?? false;
+  String? get activeIp => _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
+  Future<void> refreshDashboard() => fetchDashboardData();
 
   VoidCallback? onRouterBackOnline;
 
@@ -124,9 +125,6 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? get sysauth => _authService?.sysauth;
-  bool get useHttps => _authService?.useHttps ?? false;
-  String? get activeIp => _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
 
 
   Future<dynamic> systemExec({

@@ -46,7 +46,7 @@ class RouterWatchdogService {
     // 1. Check router connectivity
     bool routerReachable = false;
     try {
-      final boardRes = await api.systemBoard(routerIp, sysauth, useHttps).timeout(const Duration(seconds: 5));
+      final boardRes = await api.call(routerIp, sysauth, useHttps, object: 'system', method: 'board').timeout(const Duration(seconds: 5));
       routerReachable = boardRes != null && boardRes.isNotEmpty;
     } catch (_) {
       routerReachable = false;
