@@ -3090,6 +3090,9 @@ class AppState extends ChangeNotifier {
         }
       }
 
+      // Enrich with blocked status from OpenWrt firewall
+      await _enrichClientsWithFirewallBlocks(clients);
+
       final list = clients.values.toList();
       _sortClients(list);
       return list;
@@ -3246,36 +3249,7 @@ class AppState extends ChangeNotifier {
       _enrichClientsWithGlInet(clientMap);
 
       // Enrich with blocked status from OpenWrt firewall
-      try {
-        final firewallResult = await _apiService!.uciGetAll(
-          activeIp,
-          _authService!.sysauth!,
-          activeHttps,
-          config: 'firewall',
-        );
-        final firewallSections = _resolveUciSections(firewallResult, 'firewall');
-        if (firewallSections != null) {
-          final blockedMacs = <String>{};
-          for (final entry in firewallSections.entries) {
-            final sec = entry.value as Map<String, dynamic>?;
-            final name = sec?['name']?.toString() ?? '';
-            final srcMac = sec?['src_mac']?.toString().toUpperCase().replaceAll('-', ':');
-            if (name.toUpperCase().startsWith('BLOCK_') && srcMac != null && srcMac.isNotEmpty) {
-              final upper = name.toUpperCase();
-              if (upper.endsWith('_WAN') || upper.endsWith('_INPUT') || !name.contains('_')) {
-                blockedMacs.add(srcMac);
-              }
-            }
-          }
-          for (final mac in blockedMacs) {
-            if (clientMap.containsKey(mac)) {
-              clientMap[mac] = clientMap[mac]!.copyWith(isBlocked: true);
-            }
-          }
-        }
-      } catch (e) {
-        Logger.warning('Failed to load firewall block rules: $e');
-      }
+      await _enrichClientsWithFirewallBlocks(clientMap);
 
       final clients = clientMap.values.toList();
       _sortClients(clients);
@@ -3283,6 +3257,42 @@ class AppState extends ChangeNotifier {
     } catch (e, stack) {
       Logger.exception('Failed to fetch clients for selected router', e, stack);
       Error.throwWithStackTrace(e, stack);
+    }
+  }
+
+  Future<void> _enrichClientsWithFirewallBlocks(Map<String, Client> clientMap) async {
+    try {
+      final ip = activeIp;
+      final token = _authService?.sysauth ?? sysauth;
+      if (ip == null || token == null) return;
+      final firewallResult = await _apiService!.uciGetAll(
+        ip,
+        token,
+        activeHttps,
+        config: 'firewall',
+      );
+      final firewallSections = _resolveUciSections(firewallResult, 'firewall');
+      if (firewallSections != null) {
+        final blockedMacs = <String>{};
+        for (final entry in firewallSections.entries) {
+          final sec = entry.value as Map<String, dynamic>?;
+          final name = sec?['name']?.toString() ?? '';
+          final srcMac = sec?['src_mac']?.toString().toUpperCase().replaceAll('-', ':');
+          if (name.toUpperCase().startsWith('BLOCK_') && srcMac != null && srcMac.isNotEmpty) {
+            final upper = name.toUpperCase();
+            if (upper.endsWith('_WAN') || upper.endsWith('_INPUT') || !name.contains('_')) {
+              blockedMacs.add(srcMac);
+            }
+          }
+        }
+        for (final mac in blockedMacs) {
+          if (clientMap.containsKey(mac)) {
+            clientMap[mac] = clientMap[mac]!.copyWith(isBlocked: true);
+          }
+        }
+      }
+    } catch (e) {
+      Logger.warning('Failed to load firewall block rules: $e');
     }
   }
 
