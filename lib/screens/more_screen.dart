@@ -229,6 +229,65 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     );
   }
 
+  Future<void> _launchExternalUrl(BuildContext context, String url) async {
+    try {
+      final success = await launchUrlString(
+        url,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Не удалось открыть: $url'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Ошибка: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Widget _buildAboutLink(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String url,
+  }) {
+    final theme = Theme.of(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _launchExternalUrl(context, url),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: iconColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  decoration: TextDecoration.underline,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showAboutDialog(BuildContext context) async {
     final info = await PackageInfo.fromPlatform();
     if (!context.mounted) return;
@@ -237,6 +296,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
       showDialog(
         context: context,
         builder: (BuildContext context) {
+          final theme = Theme.of(context);
           return AlertDialog(
             title: Row(
               children: [
@@ -245,53 +305,61 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                 Text(context.l10n.appTitle),
               ],
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(context.l10n.version(info.version)),
-                const SizedBox(height: 16),
-                Text(context.l10n.aboutDescription),
-                const SizedBox(height: 16),
-                Text(context.l10n.openSourceDescription),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () async {
-                    final url = AppConfig.githubRepositoryUrl;
-                    final success = await launchUrlString(
-                      url,
-                      mode: LaunchMode.externalApplication,
-                    );
-                    if (!success && context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(context.l10n.couldNotOpenRepository),
-                          backgroundColor: Theme.of(context).colorScheme.error,
-                        ),
-                      );
-                    }
-                  },
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.link,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.l10n.githubRepository,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(context.l10n.version(info.version)),
+                  const SizedBox(height: 12),
+                  Text(context.l10n.aboutDescription),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Сообщество и ресурсы:',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  _buildAboutLink(
+                    context,
+                    icon: Icons.chat_bubble_outline,
+                    iconColor: const Color(0xFF00D2FF),
+                    title: 'ТГК программы: @OpenWrtStudio',
+                    url: AppConfig.appTelegramUrl,
+                  ),
+                  _buildAboutLink(
+                    context,
+                    icon: Icons.campaign_outlined,
+                    iconColor: const Color(0xFFA78BFA),
+                    title: 'ТГК автора: @RichkovChannel',
+                    url: AppConfig.authorTelegramUrl,
+                  ),
+                  _buildAboutLink(
+                    context,
+                    icon: Icons.code,
+                    iconColor: const Color(0xFF10B981),
+                    title: 'GitHub: RichkovGit/OpenWrtStudio',
+                    url: AppConfig.githubRepositoryUrl,
+                  ),
+                  _buildAboutLink(
+                    context,
+                    icon: Icons.person_outline,
+                    iconColor: const Color(0xFF38BDF8),
+                    title: 'Автор: RichkovGit',
+                    url: AppConfig.authorGithubUrl,
+                  ),
+                  _buildAboutLink(
+                    context,
+                    icon: Icons.bug_report_outlined,
+                    iconColor: const Color(0xFFEF4444),
+                    title: 'Сообщить о баге (Bug Report)',
+                    url: AppConfig.githubIssuesUrl,
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -558,6 +626,43 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   ],
                 );
               },
+            ),
+            const LuciSectionHeader('Сообщество и поддержка'),
+            _MoreScreenSection(
+              tiles: [
+                _buildMoreTile(
+                  context,
+                  icon: Icons.chat_bubble_outline,
+                  iconColor: const Color(0xFF00D2FF),
+                  title: 'ТГК программы: @OpenWrtStudio',
+                  subtitle: 'Новости, обновления и обсуждение',
+                  onTap: () => _launchExternalUrl(context, AppConfig.appTelegramUrl),
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.campaign_outlined,
+                  iconColor: const Color(0xFFA78BFA),
+                  title: 'ТГК автора: @RichkovChannel',
+                  subtitle: 'Личный канал разработчика и инсайды',
+                  onTap: () => _launchExternalUrl(context, AppConfig.authorTelegramUrl),
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.code,
+                  iconColor: const Color(0xFF10B981),
+                  title: 'GitHub: RichkovGit/OpenWrtStudio',
+                  subtitle: 'Исходный код и релизы на GitHub',
+                  onTap: () => _launchExternalUrl(context, AppConfig.githubRepositoryUrl),
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.bug_report_outlined,
+                  iconColor: const Color(0xFFEF4444),
+                  title: 'Сообщить о баге (Bug Report)',
+                  subtitle: 'Отправить сообщение об ошибке в Issues',
+                  onTap: () => _launchExternalUrl(context, AppConfig.githubIssuesUrl),
+                ),
+              ],
             ),
             LuciSectionHeader(context.l10n.application),
             _MoreScreenSection(

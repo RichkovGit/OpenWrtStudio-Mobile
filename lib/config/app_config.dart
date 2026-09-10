@@ -1,10 +1,20 @@
 class AppConfig {
-  // GitHub repository URL - update this with your actual repository
-  static const String githubRepositoryUrl =
-      'https://github.com/cogwheel0/luci-mobile';
+  // Author GitHub profile
+  static const String authorGithubUrl = 'https://github.com/RichkovGit';
 
-  // GitHub issues URL
-  static const String githubIssuesUrl = '$githubRepositoryUrl/issues';
+  // GitHub repository URL
+  static const String githubRepositoryUrl =
+      'https://github.com/RichkovGit/OpenWrtStudio';
+
+  // GitHub issues URL (Bug Report)
+  static const String githubIssuesUrl =
+      'https://github.com/RichkovGit/OpenWrtStudio/issues';
+
+  // Author Telegram Channel
+  static const String authorTelegramUrl = 'https://t.me/RichkovChannel';
+
+  // Program Telegram Channel
+  static const String appTelegramUrl = 'https://t.me/OpenWrtStudio';
 
   // Reviewer mode configuration
   static const String reviewerModeKey = 'reviewer_mode_enabled';
