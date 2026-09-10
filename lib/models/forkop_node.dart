@@ -11,6 +11,7 @@ enum ProxyType {
   reject,
   selector,
   urltest,
+  priority,
   fallback,
   unknown;
 
@@ -30,6 +31,7 @@ enum ProxyType {
       'reject' => ProxyType.reject,
       'selector' => ProxyType.selector,
       'urltest' => ProxyType.urltest,
+      'priority' => ProxyType.priority,
       'fallback' => ProxyType.fallback,
       _ => ProxyType.unknown,
     };
@@ -47,7 +49,8 @@ enum ProxyType {
     ProxyType.direct => 'Direct',
     ProxyType.reject => 'Reject',
     ProxyType.selector => 'Selector',
-    ProxyType.urltest => 'Auto (URL-Test)',
+    ProxyType.urltest => 'URLTest',
+    ProxyType.priority => 'Priority',
     ProxyType.fallback => 'Fallback',
     ProxyType.unknown => 'Other',
   };
@@ -55,6 +58,7 @@ enum ProxyType {
 
 class ForkopNode {
   final String name;
+  final String? label;
   final ProxyType type;
   final String? server;
   final int? port;
@@ -67,6 +71,7 @@ class ForkopNode {
 
   const ForkopNode({
     required this.name,
+    this.label,
     required this.type,
     this.server,
     this.port,
@@ -78,13 +83,19 @@ class ForkopNode {
     this.all = const [],
   });
 
+  String get displayTitle =>
+      (label != null && label!.isNotEmpty) ? label! : name;
+
   bool get isGroup =>
       type == ProxyType.selector ||
       type == ProxyType.urltest ||
-      type == ProxyType.fallback;
+      type == ProxyType.priority ||
+      type == ProxyType.fallback ||
+      all.isNotEmpty;
 
   ForkopNode copyWith({
     String? name,
+    String? label,
     ProxyType? type,
     String? server,
     int? port,
@@ -97,6 +108,7 @@ class ForkopNode {
   }) {
     return ForkopNode(
       name: name ?? this.name,
+      label: label ?? this.label,
       type: type ?? this.type,
       server: server ?? this.server,
       port: port ?? this.port,
@@ -128,6 +140,7 @@ class ForkopNode {
 
     return ForkopNode(
       name: json['name'] as String? ?? 'Unnamed',
+      label: json['label'] as String?,
       type: ProxyType.fromString(rawType),
       server: json['server'] as String?,
       port: json['port'] as int?,

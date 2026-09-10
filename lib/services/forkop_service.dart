@@ -20,6 +20,15 @@ class ForkopService {
             ),
           );
 
+  static final Map<String, String> _knownGroupLabels = {
+    'main-priority-main_priority-out': 'Приоритет: Blanc -> Stealth -> Free',
+    'main-urltest-blanc_urltest-out': 'Авто Blanc (Основной)',
+    'main-urltest-stealth_urltest-out': 'Авто Stealth (Запасной)',
+    'main-urltest-free_urltest-out': 'Авто Фри (Резерв)',
+    'GLOBAL': 'GLOBAL (Общий)',
+    'main-out': 'Основной селектор',
+  };
+
   /// Attempts to fetch nodes from Mihomo / Clash Meta External Controller REST API
   /// or falls back to querying the router via ubus systemExec.
   Future<List<ForkopNode>> fetchNodes({
@@ -51,15 +60,27 @@ class ForkopService {
           final nodes = <ForkopNode>[];
           proxiesMap.forEach((name, data) {
             if (data is Map) {
+              final nodeName = name.toString();
+              var rawType = data['type']?.toString();
+              if (nodeName.contains('priority') ||
+                  (rawType != null &&
+                      rawType.toLowerCase().contains('priority'))) {
+                rawType = 'priority';
+              }
+              final label = _knownGroupLabels[nodeName];
               final node = ForkopNode.fromJson({
                 ...Map<String, dynamic>.from(data),
-                'name': name.toString(),
+                'name': nodeName,
+                'label': label,
+                if (rawType != null) 'type': rawType,
               });
               nodes.add(node);
             }
           });
           if (nodes.isNotEmpty) {
-            Logger.info('Fetched ${nodes.length} nodes from external controller API');
+            Logger.info(
+              'Fetched ${nodes.length} nodes from external controller API',
+            );
             return nodes;
           }
         }
@@ -112,24 +133,46 @@ class ForkopService {
               cacheJson['urltestGroups'] as Map<String, dynamic>?;
           if (urltestGroups != null) {
             urltestGroups.forEach((groupName, _) {
+              final label = _knownGroupLabels[groupName];
               nodes.insert(
                 0,
                 ForkopNode(
                   name: groupName,
+                  label: label,
                   type: ProxyType.urltest,
                 ),
               );
             });
           }
 
+          final priorityGroups =
+              cacheJson['priorityGroups'] as Map<String, dynamic>?;
+          if (priorityGroups != null) {
+            priorityGroups.forEach((groupName, _) {
+              final label = _knownGroupLabels[groupName];
+              nodes.insert(
+                0,
+                ForkopNode(
+                  name: groupName,
+                  label: label,
+                  type: ProxyType.priority,
+                ),
+              );
+            });
+          }
+
           if (nodes.isNotEmpty) {
-            Logger.info('Fetched ${nodes.length} nodes from ForkOP section cache');
+            Logger.info(
+              'Fetched ${nodes.length} nodes from ForkOP section cache',
+            );
             return nodes;
           }
         }
       }
     } catch (e) {
-      Logger.debug('ForkOP section cache read failed ($e), falling back to ubus scan');
+      Logger.debug(
+        'ForkOP section cache read failed ($e), falling back to ubus scan',
+      );
     }
 
     // 3. Fallback: query router via ubus / shell
@@ -360,5 +403,156 @@ echo \$?
       Logger.debug('Failed to fetch UCI subscriptions: $e');
     }
     return [];
+  }
+
+  /// Restarts ForkOP service on the router
+  Future<bool> restartForkop({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    try {
+      final res = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/etc/init.d/forkop',
+        params: ['restart'],
+      );
+      return res is List && res.isNotEmpty && res[0] == 0;
+    } catch (e) {
+      Logger.error('Failed to restart forkop', e);
+      return false;
+    }
+  }
+
+  /// Stops ForkOP service on the router
+  Future<bool> stopForkop({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    try {
+      final res = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/etc/init.d/forkop',
+        params: ['stop'],
+      );
+      return res is List && res.isNotEmpty && res[0] == 0;
+    } catch (e) {
+      Logger.error('Failed to stop forkop', e);
+      return false;
+    }
+  }
+
+  /// Starts ForkOP service on the router
+  Future<bool> startForkop({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    try {
+      final res = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/etc/init.d/forkop',
+        params: ['start'],
+      );
+      return res is List && res.isNotEmpty && res[0] == 0;
+    } catch (e) {
+      Logger.error('Failed to start forkop', e);
+      return false;
+    }
+  }
+
+  /// Toggles ForkOP autostart (enable / disable)
+  Future<bool> toggleAutostart({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+    required bool enable,
+  }) async {
+    try {
+      final res = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/etc/init.d/forkop',
+        params: [enable ? 'enable' : 'disable'],
+      );
+      return res is List && res.isNotEmpty && res[0] == 0;
+    } catch (e) {
+      Logger.error('Failed to toggle forkop autostart', e);
+      return false;
+    }
+  }
+
+  /// Fetches logs of ForkOP and Sing-box from router
+  Future<String> fetchLogs({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    try {
+      final res = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/bin/sh',
+        params: ['-c', 'logread -e forkop -e sing-box | tail -n 120'],
+      );
+      if (res is List && res.length > 1) {
+        final data = res[1] as Map<String, dynamic>?;
+        final stdout = data?['stdout'] as String? ?? '';
+        if (stdout.trim().isNotEmpty) return stdout.trim();
+      }
+      return 'Логи не найдены или служба не вела журнал.';
+    } catch (e) {
+      Logger.error('Failed to fetch logs', e);
+      return 'Ошибка получения логов: $e';
+    }
+  }
+
+  /// Reads Sing-box configuration from router (/etc/sing-box/config.json)
+  Future<String> fetchSingboxConfig({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    try {
+      final res = await apiService.call(
+        routerIp,
+        sysauth,
+        useHttps,
+        object: 'file',
+        method: 'read',
+        params: {'path': '/etc/sing-box/config.json'},
+      );
+      if (res is List && res.isNotEmpty && res[0] == 0 && res.length > 1) {
+        final fileData = res[1] as Map<String, dynamic>?;
+        final content = fileData?['data'] as String?;
+        if (content != null && content.isNotEmpty) {
+          return content;
+        }
+      }
+      final execRes = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/bin/sh',
+        params: ['-c', 'cat /etc/sing-box/config.json'],
+      );
+      if (execRes is List && execRes.length > 1) {
+        final data = execRes[1] as Map<String, dynamic>?;
+        return data?['stdout'] as String? ?? '{}';
+      }
+      return '{}';
+    } catch (e) {
+      Logger.error('Failed to read sing-box config', e);
+      return 'Ошибка чтения конфигурации: $e';
+    }
   }
 }
