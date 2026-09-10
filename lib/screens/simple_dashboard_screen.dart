@@ -270,7 +270,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           sysauth: token,
           useHttps: appState.useHttps,
         );
-        presets = nodes.map((n) => n.displayName).where((s) => s.isNotEmpty).take(6).toList();
+        presets = nodes.map<String>((n) => n.displayTitle).where((s) => s.isNotEmpty).take(6).toList();
       } catch (_) {}
 
       if (mounted) {
@@ -525,7 +525,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
     final modelRaw = boardInfo?['model']?.toString();
     final hostnameRaw = boardInfo?['hostname']?.toString();
-    final routerName = appState.selectedRouter?.name;
+    final routerName = appState.selectedRouter?.lastKnownHostname;
 
     String routerInfoStr;
     if (modelRaw != null && modelRaw.isNotEmpty) {
