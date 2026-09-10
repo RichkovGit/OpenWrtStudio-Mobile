@@ -19,6 +19,7 @@ class Client {
   final String? wifiBand; // "2G", "5G", "6G", or null (wired/unknown)
   final bool? isOnline; // true/false from GL.iNet API, null if unknown
   final String? deviceClass; // "phone", "laptop", "tv", etc.
+  final bool isBlocked;
 
   Client({
     required this.ipAddress,
@@ -36,6 +37,7 @@ class Client {
     this.wifiBand,
     this.isOnline,
     this.deviceClass,
+    this.isBlocked = false,
   });
 
   // Helper function to determine connection type from MAC address or other data
@@ -273,6 +275,7 @@ class Client {
     String? wifiBand,
     bool? isOnline,
     String? deviceClass,
+    bool? isBlocked,
   }) {
     return Client(
       ipAddress: ipAddress ?? this.ipAddress,
@@ -290,6 +293,7 @@ class Client {
       wifiBand: wifiBand ?? this.wifiBand,
       isOnline: isOnline ?? this.isOnline,
       deviceClass: deviceClass ?? this.deviceClass,
+      isBlocked: isBlocked ?? this.isBlocked,
     );
   }
 }

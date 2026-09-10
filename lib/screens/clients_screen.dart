@@ -292,6 +292,9 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                               }
                                             });
                                           },
+                                          onRefresh: () {
+                                            setState(_computeClientsFuture);
+                                          },
                                         ),
                                       ),
                                     );
@@ -317,11 +320,13 @@ class _UnifiedClientCard extends ConsumerStatefulWidget {
   final Client client;
   final bool isExpanded;
   final VoidCallback onTap;
+  final VoidCallback? onRefresh;
 
   const _UnifiedClientCard({
     required this.client,
     required this.isExpanded,
     required this.onTap,
+    this.onRefresh,
   });
 
   @override
@@ -494,6 +499,25 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                         ],
                       ),
                     ),
+                    if (widget.client.isBlocked) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.block, size: 12, color: Colors.redAccent),
+                            SizedBox(width: 4),
+                            Text('БЛОК', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                     _buildConnectionTypeChip(context, widget.client),
                     const SizedBox(width: 8),
                     Icon(
@@ -728,12 +752,12 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                     ),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
-                        side: const BorderSide(color: Colors.redAccent),
+                        foregroundColor: client.isBlocked ? Colors.greenAccent : Colors.redAccent,
+                        side: BorderSide(color: client.isBlocked ? Colors.greenAccent : Colors.redAccent),
                         visualDensity: VisualDensity.compact,
                       ),
-                      icon: const Icon(Icons.block, size: 16),
-                      label: const Text('Блок. Интернет'),
+                      icon: Icon(client.isBlocked ? Icons.lock_open : Icons.block, size: 16),
+                      label: Text(client.isBlocked ? 'Разблок. Интернет' : 'Блок. Интернет'),
                       onPressed: () => _handleBlock(context, client),
                     ),
                   ],
@@ -818,22 +842,30 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
 
   Future<void> _handleBlock(BuildContext context, Client client) async {
     final appState = ref.read(appStateProvider);
+    final isCurrentlyBlocked = client.isBlocked;
     final block = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Блокировка доступа'),
-        content: Text('Управление доступом в интернет для ${client.hostname} (${client.macAddress}):'),
+        title: Text(isCurrentlyBlocked ? 'Разблокировка доступа' : 'Блокировка доступа'),
+        content: Text(
+          isCurrentlyBlocked
+              ? 'Разблокировать доступ в интернет для ${client.hostname} (${client.macAddress})?'
+              : 'Заблокировать доступ в интернет (включая VPN/иностранный трафик) для ${client.hostname} (${client.macAddress})?',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Отмена')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Разблокировать'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Заблокировать', style: TextStyle(color: Colors.white)),
-          ),
+          if (isCurrentlyBlocked)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Разблокировать', style: TextStyle(color: Colors.white)),
+            )
+          else
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Заблокировать', style: TextStyle(color: Colors.white)),
+            ),
         ],
       ),
     );
@@ -843,9 +875,14 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(ok ? (block ? 'Интернет заблокирован для ${client.hostname}' : 'Интернет разблокирован') : 'Ошибка применения правила'),
+            content: Text(ok
+                ? (block
+                    ? 'Интернет (включая VPN) заблокирован для ${client.hostname}'
+                    : 'Интернет разблокирован для ${client.hostname}')
+                : 'Ошибка применения правила'),
           ),
         );
+        widget.onRefresh?.call();
       }
     }
   }

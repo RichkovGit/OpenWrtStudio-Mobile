@@ -175,13 +175,27 @@ class AppState extends ChangeNotifier {
       String cmd;
       if (block) {
         cmd = 'uci add firewall rule; '
-              'uci set firewall.@rule[-1].name="Block_$cleanMac"; '
+              'uci set firewall.@rule[-1].name="Block_${cleanMac}_dhcp"; '
+              'uci set firewall.@rule[-1].src="lan"; '
+              'uci set firewall.@rule[-1].src_mac="$mac"; '
+              'uci set firewall.@rule[-1].proto="udp"; '
+              'uci set firewall.@rule[-1].dest_port="67 68"; '
+              'uci set firewall.@rule[-1].target="ACCEPT"; '
+              'uci add firewall rule; '
+              'uci set firewall.@rule[-1].name="Block_${cleanMac}_input"; '
+              'uci set firewall.@rule[-1].src="lan"; '
+              'uci set firewall.@rule[-1].src_mac="$mac"; '
+              'uci set firewall.@rule[-1].target="DROP"; '
+              'uci add firewall rule; '
+              'uci set firewall.@rule[-1].name="Block_${cleanMac}_wan"; '
               'uci set firewall.@rule[-1].src="lan"; '
               'uci set firewall.@rule[-1].dest="wan"; '
               'uci set firewall.@rule[-1].src_mac="$mac"; '
-              'uci set firewall.@rule[-1].target="REJECT"; '
+              'uci set firewall.@rule[-1].target="DROP"; '
               'uci commit firewall; '
-              '/etc/init.d/firewall reload';
+              '/etc/init.d/firewall reload; '
+              'ubus call hostapd.phy0-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null; '
+              'ubus call hostapd.phy1-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null';
       } else {
         cmd = 'for s in \$(uci show firewall | grep "Block_$cleanMac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '
               'uci delete firewall.\$s 2>/dev/null; done; '
@@ -3217,6 +3231,37 @@ class AppState extends ChangeNotifier {
 
       // Enrich with GL.iNet data
       _enrichClientsWithGlInet(clientMap);
+
+      // Enrich with blocked status from OpenWrt firewall
+      try {
+        final firewallResult = await _apiService!.uciGetAll(
+          activeIp,
+          _authService!.sysauth!,
+          activeHttps,
+          config: 'firewall',
+        );
+        final firewallSections = _resolveUciSections(firewallResult, 'firewall');
+        if (firewallSections != null) {
+          final blockedMacs = <String>{};
+          for (final entry in firewallSections.entries) {
+            final sec = entry.value as Map<String, dynamic>?;
+            final name = sec?['name']?.toString() ?? '';
+            final srcMac = sec?['src_mac']?.toString().toUpperCase().replaceAll('-', ':');
+            if (name.startsWith('Block_') && srcMac != null && srcMac.isNotEmpty) {
+              if (name.endsWith('_wan') || name.endsWith('_input') || !name.contains('_')) {
+                blockedMacs.add(srcMac);
+              }
+            }
+          }
+          for (final mac in blockedMacs) {
+            if (clientMap.containsKey(mac)) {
+              clientMap[mac] = clientMap[mac]!.copyWith(isBlocked: true);
+            }
+          }
+        }
+      } catch (e) {
+        Logger.warning('Failed to load firewall block rules: $e');
+      }
 
       final clients = clientMap.values.toList();
       _sortClients(clients);
