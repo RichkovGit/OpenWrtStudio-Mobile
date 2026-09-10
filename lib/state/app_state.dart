@@ -3268,7 +3268,7 @@ class AppState extends ChangeNotifier {
       final firewallResult = await _apiService!.uciGetAll(
         ip,
         token,
-        activeHttps,
+        useHttps,
         config: 'firewall',
       );
       final firewallSections = _resolveUciSections(firewallResult, 'firewall');
