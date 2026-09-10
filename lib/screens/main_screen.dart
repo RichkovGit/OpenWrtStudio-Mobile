@@ -3,6 +3,8 @@ import 'package:luci_mobile/screens/dashboard_screen.dart';
 import 'package:luci_mobile/screens/clients_screen.dart';
 import 'package:luci_mobile/screens/interfaces_screen.dart';
 import 'package:luci_mobile/screens/more_screen.dart';
+import 'package:luci_mobile/screens/simple_dashboard_screen.dart';
+import 'package:luci_mobile/services/router_watchdog_service.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
@@ -29,6 +31,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       _selectedIndex = widget.initialTab!;
     }
     _currentInterfaceToScroll = widget.interfaceToScroll;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appState = ref.read(appStateProvider);
+      final ip = appState.activeIp;
+      final token = appState.sysauth;
+      if (ip != null && token != null) {
+        RouterWatchdogService.instance.startMonitoring(
+          routerIp: ip,
+          sysauth: token,
+          useHttps: appState.useHttps,
+        );
+      }
+    });
   }
 
   @override
@@ -80,6 +95,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget build(BuildContext context) {
     // Listen for requestedTab in AppState
     final appState = ref.watch(appStateProvider);
+    if (!appState.isExpertMode) {
+      return SimpleDashboardScreen(
+        onSwitchToExpert: () => appState.setExpertMode(true),
+      );
+    }
+
     if (appState.requestedTab != null &&
         appState.requestedTab != _selectedIndex) {
       // Store the values before the callback to avoid null reference issues

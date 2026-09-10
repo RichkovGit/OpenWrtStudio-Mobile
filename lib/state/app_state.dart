@@ -108,6 +108,105 @@ class AppState extends ChangeNotifier {
 
   VoidCallback? onRouterBackOnline;
 
+  // Mode state (Simple vs Expert)
+  bool _isExpertMode = false;
+  bool get isExpertMode => _isExpertMode;
+  void setExpertMode(bool val) {
+    _isExpertMode = val;
+    notifyListeners();
+  }
+  void toggleExpertMode() {
+    _isExpertMode = !_isExpertMode;
+    notifyListeners();
+  }
+
+  String? get sysauth => _authService?.sysauth;
+  bool get useHttps => _authService?.useHttps ?? false;
+  String? get activeIp => _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
+
+  // --- Client Management Methods ---
+  Future<bool> kickClient(String mac) async {
+    final ip = activeIp;
+    final token = sysauth;
+    if (ip == null || token == null) return false;
+    final api = _apiService ?? ServiceFactory.apiService;
+    try {
+      final cmd = 'ubus call hostapd.phy0-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null; '
+                  'ubus call hostapd.phy1-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null';
+      await api.systemExec(
+        ip, token, useHttps,
+        command: '/bin/sh',
+        params: ['-c', cmd],
+      );
+      return true;
+    } catch (e) {
+      Logger.error('kickClient error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> blockClientInternet(String mac, bool block) async {
+    final ip = activeIp;
+    final token = sysauth;
+    if (ip == null || token == null) return false;
+    final api = _apiService ?? ServiceFactory.apiService;
+    final cleanMac = mac.replaceAll(':', '_');
+    try {
+      String cmd;
+      if (block) {
+        cmd = 'uci add firewall rule; '
+              'uci set firewall.@rule[-1].name="Block_$cleanMac"; '
+              'uci set firewall.@rule[-1].src="lan"; '
+              'uci set firewall.@rule[-1].dest="wan"; '
+              'uci set firewall.@rule[-1].src_mac="$mac"; '
+              'uci set firewall.@rule[-1].target="REJECT"; '
+              'uci commit firewall; '
+              '/etc/init.d/firewall reload';
+      } else {
+        cmd = 'for s in \$(uci show firewall | grep "Block_$cleanMac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '
+              'uci delete firewall.\$s 2>/dev/null; done; '
+              'uci commit firewall; '
+              '/etc/init.d/firewall reload';
+      }
+      await api.systemExec(
+        ip, token, useHttps,
+        command: '/bin/sh',
+        params: ['-c', cmd],
+      );
+      return true;
+    } catch (e) {
+      Logger.error('blockClientInternet error: $e');
+      return false;
+    }
+  }
+
+  Future<bool> setStaticLease(String mac, String ipAddr, String name) async {
+    final ip = activeIp;
+    final token = sysauth;
+    if (ip == null || token == null) return false;
+    final api = _apiService ?? ServiceFactory.apiService;
+    final cleanName = name.trim().isEmpty ? 'StaticDevice' : name.trim().replaceAll(' ', '_');
+    try {
+      final cmd = 'for s in \$(uci show dhcp | grep -i "$mac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '
+                  'uci delete dhcp.\$s 2>/dev/null; done; '
+                  'uci add dhcp host; '
+                  'uci set dhcp.@host[-1].name="$cleanName"; '
+                  'uci set dhcp.@host[-1].mac="$mac"; '
+                  'uci set dhcp.@host[-1].ip="$ipAddr"; '
+                  'uci commit dhcp; '
+                  '/etc/init.d/dnsmasq reload';
+      await api.systemExec(
+        ip, token, useHttps,
+        command: '/bin/sh',
+        params: ['-c', cmd],
+      );
+      return true;
+    } catch (e) {
+      Logger.error('setStaticLease error: $e');
+      return false;
+    }
+  }
+
   // Add requestedTab for programmatic tab switching
   int? requestedTab;
   String? requestedInterfaceToScroll;

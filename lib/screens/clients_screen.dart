@@ -313,7 +313,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
   String normalizeMac(String mac) => mac.toUpperCase().replaceAll('-', ':');
 }
 
-class _UnifiedClientCard extends StatefulWidget {
+class _UnifiedClientCard extends ConsumerStatefulWidget {
   final Client client;
   final bool isExpanded;
   final VoidCallback onTap;
@@ -325,10 +325,10 @@ class _UnifiedClientCard extends StatefulWidget {
   });
 
   @override
-  State<_UnifiedClientCard> createState() => _UnifiedClientCardState();
+  ConsumerState<_UnifiedClientCard> createState() => _UnifiedClientCardState();
 }
 
-class _UnifiedClientCardState extends State<_UnifiedClientCard>
+class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
@@ -690,10 +690,164 @@ class _UnifiedClientCardState extends State<_UnifiedClientCard>
               _leaseTime(context, client),
             ),
           ),
-          const SizedBox(height: 8),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Управление устройством',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.orangeAccent,
+                        side: const BorderSide(color: Colors.orangeAccent),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.link_off, size: 16),
+                      label: const Text('Сбросить Wi-Fi'),
+                      onPressed: () => _handleKick(context, client),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF00D2FF),
+                        side: const BorderSide(color: Color(0xFF00D2FF)),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.push_pin_outlined, size: 16),
+                      label: const Text('Фикс. IP'),
+                      onPressed: () => _handleStaticLease(context, client),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                        side: const BorderSide(color: Colors.redAccent),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      icon: const Icon(Icons.block, size: 16),
+                      label: const Text('Блок. Интернет'),
+                      onPressed: () => _handleBlock(context, client),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
         ],
       ),
     );
+  }
+
+  Future<void> _handleKick(BuildContext context, Client client) async {
+    final appState = ref.read(appStateProvider);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Сброс соединения'),
+        content: Text('Отключить ${client.hostname} (${client.macAddress}) от беспроводной сети Wi-Fi?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Отключить', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      final success = await appState.kickClient(client.macAddress);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Клиент ${client.hostname} отключен' : 'Ошибка отправки команды'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleStaticLease(BuildContext context, Client client) async {
+    final appState = ref.read(appStateProvider);
+    final nameCtrl = TextEditingController(text: client.hostname != '*' ? client.hostname : 'Device');
+    final ipCtrl = TextEditingController(text: client.ipAddress != 'N/A' ? client.ipAddress : '192.168.10.');
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Фиксация статического IP'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('MAC: ${client.macAddress}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Имя устройства')),
+            const SizedBox(height: 8),
+            TextField(controller: ipCtrl, decoration: const InputDecoration(labelText: 'Статический IP')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (save == true) {
+      final ok = await appState.setStaticLease(client.macAddress, ipCtrl.text, nameCtrl.text);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok ? 'Статический IP ${ipCtrl.text} зафиксирован!' : 'Ошибка фиксации IP')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleBlock(BuildContext context, Client client) async {
+    final appState = ref.read(appStateProvider);
+    final block = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Блокировка доступа'),
+        content: Text('Управление доступом в интернет для ${client.hostname} (${client.macAddress}):'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Разблокировать'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Заблокировать', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (block != null) {
+      final ok = await appState.blockClientInternet(client.macAddress, block);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok ? (block ? 'Интернет заблокирован для ${client.hostname}' : 'Интернет разблокирован') : 'Ошибка применения правила'),
+          ),
+        );
+      }
+    }
   }
 
   String _buildMinimalClientSubtitle(Client client) {

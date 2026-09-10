@@ -19,6 +19,11 @@ import 'package:luci_mobile/screens/forkop_screen.dart';
 import 'package:luci_mobile/screens/protocols_screen.dart';
 import 'package:luci_mobile/screens/sentinel_screen.dart';
 import 'package:luci_mobile/screens/commands_screen.dart';
+import 'package:luci_mobile/screens/processes_screen.dart';
+import 'package:luci_mobile/screens/system_logs_screen.dart';
+import 'package:luci_mobile/screens/thermal_screen.dart';
+import 'package:luci_mobile/screens/startup_services_screen.dart';
+import 'package:luci_mobile/screens/diagnostics_screen.dart';
 
 class _MoreScreenSection extends StatelessWidget {
   final List<Widget> tiles;
@@ -363,6 +368,81 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const CommandsScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+            const LuciSectionHeader('Инструменты OpenWrt / LuCI'),
+            _MoreScreenSection(
+              tiles: [
+                _buildMoreTile(
+                  context,
+                  icon: Icons.memory,
+                  iconColor: const Color(0xFF38BDF8),
+                  title: 'Диспетчер процессов',
+                  subtitle: 'Активные процессы (ps/top), PID, использование CPU и памяти',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ProcessesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.article_outlined,
+                  iconColor: const Color(0xFFA78BFA),
+                  title: 'Системные логи',
+                  subtitle: 'Журнал системы (syslog) и буфер ядра (dmesg)',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SystemLogsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.thermostat,
+                  iconColor: const Color(0xFFF87171),
+                  title: 'Датчики температуры',
+                  subtitle: 'Температура CPU и чипов Wi-Fi (mt7915 phy0/phy1)',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ThermalScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.play_circle_outline,
+                  iconColor: const Color(0xFF34D399),
+                  title: 'Службы автозапуска',
+                  subtitle: 'Управление сервисами (/etc/init.d), статус и перезапуск',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const StartupServicesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.network_check,
+                  iconColor: const Color(0xFFFBBF24),
+                  title: 'Сетевая диагностика',
+                  subtitle: 'Ping, Traceroute и NSLookup до хостов в интернете',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const DiagnosticsScreen(),
                       ),
                     );
                   },
