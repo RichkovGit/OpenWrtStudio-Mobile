@@ -174,12 +174,23 @@ class AppState extends ChangeNotifier {
     try {
       String cmd;
       if (block) {
-        cmd = 'uci add firewall rule; '
+        cmd = 'while true; do '
+              'sec=\$(uci show firewall | grep -i "Block_$cleanMac" | head -n1 | cut -d\'.\' -f2 | cut -d\'=\' -f1); '
+              '[ -z "\$sec" ] && break; '
+              'uci delete firewall.\$sec 2>/dev/null; done; '
+              'uci add firewall rule; '
               'uci set firewall.@rule[-1].name="Block_${cleanMac}_dhcp"; '
               'uci set firewall.@rule[-1].src="lan"; '
               'uci set firewall.@rule[-1].src_mac="$mac"; '
               'uci set firewall.@rule[-1].proto="udp"; '
               'uci set firewall.@rule[-1].dest_port="67 68"; '
+              'uci set firewall.@rule[-1].target="ACCEPT"; '
+              'uci add firewall rule; '
+              'uci set firewall.@rule[-1].name="Block_${cleanMac}_luci"; '
+              'uci set firewall.@rule[-1].src="lan"; '
+              'uci set firewall.@rule[-1].src_mac="$mac"; '
+              'uci set firewall.@rule[-1].proto="tcp"; '
+              'uci set firewall.@rule[-1].dest_port="80 443"; '
               'uci set firewall.@rule[-1].target="ACCEPT"; '
               'uci add firewall rule; '
               'uci set firewall.@rule[-1].name="Block_${cleanMac}_input"; '
@@ -3249,8 +3260,9 @@ class AppState extends ChangeNotifier {
             final sec = entry.value as Map<String, dynamic>?;
             final name = sec?['name']?.toString() ?? '';
             final srcMac = sec?['src_mac']?.toString().toUpperCase().replaceAll('-', ':');
-            if (name.startsWith('Block_') && srcMac != null && srcMac.isNotEmpty) {
-              if (name.endsWith('_wan') || name.endsWith('_input') || !name.contains('_')) {
+            if (name.toUpperCase().startsWith('BLOCK_') && srcMac != null && srcMac.isNotEmpty) {
+              final upper = name.toUpperCase();
+              if (upper.endsWith('_WAN') || upper.endsWith('_INPUT') || !name.contains('_')) {
                 blockedMacs.add(srcMac);
               }
             }
