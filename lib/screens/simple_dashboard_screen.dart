@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/services/forkop_service.dart';
+import 'package:luci_mobile/services/service_factory.dart';
 
 class SimpleDashboardScreen extends ConsumerStatefulWidget {
   final VoidCallback onSwitchToExpert;
