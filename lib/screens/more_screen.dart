@@ -24,6 +24,8 @@ import 'package:luci_mobile/screens/system_logs_screen.dart';
 import 'package:luci_mobile/screens/thermal_screen.dart';
 import 'package:luci_mobile/screens/startup_services_screen.dart';
 import 'package:luci_mobile/screens/diagnostics_screen.dart';
+import 'package:luci_mobile/services/ota_service.dart';
+import 'package:luci_mobile/widgets/ota_update_dialog.dart';
 
 class _MoreScreenSection extends StatelessWidget {
   final List<Widget> tiles;
@@ -303,6 +305,59 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     );
   }
 
+  Future<void> _checkOtaUpdate(BuildContext context) async {
+    final otaService = OtaService();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Проверка обновлений на GitHub...'),
+          ],
+        ),
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    final release = await otaService.checkForUpdate();
+    final currentVer = await otaService.getCurrentVersion();
+
+    if (!context.mounted) return;
+
+    if (release != null) {
+      OtaUpdateDialog.show(
+        context,
+        releaseInfo: release,
+        currentVersion: currentVer,
+      );
+    } else {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle_outline, color: Color(0xFF10B981)),
+              SizedBox(width: 8),
+              Text('Обновлений нет'),
+            ],
+          ),
+          content: Text('У вас установлена актуальная версия OpenWrt Studio Mobile v$currentVer.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -534,6 +589,14 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       ),
                     );
                   },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.system_update_alt,
+                  iconColor: const Color(0xFF00D2FF),
+                  title: 'Обновление ПО (OTA)',
+                  subtitle: 'Проверка новых версий и беспроводное обновление',
+                  onTap: () => _checkOtaUpdate(context),
                 ),
                 _buildMoreTile(
                   context,

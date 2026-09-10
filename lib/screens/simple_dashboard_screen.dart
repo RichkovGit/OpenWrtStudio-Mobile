@@ -6,6 +6,8 @@ import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/services/forkop_service.dart';
 import 'package:luci_mobile/services/service_factory.dart';
+import 'package:luci_mobile/services/ota_service.dart';
+import 'package:luci_mobile/widgets/ota_update_dialog.dart';
 
 class SimpleDashboardScreen extends ConsumerStatefulWidget {
   final VoidCallback onSwitchToExpert;
@@ -24,11 +26,30 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   String _wifiSsid = 'Cudy_OpenWrt_5G';
   String _wifiPass = 'danik05092005';
   bool _isLoadingAction = false;
+  OtaReleaseInfo? _availableOtaRelease;
+  String _currentAppVer = '2.5.6';
 
   @override
   void initState() {
     super.initState();
     _loadInitialState();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) _checkOtaQuietly();
+    });
+  }
+
+  Future<void> _checkOtaQuietly() async {
+    try {
+      final otaService = OtaService();
+      final release = await otaService.checkForUpdate();
+      final currentVer = await otaService.getCurrentVersion();
+      if (release != null && mounted) {
+        setState(() {
+          _availableOtaRelease = release;
+          _currentAppVer = currentVer;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadInitialState() async {
@@ -172,6 +193,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // OTA Update Banner (if available)
+            _buildOtaBanner(),
+
             // 1. Internet Status Card
             _buildInternetCard(isOnline),
             const SizedBox(height: 16),
@@ -189,6 +213,64 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             const SizedBox(height: 24),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildOtaBanner() {
+    if (_availableOtaRelease == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0F2A38),
+            Color(0xFF13384D),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF00D2FF).withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.system_update, color: Color(0xFF00D2FF), size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Доступно обновление!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text('Версия v${_availableOtaRelease!.version}', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00D2FF),
+              foregroundColor: Colors.black,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              OtaUpdateDialog.show(
+                context,
+                releaseInfo: _availableOtaRelease!,
+                currentVersion: _currentAppVer,
+              );
+            },
+            child: const Text('Обновить', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
       ),
     );
   }
