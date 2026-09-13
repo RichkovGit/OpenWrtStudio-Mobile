@@ -30,6 +30,22 @@ class OtaReleaseInfo {
   }
 }
 
+enum OtaInstallStatus {
+  success,
+  permissionRequired,
+  downloadError,
+  installError,
+}
+
+class OtaInstallResult {
+  final OtaInstallStatus status;
+  final String? message;
+
+  const OtaInstallResult(this.status, [this.message]);
+
+  bool get isSuccess => status == OtaInstallStatus.success;
+}
+
 class OtaService {
   static const MethodChannel _channel = MethodChannel('com.openwrt.studio/notifications');
   static const String repo = 'RichkovGit/OpenWrtStudio-Mobile';
@@ -124,22 +140,6 @@ class OtaService {
       return null;
     }
   }
-
-enum OtaInstallStatus {
-  success,
-  permissionRequired,
-  downloadError,
-  installError,
-}
-
-class OtaInstallResult {
-  final OtaInstallStatus status;
-  final String? message;
-
-  const OtaInstallResult(this.status, [this.message]);
-
-  bool get isSuccess => status == OtaInstallStatus.success;
-}
 
   /// Downloads APK and initiates Android installation
   Future<OtaInstallResult> downloadAndInstall({
