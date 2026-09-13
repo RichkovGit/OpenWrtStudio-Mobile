@@ -49,7 +49,7 @@ class OtaInstallResult {
 class OtaService {
   static const MethodChannel _channel = MethodChannel('com.openwrt.studio/notifications');
   static const String repo = 'RichkovGit/OpenWrtStudio-Mobile';
-  static const String currentAppVersion = '2.5.15';
+  static const String currentAppVersion = '2.5.16';
 
   final Dio _dio = Dio(
     BaseOptions(

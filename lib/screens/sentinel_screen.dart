@@ -123,11 +123,19 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _checkHealth,
-        child: ListView(
-          padding: const EdgeInsets.all(LuciSpacing.md),
-          children: [
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: RefreshIndicator(
+          onRefresh: _checkHealth,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              LuciSpacing.md,
+              LuciSpacing.md,
+              LuciSpacing.md,
+              36,
+            ),
+            children: [
             // Status Card
             Card(
               elevation: 2,
@@ -321,9 +329,11 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                 ),
               );
             }),
+            const SizedBox(height: 36),
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

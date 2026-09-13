@@ -77,33 +77,38 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchProcesses),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _processes.isEmpty
-              ? const Center(child: Text('Нет данных о процессах'))
-              : ListView.separated(
-                  itemCount: _processes.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (ctx, i) {
-                    final p = _processes[i];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: const Color(0xFF1E293B),
-                        child: Text(p['pid'], style: const TextStyle(fontSize: 11, color: Color(0xFF00D2FF))),
-                      ),
-                      title: Text(p['command'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('Пользователь: ${p['user']} • Статус: ${p['stat']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                      trailing: PopupMenuButton<int>(
-                        icon: const Icon(Icons.more_vert, size: 20),
-                        onSelected: (sig) => _killProcess(p['pid'], sig, sig == 15 ? 'SIGTERM (завершение)' : 'SIGKILL (принудительно)'),
-                        itemBuilder: (ctx) => const [
-                          PopupMenuItem(value: 15, child: Text('Завершить (SIGTERM)')),
-                          PopupMenuItem(value: 9, child: Text('Принудительно убить (SIGKILL)')),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _processes.isEmpty
+                ? const Center(child: Text('Нет данных о процессах'))
+                : ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 36),
+                    itemCount: _processes.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (ctx, i) {
+                      final p = _processes[i];
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: const Color(0xFF1E293B),
+                          child: Text(p['pid'], style: const TextStyle(fontSize: 11, color: Color(0xFF00D2FF))),
+                        ),
+                        title: Text(p['command'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('Пользователь: ${p['user']} • Статус: ${p['stat']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        trailing: PopupMenuButton<int>(
+                          icon: const Icon(Icons.more_vert, size: 20),
+                          onSelected: (sig) => _killProcess(p['pid'], sig, sig == 15 ? 'SIGTERM (завершение)' : 'SIGKILL (принудительно)'),
+                          itemBuilder: (ctx) => const [
+                            PopupMenuItem(value: 15, child: Text('Завершить (SIGTERM)')),
+                            PopupMenuItem(value: 9, child: Text('Принудительно убить (SIGKILL)')),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+      ),
     );
   }
 }

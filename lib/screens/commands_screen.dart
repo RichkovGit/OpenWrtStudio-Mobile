@@ -124,113 +124,122 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Quick Command Presets (horizontal chips)
-          SizedBox(
-            height: 48,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.md),
-              itemCount: presets.length,
-              itemBuilder: (context, index) {
-                final p = presets[index];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: ActionChip(
-                    avatar: const Icon(Icons.terminal, size: 16),
-                    label: Text(p.title),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
+          children: [
+            // Quick Command Presets (horizontal chips)
+            SizedBox(
+              height: 48,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: LuciSpacing.md),
+                itemCount: presets.length,
+                itemBuilder: (context, index) {
+                  final p = presets[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ActionChip(
+                      avatar: const Icon(Icons.terminal, size: 16),
+                      label: Text(p.title),
+                      onPressed: _isExecuting
+                          ? null
+                          : () => _runCommand(p.command),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Terminal console output box
+            Expanded(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: LuciSpacing.md),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E1E1E),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  child: SelectableText(
+                    _consoleOutput,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                      color: Color(0xFF00FF66),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Command Input Bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                LuciSpacing.md,
+                4,
+                LuciSpacing.md,
+                12,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      enabled: !_isExecuting,
+                      decoration: InputDecoration(
+                        hintText: 'Введите команду (например: uptime)...',
+                        prefixIcon: const Icon(Icons.chevron_right),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                      ),
+                      onSubmitted: (val) {
+                        final trimmed = val.trim();
+                        if (trimmed.isNotEmpty) {
+                          _controller.clear();
+                          _runCommand(trimmed);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
                     onPressed: _isExecuting
                         ? null
-                        : () => _runCommand(p.command),
+                        : () {
+                            final trimmed = _controller.text.trim();
+                            if (trimmed.isNotEmpty) {
+                              _controller.clear();
+                              _runCommand(trimmed);
+                            }
+                          },
+                    icon: _isExecuting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send),
                   ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Terminal console output box
-          Expanded(
-            child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: LuciSpacing.md),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white12),
-              ),
-              child: SingleChildScrollView(
-                controller: _scrollController,
-                child: SelectableText(
-                  _consoleOutput,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 13,
-                    color: Color(0xFF00FF66),
-                    height: 1.4,
-                  ),
-                ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-
-          // Command Input Bar
-          Padding(
-            padding: const EdgeInsets.all(LuciSpacing.md),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    enabled: !_isExecuting,
-                    decoration: InputDecoration(
-                      hintText: 'Введите команду (например: uptime)...',
-                      prefixIcon: const Icon(Icons.chevron_right),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                    ),
-                    onSubmitted: (val) {
-                      final trimmed = val.trim();
-                      if (trimmed.isNotEmpty) {
-                        _controller.clear();
-                        _runCommand(trimmed);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(
-                  onPressed: _isExecuting
-                      ? null
-                      : () {
-                          final trimmed = _controller.text.trim();
-                          if (trimmed.isNotEmpty) {
-                            _controller.clear();
-                            _runCommand(trimmed);
-                          }
-                        },
-                  icon: _isExecuting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.send),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

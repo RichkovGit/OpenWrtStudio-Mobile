@@ -59,18 +59,22 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchTemps),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildSensorCard('Процессор CPU', 'MediaTek MT7981B', _cpuTemp, Icons.memory),
-                const SizedBox(height: 12),
-                _buildSensorCard('Wi-Fi 2.4 GHz', 'MediaTek MT7976C (phy0)', _wifi0Temp, Icons.wifi),
-                const SizedBox(height: 12),
-                _buildSensorCard('Wi-Fi 5 GHz', 'MediaTek MT7976C (phy1)', _wifi1Temp, Icons.wifi_tethering),
-              ],
-            ),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+                children: [
+                  _buildSensorCard('Процессор CPU', 'MediaTek MT7981B', _cpuTemp, Icons.memory),
+                  const SizedBox(height: 12),
+                  _buildSensorCard('Wi-Fi 2.4 GHz', 'MediaTek MT7976C (phy0)', _wifi0Temp, Icons.wifi),
+                  const SizedBox(height: 12),
+                  _buildSensorCard('Wi-Fi 5 GHz', 'MediaTek MT7976C (phy1)', _wifi1Temp, Icons.wifi_tethering),
+                ],
+              ),
+      ),
     );
   }
 

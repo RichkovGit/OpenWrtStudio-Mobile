@@ -159,13 +159,21 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: _scanProtocols,
-        child: _isLoading && _protocols.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : ListView.builder(
-                padding: const EdgeInsets.all(LuciSpacing.md),
-                itemCount: _protocols.length,
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: RefreshIndicator(
+          onRefresh: _scanProtocols,
+          child: _isLoading && _protocols.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    LuciSpacing.md,
+                    LuciSpacing.md,
+                    LuciSpacing.md,
+                    40,
+                  ),
+                  itemCount: _protocols.length,
                 itemBuilder: (context, index) {
                   final item = _protocols[index];
                   final isBusy = _busyProtocolId == item.id;
@@ -317,6 +325,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                   );
                 },
               ),
+        ),
       ),
     );
   }

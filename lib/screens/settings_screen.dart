@@ -47,9 +47,12 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: LuciAppBar(title: context.l10n.settings, showBack: true),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        children: [
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(0, 8, 0, 36),
+          children: [
           Builder(
             builder: (context) {
               final appState = ref.watch(appStateProvider);
@@ -400,7 +403,8 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildScaleChip(

@@ -13,7 +13,7 @@ class DiagnosticsScreen extends ConsumerStatefulWidget {
 class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   final TextEditingController _targetCtrl = TextEditingController(text: '1.1.1.1');
   final TextEditingController _packetSizeCtrl = TextEditingController(text: '56');
-  final ScrollController _terminalScroll = ScrollController();
+  final ScrollController _pageScroll = ScrollController();
 
   List<String> _interfaces = ['По умолчанию (Авто)'];
   String _selectedInterface = 'По умолчанию (Авто)';
@@ -34,7 +34,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
   void dispose() {
     _targetCtrl.dispose();
     _packetSizeCtrl.dispose();
-    _terminalScroll.dispose();
+    _pageScroll.dispose();
     super.dispose();
   }
 
@@ -159,9 +159,9 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_terminalScroll.hasClients) {
-        _terminalScroll.animateTo(
-          _terminalScroll.position.maxScrollExtent,
+      if (_pageScroll.hasClients) {
+        _pageScroll.animateTo(
+          _pageScroll.position.maxScrollExtent,
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
         );
@@ -192,10 +192,15 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: SingleChildScrollView(
+          controller: _pageScroll,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Target input & Stop button
             Row(
               children: [
@@ -425,37 +430,65 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // Terminal output
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF334155)),
-                ),
-                child: SingleChildScrollView(
-                  controller: _terminalScroll,
-                  child: SelectableText(
-                    _output.isEmpty
-                        ? 'Готов к диагностике. Выберите инструмент и нажмите кнопку выше.'
-                        : _output,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 12,
-                      color: Color(0xFFE2E8F0),
-                      height: 1.4,
-                    ),
+            // Terminal output header
+            Row(
+              children: [
+                const Icon(Icons.terminal, size: 18, color: Color(0xFF00D2FF)),
+                const SizedBox(width: 6),
+                Text(
+                  'Вывод утилиты',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
                   ),
+                ),
+                const Spacer(),
+                if (_output.isNotEmpty)
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
+                    icon: const Icon(Icons.clear_all, size: 16),
+                    label: const Text('Очистить', style: TextStyle(fontSize: 12)),
+                    onPressed: () {
+                      setState(() {
+                        _output = '';
+                      });
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
+            // Terminal output container
+            Container(
+              constraints: const BoxConstraints(minHeight: 260),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF334155)),
+              ),
+              child: SelectableText(
+                _output.isEmpty
+                    ? 'Готов к диагностике. Выберите инструмент и нажмите кнопку выше.'
+                    : _output,
+                style: const TextStyle(
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                  color: Color(0xFFE2E8F0),
+                  height: 1.4,
                 ),
               ),
             ),
+            const SizedBox(height: 36),
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

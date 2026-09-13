@@ -65,39 +65,44 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchServices),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              itemCount: _services.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (ctx, i) {
-                final svc = _services[i];
-                return ListTile(
-                  leading: const Icon(Icons.miscellaneous_services, color: Color(0xFF00D2FF)),
-                  title: Text(svc, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.play_arrow, color: Colors.green),
-                        tooltip: 'Запустить',
-                        onPressed: () => _runAction(svc, 'start'),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.restart_alt, color: Colors.orange),
-                        tooltip: 'Перезапустить',
-                        onPressed: () => _runAction(svc, 'restart'),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.stop, color: Colors.red),
-                        tooltip: 'Остановить',
-                        onPressed: () => _runAction(svc, 'stop'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : ListView.separated(
+                padding: const EdgeInsets.only(bottom: 36),
+                itemCount: _services.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final svc = _services[i];
+                  return ListTile(
+                    leading: const Icon(Icons.miscellaneous_services, color: Color(0xFF00D2FF)),
+                    title: Text(svc, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.play_arrow, color: Colors.green),
+                          tooltip: 'Запустить',
+                          onPressed: () => _runAction(svc, 'start'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.restart_alt, color: Colors.orange),
+                          tooltip: 'Перезапустить',
+                          onPressed: () => _runAction(svc, 'restart'),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.stop, color: Colors.red),
+                          tooltip: 'Остановить',
+                          onPressed: () => _runAction(svc, 'stop'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
     );
   }
 }

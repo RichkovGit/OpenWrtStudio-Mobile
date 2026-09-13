@@ -588,7 +588,10 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
 
     return Scaffold(
       appBar: const LuciAppBar(title: 'ForkOP Proxies', showBack: true),
-      body: Column(
+      body: SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
         children: [
           // Available Actions (Доступные действия) Card
           Card(
@@ -865,9 +868,11 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                                 ),
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: LuciSpacing.md,
-                                  vertical: LuciSpacing.sm,
+                                padding: const EdgeInsets.fromLTRB(
+                                  LuciSpacing.md,
+                                  LuciSpacing.sm,
+                                  LuciSpacing.md,
+                                  36,
                                 ),
                                 itemCount: _groups.length,
                                 itemBuilder: (context, index) {
@@ -1046,9 +1051,11 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                                 ),
                               )
                             : ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: LuciSpacing.md,
-                                  vertical: LuciSpacing.sm,
+                                padding: const EdgeInsets.fromLTRB(
+                                  LuciSpacing.md,
+                                  LuciSpacing.sm,
+                                  LuciSpacing.md,
+                                  36,
                                 ),
                                 itemCount: _regularNodes.length,
                                 itemBuilder: (context, index) {
@@ -1231,6 +1238,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                               icon: const Icon(Icons.add),
                               label: const Text('Добавить подписку'),
                             ),
+                            const SizedBox(height: 36),
                           ],
                         ),
                       ),
@@ -1239,6 +1247,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
