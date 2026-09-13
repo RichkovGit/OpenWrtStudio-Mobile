@@ -20,6 +20,7 @@ class Client {
   final bool? isOnline; // true/false from GL.iNet API, null if unknown
   final String? deviceClass; // "phone", "laptop", "tv", etc.
   final bool isBlocked;
+  final int? signal; // in dBm, e.g. -64
 
   Client({
     required this.ipAddress,
@@ -38,6 +39,7 @@ class Client {
     this.isOnline,
     this.deviceClass,
     this.isBlocked = false,
+    this.signal,
   });
 
   // Helper function to determine connection type from MAC address or other data
@@ -276,6 +278,7 @@ class Client {
     bool? isOnline,
     String? deviceClass,
     bool? isBlocked,
+    int? signal,
   }) {
     return Client(
       ipAddress: ipAddress ?? this.ipAddress,
@@ -294,6 +297,7 @@ class Client {
       isOnline: isOnline ?? this.isOnline,
       deviceClass: deviceClass ?? this.deviceClass,
       isBlocked: isBlocked ?? this.isBlocked,
+      signal: signal ?? this.signal,
     );
   }
 }

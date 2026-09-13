@@ -620,15 +620,43 @@ class RealApiService implements IApiService {
             }
           }
         }
-        if (attempted > 0 && succeeded == 0 && firstError != null) {
-          Error.throwWithStackTrace(firstError, firstStack!);
+        if (result.isEmpty) {
+          for (final fallbackIface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1']) {
+            try {
+              final stations = await fetchAssociatedStationsWithContext(
+                ipAddress: ipAddress,
+                sysauth: sysauth,
+                useHttps: useHttps,
+                interface: fallbackIface,
+                context: context?.mounted == true ? context : null,
+              );
+              if (stations.isNotEmpty) {
+                result[fallbackIface] = stations.toSet();
+              }
+            } catch (_) {}
+          }
         }
         return result;
       }
       throw invalidResponse;
-    } catch (e, stack) {
-      Logger.exception('Failed to fetch all associated stations', e, stack);
-      rethrow;
+    } catch (e) {
+      Logger.warning('Failed to fetch wireless devices: $e');
+      final fallbackResult = <String, Set<String>>{};
+      for (final fallbackIface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1']) {
+        try {
+          final stations = await fetchAssociatedStationsWithContext(
+            ipAddress: ipAddress,
+            sysauth: sysauth,
+            useHttps: useHttps,
+            interface: fallbackIface,
+            context: context?.mounted == true ? context : null,
+          );
+          if (stations.isNotEmpty) {
+            fallbackResult[fallbackIface] = stations.toSet();
+          }
+        } catch (_) {}
+      }
+      return fallbackResult;
     }
   }
 
@@ -663,18 +691,40 @@ class RealApiService implements IApiService {
           final resultsList = data['results'] as List;
           final macs = <String>[];
           for (final entry in resultsList) {
-            if (entry is! Map<String, dynamic>) throw invalidResponse;
-            final mac = entry['mac'];
-            if (mac != null) macs.add(mac.toString());
+            if (entry is Map && entry['mac'] != null) {
+              macs.add(entry['mac'].toString());
+            }
           }
-          return macs;
+          if (macs.isNotEmpty) return macs;
         }
       }
-      throw invalidResponse;
-    } catch (e, stack) {
-      Logger.exception('Failed to fetch associated stations', e, stack);
-      rethrow;
+    } catch (e) {
+      Logger.warning('iwinfo assoclist failed for $interface: $e');
     }
+
+    // Fallback to hostapd.<interface> get_clients (MediaTek MT79xx / mac80211)
+    try {
+      final hostapdResult = await callWithContext(
+        ipAddress,
+        sysauth,
+        useHttps,
+        object: 'hostapd.$interface',
+        method: 'get_clients',
+        params: {},
+        context: context,
+      );
+      if (hostapdResult is List && hostapdResult.length > 1 && hostapdResult[0] == 0) {
+        final data = hostapdResult[1];
+        if (data is Map && data['clients'] is Map) {
+          final clientsMap = data['clients'] as Map;
+          return clientsMap.keys.map((k) => k.toString()).toList();
+        }
+      }
+    } catch (e) {
+      Logger.warning('hostapd.$interface get_clients failed: $e');
+    }
+
+    return [];
   }
 
   @override

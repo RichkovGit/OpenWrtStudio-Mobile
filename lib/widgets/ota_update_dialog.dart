@@ -49,7 +49,7 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
       _cancelToken = CancelToken();
     });
 
-    final success = await _otaService.downloadAndInstall(
+    final result = await _otaService.downloadAndInstall(
       downloadUrl: widget.releaseInfo.apkUrl,
       version: widget.releaseInfo.version,
       cancelToken: _cancelToken,
@@ -67,12 +67,12 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
     if (!mounted) return;
     setState(() {
       _isDownloading = false;
-      if (!success && _cancelToken?.isCancelled != true) {
-        _errorMessage = 'Не удалось загрузить или запустить установку. Попробуйте скачать вручную.';
+      if (!result.isSuccess && _cancelToken?.isCancelled != true) {
+        _errorMessage = result.message ?? 'Не удалось выполнить установку.';
       }
     });
 
-    if (success && mounted) {
+    if (result.isSuccess && mounted) {
       Navigator.of(context).pop();
     }
   }
@@ -187,15 +187,50 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                   color: Colors.red.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            foregroundColor: const Color(0xFF00D2FF),
+                            side: const BorderSide(color: Color(0xFF00D2FF)),
+                          ),
+                          icon: const Icon(Icons.open_in_browser, size: 16),
+                          label: const Text('Скачать APK напрямую', style: TextStyle(fontSize: 11)),
+                          onPressed: () => launchUrlString(
+                            widget.releaseInfo.apkUrl,
+                            mode: LaunchMode.externalApplication,
+                          ),
+                        ),
+                        if (_errorMessage!.contains('разрешение'))
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              foregroundColor: Colors.orangeAccent,
+                              side: const BorderSide(color: Colors.orangeAccent),
+                            ),
+                            icon: const Icon(Icons.settings, size: 16),
+                            label: const Text('Настройки Android', style: TextStyle(fontSize: 11)),
+                            onPressed: () => _otaService.openInstallPermissionSettings(),
+                          ),
+                      ],
                     ),
                   ],
                 ),

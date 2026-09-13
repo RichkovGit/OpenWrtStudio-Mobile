@@ -18,8 +18,11 @@ class ClientsScreen extends ConsumerStatefulWidget {
   ConsumerState<ClientsScreen> createState() => _ClientsScreenState();
 }
 
+enum ClientStatusFilter { all, online, offline }
+
 class _ClientsScreenState extends ConsumerState<ClientsScreen> {
   String _searchQuery = '';
+  ClientStatusFilter _statusFilter = ClientStatusFilter.all;
   // Track expansion by client identity (MAC/IP), not list index - indices
   // shift when the search filter or the underlying data reorders the list.
   final Set<String> _expandedClientKeys = {};
@@ -148,9 +151,19 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                     }
 
                     final clients = aggregatedClients;
+                    final totalCount = clients.length;
+                    final onlineCount = clients.where((c) => c.isOnline == true).length;
+                    final offlineCount = clients.where((c) => c.isOnline == false).length;
 
                     final filteredClients = clients.where((client) {
+                      if (_statusFilter == ClientStatusFilter.online && client.isOnline != true) {
+                        return false;
+                      }
+                      if (_statusFilter == ClientStatusFilter.offline && client.isOnline != false) {
+                        return false;
+                      }
                       final query = _searchQuery.toLowerCase();
+                      if (query.isEmpty) return true;
                       return client.hostname.toLowerCase().contains(query) ||
                           client.ipAddress.toLowerCase().contains(query) ||
                           client.macAddress.toLowerCase().contains(query) ||
@@ -196,7 +209,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                               ),
                               hintStyle: TextStyle(
                                 color: colorScheme.onSurfaceVariant.withValues(
-                                  alpha: 0.7,
+                                   alpha: 0.7,
                                 ),
                               ),
                             ),
@@ -207,41 +220,66 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                             horizontal: 16.0,
                             vertical: 4.0,
                           ),
-                          child: SegmentedButton<bool>(
+                          child: SegmentedButton<ClientStatusFilter>(
                             segments: [
-                              ButtonSegment<bool>(
-                                value: true,
-                                label: Text(context.l10n.all),
-                                icon: const Icon(Icons.apartment),
+                              ButtonSegment<ClientStatusFilter>(
+                                value: ClientStatusFilter.all,
+                                label: Text('Все ($totalCount)'),
                               ),
-                              ButtonSegment<bool>(
-                                value: false,
-                                label: Text(context.l10n.selected),
-                                icon: const Icon(Icons.router),
+                              ButtonSegment<ClientStatusFilter>(
+                                value: ClientStatusFilter.online,
+                                icon: const Icon(Icons.circle, size: 8, color: Colors.greenAccent),
+                                label: Text('В сети ($onlineCount)'),
+                              ),
+                              ButtonSegment<ClientStatusFilter>(
+                                value: ClientStatusFilter.offline,
+                                icon: const Icon(Icons.circle_outlined, size: 8, color: Colors.grey),
+                                label: Text('Офлайн ($offlineCount)'),
                               ),
                             ],
-                            selected: {_aggregateAllRouters},
+                            selected: {_statusFilter},
                             showSelectedIcon: false,
                             style: SegmentedButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
+                                horizontal: 6,
                               ),
                             ),
                             onSelectionChanged: (s) {
                               setState(() {
-                                _aggregateAllRouters = s.first;
-                                _computeClientsFuture();
+                                _statusFilter = s.first;
                               });
-                              // Persist selection
-                              ref
-                                  .read(appStateProvider)
-                                  .setClientsAggregateAllRouters(
-                                    _aggregateAllRouters,
-                                  );
                             },
                           ),
                         ),
+                        if (watchedAppState.routers.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 2.0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                ChoiceChip(
+                                  label: Text(_aggregateAllRouters ? 'Все роутеры' : 'Выбранный роутер'),
+                                  selected: _aggregateAllRouters,
+                                  visualDensity: VisualDensity.compact,
+                                  onSelected: (val) {
+                                    setState(() {
+                                      _aggregateAllRouters = val;
+                                      _computeClientsFuture();
+                                    });
+                                    ref
+                                        .read(appStateProvider)
+                                        .setClientsAggregateAllRouters(
+                                          _aggregateAllRouters,
+                                        );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
                         Expanded(
                           child: filteredClients.isEmpty
                               ? LuciEmptyState(
@@ -777,7 +815,7 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Сброс соединения'),
-        content: Text('Отключить ${client.hostname} (${client.macAddress}) от беспроводной сети Wi-Fi?'),
+        content: Text('Отключить ${client.hostname} (${client.macAddress}) от сети Wi-Fi на 30 секунд?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
           ElevatedButton(
@@ -789,13 +827,14 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
       ),
     );
     if (confirmed == true) {
-      final success = await appState.kickClient(client.macAddress);
+      final success = await appState.kickClient(client.macAddress, banTimeSeconds: 30);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? 'Клиент ${client.hostname} отключен' : 'Ошибка отправки команды'),
+            content: Text(success ? 'Клиент ${client.hostname} отключен на 30 сек' : 'Ошибка отправки команды'),
           ),
         );
+        widget.onRefresh?.call();
       }
     }
   }
@@ -909,7 +948,12 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
 
   String _connectionLabel(BuildContext context, Client client) {
     if (client.isOnline == false) return context.l10n.offline;
-    if (client.wifiBand != null) return client.connectionLabel;
+    if (client.wifiBand != null) {
+      if (client.signal != null) {
+        return '${client.wifiBand} (${client.signal} dBm)';
+      }
+      return client.wifiBand!;
+    }
     return switch (client.connectionType) {
       ConnectionType.wireless => context.l10n.wifi,
       ConnectionType.wired => context.l10n.ethernet,

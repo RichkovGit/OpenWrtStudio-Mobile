@@ -33,7 +33,7 @@ class OtaReleaseInfo {
 class OtaService {
   static const MethodChannel _channel = MethodChannel('com.openwrt.studio/notifications');
   static const String repo = 'RichkovGit/OpenWrtStudio-Mobile';
-  static const String currentAppVersion = '2.5.6';
+  static const String currentAppVersion = '2.5.13';
 
   final Dio _dio = Dio(
     BaseOptions(
@@ -125,8 +125,24 @@ class OtaService {
     }
   }
 
+enum OtaInstallStatus {
+  success,
+  permissionRequired,
+  downloadError,
+  installError,
+}
+
+class OtaInstallResult {
+  final OtaInstallStatus status;
+  final String? message;
+
+  const OtaInstallResult(this.status, [this.message]);
+
+  bool get isSuccess => status == OtaInstallStatus.success;
+}
+
   /// Downloads APK and initiates Android installation
-  Future<bool> downloadAndInstall({
+  Future<OtaInstallResult> downloadAndInstall({
     required String downloadUrl,
     required String version,
     required void Function(double progress, int received, int total) onProgress,
@@ -137,6 +153,13 @@ class OtaService {
       try {
         dirPath = await _channel.invokeMethod<String>('getDownloadDir');
       } catch (_) {}
+
+      if (dirPath != null && dirPath.isNotEmpty) {
+        final dir = Directory(dirPath);
+        if (!await dir.exists()) {
+          await dir.create(recursive: true);
+        }
+      }
 
       dirPath ??= '/sdcard/Download';
       final savePath = '$dirPath/OpenWrtStudio_Mobile_v$version.apk';
@@ -161,16 +184,52 @@ class OtaService {
         },
       );
 
-      // Call native install
-      final res = await _channel.invokeMethod<bool>('installApk', {
-        'filePath': savePath,
-      });
+      // Verify file exists and has content
+      if (!await f.exists() || await f.length() == 0) {
+        return const OtaInstallResult(
+          OtaInstallStatus.downloadError,
+          'Загруженный файл пуст или поврежден',
+        );
+      }
 
-      return res == true;
+      // Call native install
+      try {
+        final res = await _channel.invokeMethod<bool>('installApk', {
+          'filePath': savePath,
+        });
+        if (res == true) {
+          return const OtaInstallResult(OtaInstallStatus.success);
+        } else {
+          return const OtaInstallResult(
+            OtaInstallStatus.installError,
+            'Установщик вернул ошибку запуска',
+          );
+        }
+      } on PlatformException catch (pe) {
+        if (pe.code == 'PERMISSION_DENIED') {
+          return const OtaInstallResult(
+            OtaInstallStatus.permissionRequired,
+            'Требуется разрешение на установку приложений из неизвестных источников. Откройте настройки и повторите установку.',
+          );
+        }
+        return OtaInstallResult(
+          OtaInstallStatus.installError,
+          pe.message ?? 'Ошибка вызова установщика',
+        );
+      }
     } catch (e) {
       Logger.error('OTA downloadAndInstall error: $e');
-      return false;
+      return OtaInstallResult(
+        OtaInstallStatus.downloadError,
+        'Ошибка загрузки файла: $e',
+      );
     }
+  }
+
+  Future<void> openInstallPermissionSettings() async {
+    try {
+      await _channel.invokeMethod('openInstallPermissionSettings');
+    } catch (_) {}
   }
 
   Future<String> getCurrentVersion() async {
@@ -185,13 +244,24 @@ class OtaService {
   static String _cleanVersion(String tag) {
     var s = tag.replaceFirst(RegExp(r'^v', caseSensitive: false), '');
     s = s.replaceAll(RegExp(r'[-_]mobile', caseSensitive: false), '');
+    // Strip build number e.g. +1
+    if (s.contains('+')) {
+      s = s.split('+').first;
+    }
+    // Strip trailing suffix
+    if (s.contains('-')) {
+      s = s.split('-').first;
+    }
     return s.trim();
   }
 
   static bool _isNewerVersion(String latest, String current) {
     try {
-      final lParts = latest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final cParts = current.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final cleanLatest = _cleanVersion(latest);
+      final cleanCurrent = _cleanVersion(current);
+
+      final lParts = cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final cParts = cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
       for (var i = 0; i < 3; i++) {
         final l = i < lParts.length ? lParts[i] : 0;

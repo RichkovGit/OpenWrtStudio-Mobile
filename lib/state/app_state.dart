@@ -99,6 +99,9 @@ class AppState extends ChangeNotifier {
   static const String _clientsAggregateKey = 'clients_aggregate_all';
   bool get clientsAggregateAllRouters => _clientsAggregateAllRouters;
 
+  // Cached friendly client hostnames (persists across reconnects/drops)
+  final Map<String, String> _cachedClientNames = {};
+
   // Dashboard preferences state
   DashboardPreferences _dashboardPreferences = DashboardPreferences();
   DashboardPreferences get dashboardPreferences => _dashboardPreferences;
@@ -145,14 +148,16 @@ class AppState extends ChangeNotifier {
   }
 
   // --- Client Management Methods ---
-  Future<bool> kickClient(String mac) async {
+  Future<bool> kickClient(String mac, {int banTimeSeconds = 30}) async {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
     final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
+    final banTimeMs = banTimeSeconds * 1000;
     try {
-      final cmd = 'ubus call hostapd.phy0-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null; '
-                  'ubus call hostapd.phy1-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null';
+      final cmd = 'for iface in \$(ubus list "hostapd.*" 2>/dev/null); do '
+                  'ubus call \$iface del_client \'{"addr":"$mac","deauth":true,"ban_time":$banTimeMs}\' 2>/dev/null; done; '
+                  'ip neigh del "\$(ip neigh show | grep -i "$mac" | awk "{print \\\$1}" | head -n1)" dev br-lan 2>/dev/null';
       await api.systemExec(
         ip, token, useHttps,
         command: '/bin/sh',
@@ -3060,21 +3065,29 @@ class AppState extends ChangeNotifier {
         Logger.warning('Using wireless clients without DHCP data: $leaseError');
       }
 
+      // Normalize wireless MACs for consistent lookup
       final normalizedWireless = wirelessMacs
           .map((m) => m.toUpperCase().replaceAll('-', ':'))
           .toSet();
 
-      // Convert to Client models with connection type
       final clients = <String, Client>{}; // key by normalized MAC
       for (final lease in leases) {
-        final client = Client.fromLease(lease);
+        var client = Client.fromLease(lease);
         final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
+        if (macNorm == '00:00:00:00:00:00' || client.ipAddress == '1.1.1.1') continue;
+
+        if (client.hostname.isNotEmpty && client.hostname != 'Unknown' && client.hostname != '*') {
+          _cachedClientNames[macNorm] = client.hostname;
+        } else if (_cachedClientNames.containsKey(macNorm)) {
+          client = client.copyWith(hostname: _cachedClientNames[macNorm]);
+        }
+
         final isWireless = normalizedWireless.contains(macNorm);
-        // If confirmed wireless by assoclist, mark wireless; otherwise keep heuristic
-        final enriched = isWireless
-            ? client.copyWith(connectionType: ConnectionType.wireless)
-            : client;
-        // Prefer entries that have more info (hostname length as heuristic)
+        final enriched = client.copyWith(
+          connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
+          isOnline: isWireless,
+        );
+
         if (!clients.containsKey(macNorm) ||
             (enriched.hostname.isNotEmpty &&
                 enriched.hostname.length >
@@ -3085,10 +3098,17 @@ class AppState extends ChangeNotifier {
 
       // Add wireless stations not in DHCP leases (AP-mode fallback)
       for (final mac in normalizedWireless) {
-        if (!clients.containsKey(mac)) {
-          clients[mac] = Client.fromWirelessStation(mac);
+        if (!clients.containsKey(mac) && mac != '00:00:00:00:00:00') {
+          final hostname = _cachedClientNames[mac] ?? 'Unknown';
+          clients[mac] = Client.fromWirelessStation(mac).copyWith(
+            hostname: hostname,
+            isOnline: true,
+          );
         }
       }
+
+      // Enrich with GL.iNet data
+      _enrichClientsWithGlInet(clients);
 
       // Enrich with blocked status from OpenWrt firewall
       await _enrichClientsWithFirewallBlocks(clients);
@@ -3100,6 +3120,147 @@ class AppState extends ChangeNotifier {
       Logger.exception('Failed to aggregate clients', e, stack);
       Error.throwWithStackTrace(e, stack);
     }
+  }
+
+  Future<Map<String, ({String ip, bool isReachable})>> _fetchArpTable(
+    String ip,
+    String token,
+    bool useHttps,
+  ) async {
+    final result = <String, ({String ip, bool isReachable})>{};
+    try {
+      final res = await _apiService!.call(
+        ip,
+        token,
+        useHttps,
+        object: 'file',
+        method: 'read',
+        params: {'path': '/proc/net/arp'},
+      );
+      if (res is List && res.length > 1 && res[0] == 0) {
+        final data = res[1];
+        if (data is Map && data['data'] is String) {
+          final content = data['data'] as String;
+          final lines = content.split('\n');
+          for (final line in lines) {
+            final parts = line.trim().split(RegExp(r'\s+'));
+            if (parts.length >= 6 && parts[0] != 'IP') {
+              final arpIp = parts[0];
+              final flags = parts[2];
+              final mac = parts[3].toUpperCase().replaceAll('-', ':');
+              if (mac == '00:00:00:00:00:00' || arpIp == '1.1.1.1') continue;
+              final isReachable = flags == '0x2';
+              result[mac] = (ip: arpIp, isReachable: isReachable);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      Logger.warning('Failed to read /proc/net/arp: $e');
+    }
+    return result;
+  }
+
+  Future<Map<String, ({String band, int? signal})>> _fetchWirelessDetails(
+    String ip,
+    String token,
+    bool useHttps,
+  ) async {
+    final result = <String, ({String band, int? signal})>{};
+
+    // 1. Query hostapd get_clients
+    for (final iface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1', 'ra0', 'rax0']) {
+      try {
+        final res = await _apiService!.call(
+          ip,
+          token,
+          useHttps,
+          object: 'hostapd.$iface',
+          method: 'get_clients',
+          params: {},
+        );
+        if (res is List && res.length > 1 && res[0] == 0) {
+          final data = res[1];
+          if (data is Map) {
+            final freq = data['freq'] as int? ?? 0;
+            final band = freq > 4000 ? '5 GHz' : '2.4 GHz';
+            final clients = data['clients'];
+            if (clients is Map) {
+              for (final entry in clients.entries) {
+                final mac = entry.key.toString().toUpperCase().replaceAll('-', ':');
+                final clientData = entry.value;
+                int? sig;
+                if (clientData is Map && clientData['signal'] is int) {
+                  sig = clientData['signal'] as int;
+                }
+                result[mac] = (band: band, signal: sig);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Query iwinfo assoclist if available
+    for (final iface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1']) {
+      try {
+        final res = await _apiService!.call(
+          ip,
+          token,
+          useHttps,
+          object: 'iwinfo',
+          method: 'assoclist',
+          params: {'device': iface},
+        );
+        if (res is List && res.length > 1 && res[0] == 0) {
+          final data = res[1];
+          if (data is Map && data['results'] is List) {
+            final list = data['results'] as List;
+            for (final item in list) {
+              if (item is Map && item['mac'] != null) {
+                final mac = item['mac'].toString().toUpperCase().replaceAll('-', ':');
+                final sig = item['signal'] as int?;
+                final band = iface.contains('1') ? '5 GHz' : '2.4 GHz';
+                result[mac] = (
+                  band: result[mac]?.band ?? band,
+                  signal: sig ?? result[mac]?.signal,
+                );
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    return result;
+  }
+
+  Future<Map<String, String>> _fetchStaticHostnames(
+    String ip,
+    String token,
+    bool useHttps,
+  ) async {
+    final result = <String, String>{};
+    try {
+      final res = await _apiService!.uciGetAll(ip, token, useHttps, config: 'dhcp');
+      final sections = _resolveUciSections(res, 'dhcp');
+      if (sections != null) {
+        for (final sec in sections.values) {
+          if (sec is Map) {
+            final type = sec['.type']?.toString();
+            if (type == 'host') {
+              final name = sec['name']?.toString();
+              final mac = sec['mac']?.toString();
+              if (name != null && name.isNotEmpty && mac != null && mac.isNotEmpty) {
+                final macNorm = mac.toUpperCase().replaceAll('-', ':');
+                result[macNorm] = name;
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return result;
   }
 
   /// Returns clients for the currently selected router only
@@ -3223,25 +3384,84 @@ class AppState extends ChangeNotifier {
         Logger.warning('Using wireless clients without DHCP data: $leaseError');
       }
 
+      final wirelessDetails = await _fetchWirelessDetails(
+        activeIp,
+        _authService!.sysauth!,
+        activeHttps,
+      );
+      final arpTable = await _fetchArpTable(
+        activeIp,
+        _authService!.sysauth!,
+        activeHttps,
+      );
+      final staticNames = await _fetchStaticHostnames(
+        activeIp,
+        _authService!.sysauth!,
+        activeHttps,
+      );
+      _cachedClientNames.addAll(staticNames);
+
       // Normalize wireless MACs for consistent lookup
-      final normalizedWireless = wireless
-          .map((m) => m.toUpperCase().replaceAll('-', ':'))
-          .toSet();
+      final normalizedWireless = {
+        ...wireless.map((m) => m.toUpperCase().replaceAll('-', ':')),
+        ...wirelessDetails.keys,
+      };
 
       final clientMap = <String, Client>{};
       for (final l in leases) {
-        final c = Client.fromLease(l);
+        var c = Client.fromLease(l);
         final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
+        if (macNorm == '00:00:00:00:00:00' || c.ipAddress == '1.1.1.1') continue;
+
+        // Restore / cache hostname
+        if (c.hostname.isNotEmpty && c.hostname != 'Unknown' && c.hostname != '*') {
+          _cachedClientNames[macNorm] = c.hostname;
+        } else if (_cachedClientNames.containsKey(macNorm)) {
+          c = c.copyWith(hostname: _cachedClientNames[macNorm]);
+        }
+
         final isWireless = normalizedWireless.contains(macNorm);
-        clientMap[macNorm] = isWireless
-            ? c.copyWith(connectionType: ConnectionType.wireless)
-            : c;
+        final isReachable = isWireless || (arpTable[macNorm]?.isReachable == true);
+        final band = wirelessDetails[macNorm]?.band;
+        final sig = wirelessDetails[macNorm]?.signal;
+
+        clientMap[macNorm] = c.copyWith(
+          connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
+          isOnline: isReachable,
+          wifiBand: band,
+          signal: sig,
+        );
       }
 
-      // Add wireless stations not in DHCP leases (AP-mode fallback)
+      // Add wireless stations not in DHCP leases (AP-mode fallback / fresh connection)
       for (final mac in normalizedWireless) {
-        if (!clientMap.containsKey(mac)) {
-          clientMap[mac] = Client.fromWirelessStation(mac);
+        if (!clientMap.containsKey(mac) && mac != '00:00:00:00:00:00') {
+          final hostname = _cachedClientNames[mac] ?? 'Unknown';
+          final ip = arpTable[mac]?.ip ?? 'N/A';
+          final band = wirelessDetails[mac]?.band;
+          final sig = wirelessDetails[mac]?.signal;
+          clientMap[mac] = Client.fromWirelessStation(mac).copyWith(
+            hostname: hostname,
+            ipAddress: ip,
+            isOnline: true,
+            wifiBand: band,
+            signal: sig,
+          );
+        }
+      }
+
+      // Add active wired devices from ARP table not in DHCP leases
+      for (final entry in arpTable.entries) {
+        final mac = entry.key;
+        if (!clientMap.containsKey(mac) && entry.value.isReachable && mac != '00:00:00:00:00:00') {
+          final hostname = _cachedClientNames[mac] ?? 'Unknown';
+          clientMap[mac] = Client(
+            ipAddress: entry.value.ip,
+            macAddress: mac,
+            hostname: hostname,
+            connectionType: ConnectionType.wired,
+            isOnline: true,
+          );
         }
       }
 
@@ -3395,21 +3615,33 @@ class AppState extends ChangeNotifier {
       final tasks = routers.map((r) async {
         try {
           if (_apiService is RealApiService) {
-            final real = _apiService as RealApiService;
-            final res = await real.loginWithProtocolDetection(
-              r.activeAddress,
-              r.username,
-              r.password,
-              r.activeUseHttps,
-            );
-            if (res.token == null) {
+            final isCurrent = r.id == selectedRouter?.id || r.activeAddress == activeIp;
+            String? token = isCurrent && _authService?.sysauth != null
+                ? _authService!.sysauth!
+                : null;
+            bool actualHttps = isCurrent
+                ? (_authService?.useHttps ?? r.activeUseHttps)
+                : r.activeUseHttps;
+
+            if (token == null) {
+              final real = _apiService as RealApiService;
+              final res = await real.loginWithProtocolDetection(
+                r.activeAddress,
+                r.username,
+                r.password,
+                r.activeUseHttps,
+              );
+              token = res.token;
+              actualHttps = res.actualUseHttps;
+            }
+            if (token == null) {
               throw Exception('Login failed for ${r.ipAddress}');
             }
             final map = await _apiService!
                 .fetchAllAssociatedWirelessMacsWithContext(
                   ipAddress: r.activeAddress,
-                  sysauth: res.token!,
-                  useHttps: res.actualUseHttps,
+                  sysauth: token,
+                  useHttps: actualHttps,
                 );
             successfulRouters++;
             final set = <String>{};
@@ -3464,20 +3696,32 @@ class AppState extends ChangeNotifier {
       final tasks = routers.map((r) async {
         try {
           if (_apiService is RealApiService) {
-            final real = _apiService as RealApiService;
-            final res = await real.loginWithProtocolDetection(
-              r.activeAddress,
-              r.username,
-              r.password,
-              r.activeUseHttps,
-            );
-            if (res.token == null) {
+            final isCurrent = r.id == selectedRouter?.id || r.activeAddress == activeIp;
+            String? token = isCurrent && _authService?.sysauth != null
+                ? _authService!.sysauth!
+                : null;
+            bool actualHttps = isCurrent
+                ? (_authService?.useHttps ?? r.activeUseHttps)
+                : r.activeUseHttps;
+
+            if (token == null) {
+              final real = _apiService as RealApiService;
+              final res = await real.loginWithProtocolDetection(
+                r.activeAddress,
+                r.username,
+                r.password,
+                r.activeUseHttps,
+              );
+              token = res.token;
+              actualHttps = res.actualUseHttps;
+            }
+            if (token == null) {
               throw Exception('Login failed for ${r.ipAddress}');
             }
             final callRes = await _apiService!.call(
               r.activeAddress,
-              res.token!,
-              res.actualUseHttps,
+              token,
+              actualHttps,
               object: 'luci-rpc',
               method: 'getDHCPLeases',
               params: {},

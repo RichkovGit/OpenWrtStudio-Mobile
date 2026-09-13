@@ -22,9 +22,9 @@ class QuickCommand {
       icon: 'memory',
     ),
     QuickCommand(
-      title: 'Restart DNS / DHCP',
-      description: 'Flush DNS caches and restart dnsmasq service',
-      command: '/etc/init.d/dnsmasq restart',
+      title: 'Flush DNS Cache',
+      description: 'Flush DNS caches via dnsmasq reload',
+      command: '/etc/init.d/dnsmasq reload',
       icon: 'dns',
     ),
     QuickCommand(

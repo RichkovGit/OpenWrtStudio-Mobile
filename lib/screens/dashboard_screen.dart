@@ -235,6 +235,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Text(
                     model,
                     style: valueStyle,
+                    maxLines: 2,
+                    softWrap: true,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                   ),
@@ -518,26 +520,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final displaySpeed = speed.isNaN || speed.isInfinite || speed < 0
         ? 0.0
         : speed;
-    final speedText = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      transitionBuilder: (Widget child, Animation<double> animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, 0.1),
-              end: Offset.zero,
-            ).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: Text(
-        _formatSpeed(displaySpeed),
-        key: ValueKey(displaySpeed),
-        style: Theme.of(context).textTheme.titleMedium
-            ?.copyWith(fontWeight: FontWeight.bold),
-      ),
+    final speedText = Text(
+      _formatSpeed(displaySpeed),
+      style: Theme.of(context).textTheme.titleMedium
+          ?.copyWith(fontWeight: FontWeight.bold),
     );
 
     return Row(
@@ -667,7 +653,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         Text(
           label,
           style: labelStyle,
-          maxLines: 1,
+          maxLines: 2,
+          softWrap: true,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
         ),
@@ -810,52 +797,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
         const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.max,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 2,
           children: [
             if (signal != null)
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.network_cell,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onSurface
-                          .withValues(alpha: 0.6),
-                    ),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        '$signal dBm',
-                        style: textTheme.bodySmall,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            if (signal != null) const SizedBox(width: 8),
-            Flexible(
-              child: Row(
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.settings_input_antenna,
-                    size: 16,
-                    color: Colors.grey.shade600,
+                    Icons.network_cell,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurface
+                        .withValues(alpha: 0.6),
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      context.l10n.channelValue(channel),
-                      style: textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '$signal dBm',
+                    style: textTheme.bodySmall,
                   ),
                 ],
               ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.settings_input_antenna,
+                  size: 14,
+                  color: Colors.grey.shade600,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  'кан. $channel',
+                  style: textTheme.bodySmall,
+                ),
+              ],
             ),
           ],
         ),
