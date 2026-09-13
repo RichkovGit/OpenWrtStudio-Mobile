@@ -55,6 +55,15 @@ class LuCIApp extends ConsumerWidget {
         ),
       ),
       themeMode: appState.themeMode,
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.linear(appState.uiScale),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       initialRoute: '/splash',
       routes: {
         '/splash': (context) => const SplashScreen(),

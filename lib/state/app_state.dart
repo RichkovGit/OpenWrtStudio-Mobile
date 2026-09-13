@@ -94,6 +94,11 @@ class AppState extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   static const String _themeModeKey = 'themeMode';
 
+  // UI scaling state
+  double _uiScale = 1.0;
+  static const String _uiScaleKey = 'uiScale';
+  double get uiScale => _uiScale;
+
   // Clients view mode (aggregate across routers)
   bool _clientsAggregateAllRouters = true;
   static const String _clientsAggregateKey = 'clients_aggregate_all';
@@ -311,6 +316,7 @@ class AppState extends ChangeNotifier {
     _initializeServices();
     await _loadThemeMode();
     await _loadAccentColor();
+    await _loadUiScale();
     await loadRouters(); // Load routers on app start (sets selectedRouter)
     await _migrateGlobalDashboardPreferencesIfNeeded(); // Proactively migrate legacy prefs
     await _loadClientsViewMode();
@@ -448,6 +454,24 @@ class AppState extends ChangeNotifier {
       _accentColorKey,
       color.value.toRadixString(16),
     );
+    notifyListeners();
+  }
+
+  Future<void> _loadUiScale() async {
+    final stored = await _secureStorageService.readValue(_uiScaleKey);
+    if (stored != null) {
+      final val = double.tryParse(stored);
+      if (val != null && val >= 0.70 && val <= 1.50) {
+        _uiScale = val;
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> setUiScale(double scale) async {
+    final clamped = double.parse(scale.clamp(0.70, 1.40).toStringAsFixed(2));
+    _uiScale = clamped;
+    await _secureStorageService.writeValue(_uiScaleKey, clamped.toString());
     notifyListeners();
   }
 

@@ -164,12 +164,16 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                allGood
-                                    ? 'Туннелирование активно'
-                                    : 'Обнаружены сбои связности',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.bold,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  allGood
+                                      ? 'Туннелирование активно'
+                                      : 'Обнаружены сбои связности',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -189,6 +193,11 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
                             onPressed: _isChecking ? null : _checkHealth,
                             icon: _isChecking
                                 ? const SizedBox(
@@ -199,12 +208,20 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.speed, size: 18),
-                            label: const Text('Диагностика'),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Диагностика', maxLines: 1),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
                             onPressed: _isHealing ? null : _runAutoHeal,
                             icon: _isHealing
                                 ? const SizedBox(
@@ -216,7 +233,10 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                                     ),
                                   )
                                 : const Icon(Icons.healing, size: 18),
-                            label: const Text('Автохил'),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Автохил', maxLines: 1),
+                            ),
                           ),
                         ),
                       ],
