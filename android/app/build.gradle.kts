@@ -35,24 +35,31 @@ android {
         versionName = flutter.versionName
     }
 
-    val hasCustomKeystore = keystorePropertiesFile.exists() && 
-        keystoreProperties.getProperty("storeFile", "").isNotEmpty() && 
-        file(keystoreProperties.getProperty("storeFile", "")).exists()
+    val defaultKeystore = file("openwrt_studio_release.jks")
+    val rawStoreFile = keystoreProperties.getProperty("storeFile", "")
+    val resolvedStoreFile = when {
+        rawStoreFile.isNotEmpty() && file(rawStoreFile).exists() -> file(rawStoreFile)
+        rawStoreFile.isNotEmpty() && rootProject.file(rawStoreFile).exists() -> rootProject.file(rawStoreFile)
+        rawStoreFile.isNotEmpty() && rootProject.file("app/$rawStoreFile").exists() -> rootProject.file("app/$rawStoreFile")
+        defaultKeystore.exists() -> defaultKeystore
+        else -> null
+    }
+    val hasReleaseKeystore = resolvedStoreFile != null && resolvedStoreFile.exists()
 
     signingConfigs {
-        if (hasCustomKeystore) {
+        if (hasReleaseKeystore) {
             create("release") {
-                storeFile = file(keystoreProperties.getProperty("storeFile") as String)
-                storePassword = keystoreProperties.getProperty("storePassword") as String
-                keyAlias = keystoreProperties.getProperty("keyAlias") as String
-                keyPassword = keystoreProperties.getProperty("keyPassword") as String
+                storeFile = resolvedStoreFile
+                storePassword = keystoreProperties.getProperty("storePassword", "openwrtstudio")
+                keyAlias = keystoreProperties.getProperty("keyAlias", "openwrtstudio")
+                keyPassword = keystoreProperties.getProperty("keyPassword", "openwrtstudio")
             }
         }
     }
 
     buildTypes {
         getByName("release") {
-            if (hasCustomKeystore) {
+            if (hasReleaseKeystore) {
                 signingConfig = signingConfigs.getByName("release")
             } else {
                 signingConfig = signingConfigs.getByName("debug")
