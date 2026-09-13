@@ -224,17 +224,24 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                             segments: [
                               ButtonSegment<ClientStatusFilter>(
                                 value: ClientStatusFilter.all,
-                                label: Text('Все ($totalCount)'),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text('Все ($totalCount)', maxLines: 1),
+                                ),
                               ),
                               ButtonSegment<ClientStatusFilter>(
                                 value: ClientStatusFilter.online,
-                                icon: const Icon(Icons.circle, size: 8, color: Colors.greenAccent),
-                                label: Text('В сети ($onlineCount)'),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text('🟢 В сети ($onlineCount)', maxLines: 1),
+                                ),
                               ),
                               ButtonSegment<ClientStatusFilter>(
                                 value: ClientStatusFilter.offline,
-                                icon: const Icon(Icons.circle_outlined, size: 8, color: Colors.grey),
-                                label: Text('Офлайн ($offlineCount)'),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text('💤 Офлайн ($offlineCount)', maxLines: 1),
+                                ),
                               ),
                             ],
                             selected: {_statusFilter},
@@ -242,7 +249,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                             style: SegmentedButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
+                                horizontal: 4,
                               ),
                             ),
                             onSelectionChanged: (s) {

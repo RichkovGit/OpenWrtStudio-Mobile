@@ -102,6 +102,26 @@ class AppState extends ChangeNotifier {
   // Cached friendly client hostnames (persists across reconnects/drops)
   final Map<String, String> _cachedClientNames = {};
 
+  // Persistent device history (matches PC OpenWrtStudio ClientManagerService device cache)
+  final Map<String, ({String hostname, String ip, String? band, ConnectionType type})> _persistentDeviceHistory = {};
+
+  /// Checks if a hostname is generic/fallback or missing, preventing it from overwriting friendly names
+  static bool _isGenericHostname(String? name) {
+    if (name == null || name.isEmpty || name == 'Unknown' || name == '*' || name == 'N/A') {
+      return true;
+    }
+    final trimmed = name.trim();
+    // MAC suffix like "d8:28", "D8:28", ":d8:28"
+    if (RegExp(r'^:?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$').hasMatch(trimmed)) return true;
+    // Full MAC address
+    if (RegExp(r'^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$').hasMatch(trimmed)) return true;
+    // Generic auto-labels
+    if (trimmed.startsWith('Wi-Fi') || trimmed.startsWith('Устройство') || trimmed.startsWith('Device')) {
+      return true;
+    }
+    return false;
+  }
+
   // Dashboard preferences state
   DashboardPreferences _dashboardPreferences = DashboardPreferences();
   DashboardPreferences get dashboardPreferences => _dashboardPreferences;
@@ -3030,6 +3050,30 @@ class AppState extends ChangeNotifier {
   /// as wireless if their MAC appears in any router's associated stations list.
   Future<List<Client>> fetchAggregatedClients() async {
     try {
+      final activeIp = _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
+      final activeHttps = _authService?.useHttps ?? false;
+      final token = _authService?.sysauth ?? sysauth;
+
+      var wirelessDetails = <String, ({String band, int? signal})>{};
+      var arpTable = <String, ({String ip, bool isReachable})>{};
+
+      if (activeIp != null && token != null) {
+        try {
+          wirelessDetails = await _fetchWirelessDetails(activeIp, token, activeHttps);
+        } catch (_) {}
+        try {
+          arpTable = await _fetchArpTable(activeIp, token, activeHttps);
+        } catch (_) {}
+        try {
+          final staticNames = await _fetchStaticHostnames(activeIp, token, activeHttps);
+          for (final entry in staticNames.entries) {
+            if (!_isGenericHostname(entry.value)) {
+              _cachedClientNames[entry.key] = entry.value;
+            }
+          }
+        } catch (_) {}
+      }
+
       var wirelessMacs = <String>{};
       Object? wirelessError;
       StackTrace? wirelessStack;
@@ -3066,9 +3110,10 @@ class AppState extends ChangeNotifier {
       }
 
       // Normalize wireless MACs for consistent lookup
-      final normalizedWireless = wirelessMacs
-          .map((m) => m.toUpperCase().replaceAll('-', ':'))
-          .toSet();
+      final normalizedWireless = {
+        ...wirelessMacs.map((m) => m.toUpperCase().replaceAll('-', ':')),
+        ...wirelessDetails.keys,
+      };
 
       final clients = <String, Client>{}; // key by normalized MAC
       for (final lease in leases) {
@@ -3076,16 +3121,31 @@ class AppState extends ChangeNotifier {
         final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
         if (macNorm == '00:00:00:00:00:00' || client.ipAddress == '1.1.1.1') continue;
 
-        if (client.hostname.isNotEmpty && client.hostname != 'Unknown' && client.hostname != '*') {
+        if (!_isGenericHostname(client.hostname)) {
           _cachedClientNames[macNorm] = client.hostname;
         } else if (_cachedClientNames.containsKey(macNorm)) {
           client = client.copyWith(hostname: _cachedClientNames[macNorm]);
+        } else {
+          client = client.copyWith(hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}');
         }
 
         final isWireless = normalizedWireless.contains(macNorm);
+        final isReachable = isWireless || (arpTable[macNorm]?.isReachable == true);
+        final band = wirelessDetails[macNorm]?.band;
+        final sig = wirelessDetails[macNorm]?.signal;
+
         final enriched = client.copyWith(
           connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
-          isOnline: isWireless,
+          isOnline: isReachable,
+          wifiBand: band,
+          signal: sig,
+        );
+
+        _persistentDeviceHistory[macNorm] = (
+          hostname: enriched.hostname,
+          ip: enriched.ipAddress,
+          band: band,
+          type: enriched.connectionType,
         );
 
         if (!clients.containsKey(macNorm) ||
@@ -3099,10 +3159,64 @@ class AppState extends ChangeNotifier {
       // Add wireless stations not in DHCP leases (AP-mode fallback)
       for (final mac in normalizedWireless) {
         if (!clients.containsKey(mac) && mac != '00:00:00:00:00:00') {
-          final hostname = _cachedClientNames[mac] ?? 'Unknown';
+          final cachedName = _cachedClientNames[mac];
+          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+              ? cachedName
+              : 'Wi-Fi Клиент ${mac.substring(mac.length - 5)}';
+          final ip = arpTable[mac]?.ip ?? 'N/A';
+          final band = wirelessDetails[mac]?.band;
+          final sig = wirelessDetails[mac]?.signal;
           clients[mac] = Client.fromWirelessStation(mac).copyWith(
             hostname: hostname,
+            ipAddress: ip,
             isOnline: true,
+            wifiBand: band,
+            signal: sig,
+          );
+          _persistentDeviceHistory[mac] = (
+            hostname: hostname,
+            ip: ip,
+            band: band,
+            type: ConnectionType.wireless,
+          );
+        }
+      }
+
+      // Add active wired devices from ARP table not in DHCP leases
+      for (final entry in arpTable.entries) {
+        final mac = entry.key;
+        if (!clients.containsKey(mac) && entry.value.isReachable && mac != '00:00:00:00:00:00') {
+          final cachedName = _cachedClientNames[mac];
+          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+              ? cachedName
+              : 'Устройство ${mac.substring(mac.length - 5)}';
+          clients[mac] = Client(
+            ipAddress: entry.value.ip,
+            macAddress: mac,
+            hostname: hostname,
+            connectionType: ConnectionType.wired,
+            isOnline: true,
+          );
+          _persistentDeviceHistory[mac] = (
+            hostname: hostname,
+            ip: entry.value.ip,
+            band: null,
+            type: ConnectionType.wired,
+          );
+        }
+      }
+
+      // Retain previously known devices that went offline (matches PC version)
+      for (final entry in _persistentDeviceHistory.entries) {
+        final mac = entry.key;
+        if (!clients.containsKey(mac) && mac != '00:00:00:00:00:00') {
+          clients[mac] = Client(
+            ipAddress: entry.value.ip,
+            macAddress: mac,
+            hostname: _cachedClientNames[mac] ?? entry.value.hostname,
+            connectionType: entry.value.type,
+            wifiBand: entry.value.band,
+            isOnline: false,
           );
         }
       }
@@ -3399,7 +3513,11 @@ class AppState extends ChangeNotifier {
         _authService!.sysauth!,
         activeHttps,
       );
-      _cachedClientNames.addAll(staticNames);
+      for (final entry in staticNames.entries) {
+        if (!_isGenericHostname(entry.value)) {
+          _cachedClientNames[entry.key] = entry.value;
+        }
+      }
 
       // Normalize wireless MACs for consistent lookup
       final normalizedWireless = {
@@ -3414,10 +3532,12 @@ class AppState extends ChangeNotifier {
         if (macNorm == '00:00:00:00:00:00' || c.ipAddress == '1.1.1.1') continue;
 
         // Restore / cache hostname
-        if (c.hostname.isNotEmpty && c.hostname != 'Unknown' && c.hostname != '*') {
+        if (!_isGenericHostname(c.hostname)) {
           _cachedClientNames[macNorm] = c.hostname;
         } else if (_cachedClientNames.containsKey(macNorm)) {
           c = c.copyWith(hostname: _cachedClientNames[macNorm]);
+        } else {
+          c = c.copyWith(hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}');
         }
 
         final isWireless = normalizedWireless.contains(macNorm);
@@ -3425,18 +3545,30 @@ class AppState extends ChangeNotifier {
         final band = wirelessDetails[macNorm]?.band;
         final sig = wirelessDetails[macNorm]?.signal;
 
-        clientMap[macNorm] = c.copyWith(
+        final enriched = c.copyWith(
           connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
           isOnline: isReachable,
           wifiBand: band,
           signal: sig,
         );
+
+        _persistentDeviceHistory[macNorm] = (
+          hostname: enriched.hostname,
+          ip: enriched.ipAddress,
+          band: band,
+          type: enriched.connectionType,
+        );
+
+        clientMap[macNorm] = enriched;
       }
 
       // Add wireless stations not in DHCP leases (AP-mode fallback / fresh connection)
       for (final mac in normalizedWireless) {
         if (!clientMap.containsKey(mac) && mac != '00:00:00:00:00:00') {
-          final hostname = _cachedClientNames[mac] ?? 'Unknown';
+          final cachedName = _cachedClientNames[mac];
+          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+              ? cachedName
+              : 'Wi-Fi Клиент ${mac.substring(mac.length - 5)}';
           final ip = arpTable[mac]?.ip ?? 'N/A';
           final band = wirelessDetails[mac]?.band;
           final sig = wirelessDetails[mac]?.signal;
@@ -3447,6 +3579,12 @@ class AppState extends ChangeNotifier {
             wifiBand: band,
             signal: sig,
           );
+          _persistentDeviceHistory[mac] = (
+            hostname: hostname,
+            ip: ip,
+            band: band,
+            type: ConnectionType.wireless,
+          );
         }
       }
 
@@ -3454,13 +3592,37 @@ class AppState extends ChangeNotifier {
       for (final entry in arpTable.entries) {
         final mac = entry.key;
         if (!clientMap.containsKey(mac) && entry.value.isReachable && mac != '00:00:00:00:00:00') {
-          final hostname = _cachedClientNames[mac] ?? 'Unknown';
+          final cachedName = _cachedClientNames[mac];
+          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+              ? cachedName
+              : 'Устройство ${mac.substring(mac.length - 5)}';
           clientMap[mac] = Client(
             ipAddress: entry.value.ip,
             macAddress: mac,
             hostname: hostname,
             connectionType: ConnectionType.wired,
             isOnline: true,
+          );
+          _persistentDeviceHistory[mac] = (
+            hostname: hostname,
+            ip: entry.value.ip,
+            band: null,
+            type: ConnectionType.wired,
+          );
+        }
+      }
+
+      // Retain previously known devices that went offline (matches PC version)
+      for (final entry in _persistentDeviceHistory.entries) {
+        final mac = entry.key;
+        if (!clientMap.containsKey(mac) && mac != '00:00:00:00:00:00') {
+          clientMap[mac] = Client(
+            ipAddress: entry.value.ip,
+            macAddress: mac,
+            hostname: _cachedClientNames[mac] ?? entry.value.hostname,
+            connectionType: entry.value.type,
+            wifiBand: entry.value.band,
+            isOnline: false,
           );
         }
       }

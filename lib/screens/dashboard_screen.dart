@@ -249,19 +249,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   Text(context.l10n.versionLabel, style: labelStyle),
                   const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 2,
                     children: [
-                      Flexible(
-                        child: Text(
-                          version,
-                          style: valueStyle,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                        ),
+                      Text(
+                        version,
+                        style: valueStyle,
+                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(width: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
