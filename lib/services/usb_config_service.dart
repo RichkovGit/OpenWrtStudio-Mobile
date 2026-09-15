@@ -338,6 +338,16 @@ class UsbConfigService {
       useHttps: useHttps,
       command: cmd,
     );
+
+    if (res.isSuccess) {
+      // Set up hotplug automounting script in background
+      ensureHotplugAutomountScript(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+      );
+    }
+
     return res.isSuccess;
   }
 
@@ -459,6 +469,112 @@ class UsbConfigService {
       sysauth: sysauth,
       useHttps: useHttps,
       command: cmd,
+    );
+
+    if (res.isSuccess) {
+      await ensureHotplugAutomountScript(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+      );
+    }
+
+    return res.isSuccess;
+  }
+
+  Future<bool> ensureHotplugAutomountScript({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+  }) async {
+    const hotplugScript =
+        'mkdir -p /etc/hotplug.d/block && '
+        'cat << \'EOF\' > /etc/hotplug.d/block/20-automount\n'
+        '#!/bin/sh\n'
+        '# /etc/hotplug.d/block/20-automount - Auto mount/unmount USB drives with Cyrillic & RW permissions\n'
+        'case "\$ACTION" in\n'
+        '    add)\n'
+        '        case "\$DEVNAME" in\n'
+        '            sd[a-z]*|hd[a-z]*|nvme*|mmcblk*)\n'
+        '                ;;\n'
+        '            *)\n'
+        '                exit 0\n'
+        '                ;;\n'
+        '        esac\n'
+        '        sleep 1\n'
+        '        if [ -d "/sys/block/\$DEVNAME" ] && ls /sys/block/\$DEVNAME/\${DEVNAME}[0-9]* >/dev/null 2>&1; then\n'
+        '            exit 0\n'
+        '        fi\n'
+        '        MOUNT_POINT="/mnt/\$DEVNAME"\n'
+        '        mkdir -p "\$MOUNT_POINT"\n'
+        '        FSTYPE=\$(blkid "/dev/\$DEVNAME" 2>/dev/null | grep -o \'TYPE="[^"]*"\' | cut -d\'"\' -f2)\n'
+        '        if [ -z "\$FSTYPE" ]; then\n'
+        '            FSTYPE=\$(block info "/dev/\$DEVNAME" 2>/dev/null | grep -o \'TYPE="[^"]*"\' | cut -d\'"\' -f2)\n'
+        '        fi\n'
+        '        MOUNTED=0\n'
+        '        case "\$FSTYPE" in\n'
+        '            *exfat*|*EXFAT*)\n'
+        '                mount -t exfat -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -o rw,noatime,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null\n'
+        '                MOUNTED=\$?\n'
+        '                ;;\n'
+        '            *vfat*|*fat*|*FAT*)\n'
+        '                mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000,dmask=0000,fmask=0000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null\n'
+        '                MOUNTED=\$?\n'
+        '                ;;\n'
+        '            *ntfs*|*NTFS*)\n'
+        '                ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -o rw,noatime,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null\n'
+        '                MOUNTED=\$?\n'
+        '                ;;\n'
+        '            *ext4*|*ext3*|*ext2*)\n'
+        '                mount -t "\$FSTYPE" -o rw,noatime "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null\n'
+        '                MOUNTED=\$?\n'
+        '                ;;\n'
+        '            *)\n'
+        '                mount -t exfat -o rw,noatime,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount -o rw,noatime,iocharset=utf8,umask=000 "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null || \\\n'
+        '                mount "/dev/\$DEVNAME" "\$MOUNT_POINT" 2>/dev/null\n'
+        '                MOUNTED=\$?\n'
+        '                ;;\n'
+        '        esac\n'
+        '        if [ "\$MOUNTED" -eq 0 ]; then\n'
+        '            chmod 777 "\$MOUNT_POINT" 2>/dev/null || true\n'
+        '            if [ -f /etc/init.d/samba4 ]; then\n'
+        '                /etc/init.d/samba4 reload 2>/dev/null || /etc/init.d/samba4 restart 2>/dev/null || true\n'
+        '            fi\n'
+        '        fi\n'
+        '        ;;\n'
+        '    remove)\n'
+        '        MOUNT_POINT="/mnt/\$DEVNAME"\n'
+        '        if grep -qs "\$MOUNT_POINT" /proc/mounts; then\n'
+        '            umount -l "\$MOUNT_POINT" 2>/dev/null || true\n'
+        '        fi\n'
+        '        rmdir "\$MOUNT_POINT" 2>/dev/null || true\n'
+        '        ;;\n'
+        'esac\n'
+        'EOF\n'
+        'chmod +x /etc/hotplug.d/block/20-automount 2>/dev/null; '
+        '[ ! -f /etc/config/fstab ] && touch /etc/config/fstab; '
+        'if ! uci get fstab.@global[0] >/dev/null 2>&1; then uci add fstab global >/dev/null 2>&1; fi; '
+        'uci set fstab.@global[0].anon_mount=\'1\' 2>/dev/null; '
+        'uci set fstab.@global[0].auto_mount=\'1\' 2>/dev/null; '
+        'uci commit fstab 2>/dev/null';
+
+    final res = await commandsService.execute(
+      routerIp: routerIp,
+      sysauth: sysauth,
+      useHttps: useHttps,
+      command: hotplugScript,
     );
     return res.isSuccess;
   }
