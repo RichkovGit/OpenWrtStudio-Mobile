@@ -7,6 +7,7 @@ import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/utils/url_parser.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
+import 'package:luci_mobile/services/router_discovery_service.dart';
 
 class ManageRoutersScreen extends ConsumerStatefulWidget {
   const ManageRoutersScreen({super.key});
@@ -237,6 +238,8 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                 final formKey = GlobalKey<FormState>();
                                 bool obscureText = true;
                                 bool isConnecting = false;
+                                bool isDiscovering = false;
+                                String? discoveryStatus;
                                 bool showAlternate = false;
                                 String? errorMessage;
                                 try {
@@ -327,26 +330,90 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           height: 6,
                                                         ),
                                                         if (!showAlternate)
-                                                          Align(
-                                                            alignment: Alignment
-                                                                .centerLeft,
-                                                            child: TextButton.icon(
-                                                              onPressed: () =>
-                                                                  setState(
-                                                                    () =>
-                                                                        showAlternate =
-                                                                            true,
+                                                          Row(
+                                                            children: [
+                                                              TextButton.icon(
+                                                                onPressed: () =>
+                                                                    setState(
+                                                                      () =>
+                                                                          showAlternate =
+                                                                              true,
+                                                                    ),
+                                                                icon: const Icon(
+                                                                  Icons.add,
+                                                                  size: 16,
+                                                                ),
+                                                                label: Text(
+                                                                  context
+                                                                      .l10n
+                                                                      .addFallbackAddress,
+                                                                  style: const TextStyle(fontSize: 12),
+                                                                ),
+                                                                style: TextButton.styleFrom(
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                                ),
+                                                              ),
+                                                              const Spacer(),
+                                                              TextButton.icon(
+                                                                onPressed: isDiscovering ? null : () async {
+                                                                  setState(() {
+                                                                    isDiscovering = true;
+                                                                    discoveryStatus = 'Поиск...';
+                                                                  });
+                                                                  try {
+                                                                    final res = await RouterDiscoveryService().discoverAndAuthenticate(
+                                                                      username: userController.text.trim().isEmpty ? 'root' : userController.text.trim(),
+                                                                      password: passController.text,
+                                                                      onProgress: (st) {
+                                                                        setState(() => discoveryStatus = st);
+                                                                      },
+                                                                    );
+                                                                    if (res != null) {
+                                                                      setState(() {
+                                                                        ipController.text = res.ip;
+                                                                      });
+                                                                      if (context.mounted) {
+                                                                        ScaffoldMessenger.of(context).showSnackBar(
+                                                                          SnackBar(
+                                                                            content: Text('Найден роутер: ${res.hostname} (${res.ip})'),
+                                                                            backgroundColor: const Color(0xFF10B981),
+                                                                            behavior: SnackBarBehavior.floating,
+                                                                          ),
+                                                                        );
+                                                                      }
+                                                                    }
+                                                                  } catch (_) {
+                                                                  } finally {
+                                                                    setState(() {
+                                                                      isDiscovering = false;
+                                                                      discoveryStatus = null;
+                                                                    });
+                                                                  }
+                                                                },
+                                                                icon: isDiscovering
+                                                                    ? const SizedBox(
+                                                                        width: 14,
+                                                                        height: 14,
+                                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                                      )
+                                                                    : const Icon(
+                                                                        Icons.travel_explore,
+                                                                        size: 16,
+                                                                        color: Color(0xFF00D2FF),
+                                                                      ),
+                                                                label: Text(
+                                                                  isDiscovering ? (discoveryStatus ?? 'Поиск...') : '🔍 Автопоиск',
+                                                                  style: const TextStyle(
+                                                                    fontSize: 12,
+                                                                    color: Color(0xFF00D2FF),
+                                                                    fontWeight: FontWeight.w600,
                                                                   ),
-                                                              icon: const Icon(
-                                                                Icons.add,
-                                                                size: 18,
+                                                                ),
+                                                                style: TextButton.styleFrom(
+                                                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                                ),
                                                               ),
-                                                              label: Text(
-                                                                context
-                                                                    .l10n
-                                                                    .addFallbackAddress,
-                                                              ),
-                                                            ),
+                                                            ],
                                                           )
                                                         else
                                                           TextFormField(

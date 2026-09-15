@@ -24,6 +24,7 @@ import 'package:luci_mobile/screens/system_logs_screen.dart';
 import 'package:luci_mobile/screens/thermal_screen.dart';
 import 'package:luci_mobile/screens/startup_services_screen.dart';
 import 'package:luci_mobile/screens/diagnostics_screen.dart';
+import 'package:luci_mobile/screens/usb_config_screen.dart';
 import 'package:luci_mobile/services/ota_service.dart';
 import 'package:luci_mobile/widgets/ota_update_dialog.dart';
 
@@ -491,6 +492,20 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const CommandsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMoreTile(
+                  context,
+                  icon: Icons.usb,
+                  iconColor: const Color(0xFFEAB308),
+                  title: 'USB Модемы и Диски (Beta)',
+                  subtitle: 'LTE/4G модемы, fstab накопители, Samba',
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const UsbConfigScreen(),
                       ),
                     );
                   },

@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
+import 'package:luci_mobile/services/router_discovery_service.dart';
 import 'package:luci_mobile/utils/url_parser.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
 
@@ -29,6 +30,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _isCheckingAutoLogin = true;
   bool _passwordVisible = false;
   bool _showAlternateAddress = false;
+  bool _isDiscovering = false;
+  String? _discoveryStatus;
   late AnimationController _logoAnimController;
   late AnimationController _progressAnimController;
   bool _isActivatingReviewerMode = false;
@@ -144,6 +147,82 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
     if (mounted) {
       unawaited(Navigator.of(context).pushReplacementNamed('/'));
+    }
+  }
+
+  Future<void> _autoDiscoverRouter() async {
+    setState(() {
+      _isDiscovering = true;
+      _discoveryStatus = 'Поиск роутера в сети...';
+    });
+
+    try {
+      final discovery = RouterDiscoveryService();
+      final user = _usernameController.text.trim().isEmpty ? 'root' : _usernameController.text.trim();
+      final pass = _passwordController.text;
+
+      final result = await discovery.discoverAndAuthenticate(
+        username: user,
+        password: pass,
+        onProgress: (status) {
+          if (mounted) {
+            setState(() {
+              _discoveryStatus = status;
+            });
+          }
+        },
+      );
+
+      if (!mounted) return;
+
+      if (result != null) {
+        setState(() {
+          _ipController.text = result.ip;
+          if (_usernameController.text.trim().isEmpty) {
+            _usernameController.text = 'root';
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.isAuthenticated
+                  ? 'Роутер найден и авторизован: ${result.hostname} (${result.ip})'
+                  : 'Роутер обнаружен: ${result.hostname} (${result.ip}). Введите пароль для входа.',
+            ),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+        if (result.isAuthenticated) {
+          unawaited(_connect());
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Роутер не обнаружен в локальной сети. Убедитесь, что подключены к Wi-Fi роутера.'),
+            backgroundColor: Colors.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ошибка автопоиска: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDiscovering = false;
+          _discoveryStatus = null;
+        });
+      }
     }
   }
 
@@ -479,32 +558,75 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 6),
-                                          if (!_showAlternateAddress)
-                                            Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: TextButton.icon(
-                                                onPressed: () => setState(
-                                                  () => _showAlternateAddress =
-                                                      true,
+                                          Row(
+                                            children: [
+                                              if (!_showAlternateAddress)
+                                                TextButton.icon(
+                                                  onPressed: () => setState(
+                                                    () => _showAlternateAddress =
+                                                        true,
+                                                  ),
+                                                  icon: const Icon(
+                                                    Icons.add,
+                                                    size: 16,
+                                                  ),
+                                                  label: Text(
+                                                    context
+                                                        .l10n
+                                                        .addFallbackAddress,
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                  style: TextButton.styleFrom(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                        ),
+                                                  ),
                                                 ),
-                                                icon: const Icon(
-                                                  Icons.add,
-                                                  size: 18,
-                                                ),
+                                              const Spacer(),
+                                              TextButton.icon(
+                                                onPressed: _isDiscovering ? null : _autoDiscoverRouter,
+                                                icon: _isDiscovering
+                                                    ? const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      )
+                                                    : const Icon(
+                                                        Icons.travel_explore,
+                                                        size: 16,
+                                                        color: Color(0xFF00D2FF),
+                                                      ),
                                                 label: Text(
-                                                  context
-                                                      .l10n
-                                                      .addFallbackAddress,
+                                                  _isDiscovering ? 'Поиск...' : '🔍 Автопоиск',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: Color(0xFF00D2FF),
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                                 style: TextButton.styleFrom(
                                                   padding:
                                                       const EdgeInsets.symmetric(
-                                                        horizontal: 4,
+                                                        horizontal: 6,
                                                       ),
                                                 ),
                                               ),
-                                            )
-                                          else ...[
+                                            ],
+                                          ),
+                                          if (_discoveryStatus != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4, bottom: 4),
+                                              child: Text(
+                                                _discoveryStatus!,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: colorScheme.primary,
+                                                  fontStyle: FontStyle.italic,
+                                                ),
+                                              ),
+                                            ),
+                                          if (_showAlternateAddress) ...[
                                             TextFormField(
                                               controller: _alternateController,
                                               decoration: InputDecoration(
