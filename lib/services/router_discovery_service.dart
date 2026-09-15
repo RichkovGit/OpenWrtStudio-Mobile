@@ -2,14 +2,19 @@ import 'dart:async';
 import 'dart:io';
 import 'package:luci_mobile/models/usb_models.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
+import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/utils/logger.dart';
 
 class RouterDiscoveryService {
-  final IApiService apiService;
+  final IApiService? _apiService;
 
-  RouterDiscoveryService({required this.apiService});
+  RouterDiscoveryService({IApiService? apiService}) : _apiService = apiService;
 
-  static const List<String> defaultCandidates = [
+  IApiService get apiService => _apiService ?? ServiceFactory.apiService;
+
+  List<String> get defaultCandidates => candidates;
+
+  static const List<String> candidates = [
     '192.168.10.1',
     '192.168.1.1',
     '192.168.0.1',
@@ -30,7 +35,8 @@ class RouterDiscoveryService {
       try {
         onProgress?.call('Проверка $ip...');
         // 1. Fast socket reachability test on port 80 or 443
-        final isPortOpen = await _checkSocket(ip, 80, 500) || await _checkSocket(ip, 443, 500);
+        final isPortOpen =
+            await _checkSocket(ip, 80, 500) || await _checkSocket(ip, 443, 500);
         if (!isPortOpen) continue;
 
         onProgress?.call('Авторизация на $ip...');
@@ -54,7 +60,10 @@ class RouterDiscoveryService {
               object: 'system',
               method: 'board',
             );
-            if (res is List && res.length >= 2 && res[0] == 0 && res[1] is Map) {
+            if (res is List &&
+                res.length >= 2 &&
+                res[0] == 0 &&
+                res[1] is Map) {
               final data = res[1] as Map;
               model = data['model']?.toString() ?? model;
               hostname = data['hostname']?.toString() ?? hostname;
@@ -90,7 +99,8 @@ class RouterDiscoveryService {
 
   Future<bool> _checkSocket(String host, int port, int timeoutMs) async {
     try {
-      final socket = await Socket.connect(host, port, timeout: Duration(milliseconds: timeoutMs));
+      final socket = await Socket.connect(host, port,
+          timeout: Duration(milliseconds: timeoutMs));
       socket.destroy();
       return true;
     } catch (_) {

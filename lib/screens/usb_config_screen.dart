@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/models/usb_models.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/services/usb_config_service.dart';
-import 'package:luci_mobile/state/auth_state.dart';
+import 'package:luci_mobile/main.dart';
 
 class UsbConfigScreen extends ConsumerStatefulWidget {
   const UsbConfigScreen({super.key});
@@ -49,12 +49,12 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _loadData() async {
-    final auth = ref.read(authNotifierProvider);
-    final ip = auth.ip;
-    final token = auth.sysauth;
-    final useHttps = auth.useHttps;
+    final appState = ref.read(appStateProvider);
+    final ip = appState.activeIp ?? '';
+    final token = appState.sysauth;
+    final useHttps = appState.useHttps;
 
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty || ip.isEmpty) return;
 
     setState(() {
       _isLoading = true;
@@ -102,7 +102,7 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _saveModem() async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     setState(() => _isLoading = true);
 
     final updated = _modem.copyWith(
@@ -112,16 +112,17 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
     );
 
     final success = await _usbService.saveModemProfile(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
       profile: updated,
     );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Конфигурация модема сохранена' : 'Ошибка сохранения'),
+          content: Text(
+              success ? 'Конфигурация модема сохранена' : 'Ошибка сохранения'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -130,19 +131,20 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _restartModem() async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     setState(() => _isLoading = true);
 
     final success = await _usbService.restartModemInterface(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
     );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Интерфейс модема перезапущен' : 'Ошибка перезапуска'),
+          content: Text(
+              success ? 'Интерфейс модема перезапущен' : 'Ошибка перезапуска'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -152,7 +154,7 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _mountDisk(UsbDiskPartition disk) async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     setState(() => _isLoading = true);
 
     final target = disk.mountPoint.isNotEmpty
@@ -160,9 +162,9 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
         : '/mnt/${disk.deviceNode.replaceAll('/dev/', '')}';
 
     final success = await _usbService.mountDisk(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
       deviceNode: disk.deviceNode,
       mountPoint: target,
     );
@@ -170,7 +172,8 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Диск смонтирован в $target' : 'Ошибка монтирования'),
+          content: Text(
+              success ? 'Диск смонтирован в $target' : 'Ошибка монтирования'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -179,21 +182,23 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _unmountDisk(UsbDiskPartition disk) async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     setState(() => _isLoading = true);
 
-    final target = disk.mountPoint.isNotEmpty ? disk.mountPoint : disk.deviceNode;
+    final target =
+        disk.mountPoint.isNotEmpty ? disk.mountPoint : disk.deviceNode;
     final success = await _usbService.unmountDisk(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
       mountPoint: target,
     );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Диск размонтирован' : 'Ошибка размонтирования'),
+          content:
+              Text(success ? 'Диск размонтирован' : 'Ошибка размонтирования'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -202,7 +207,7 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _enableSamba(UsbDiskPartition disk) async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     if (disk.mountPoint.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Сначала смонтируйте накопитель')),
@@ -212,9 +217,9 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
 
     setState(() => _isLoading = true);
     final success = await _usbService.enableSamba(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
       path: disk.mountPoint,
       shareName: disk.label.isNotEmpty ? disk.label : 'USB_Share',
     );
@@ -222,7 +227,9 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Общий доступ Samba включен' : 'Ошибка настройки Samba'),
+          content: Text(success
+              ? 'Общий доступ Samba включен'
+              : 'Ошибка настройки Samba'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -231,22 +238,24 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _installModemPackages() async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     setState(() {
       _isLoading = true;
       _statusMessage = 'Установка пакетов для модемов...';
     });
 
     final success = await _usbService.installModemPackages(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
     );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Пакеты модемов успешно установлены' : 'Сбой установки пакетов'),
+          content: Text(success
+              ? 'Пакеты модемов успешно установлены'
+              : 'Сбой установки пакетов'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -255,22 +264,24 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
   }
 
   Future<void> _installStoragePackages() async {
-    final auth = ref.read(authNotifierProvider);
+    final appState = ref.read(appStateProvider);
     setState(() {
       _isLoading = true;
       _statusMessage = 'Установка пакетов для дисков и Samba...';
     });
 
     final success = await _usbService.installStoragePackages(
-      routerIp: auth.ip,
-      sysauth: auth.sysauth ?? '',
-      useHttps: auth.useHttps,
+      routerIp: appState.activeIp ?? '',
+      sysauth: appState.sysauth ?? '',
+      useHttps: appState.useHttps,
     );
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(success ? 'Пакеты хранилища успешно установлены' : 'Сбой установки пакетов'),
+          content: Text(success
+              ? 'Пакеты хранилища успешно установлены'
+              : 'Сбой установки пакетов'),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
       );
@@ -294,14 +305,18 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                 color: Colors.amber.shade800,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text('BETA', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+              child: const Text('BETA',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
         actions: [
           IconButton(
             icon: _isLoading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.refresh),
             onPressed: _isLoading ? null : _loadData,
           ),
@@ -361,15 +376,23 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Физические USB устройства', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text('Физические USB устройства',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 8),
                   ..._usbDevices.map((dev) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(dev.deviceType == 'Модем' ? Icons.cell_tower : Icons.usb, color: Colors.amber),
-                    title: Text(dev.name, style: const TextStyle(fontSize: 14)),
-                    subtitle: Text('ID: ${dev.id} | Тип: ${dev.deviceType}', style: const TextStyle(fontSize: 12)),
-                  )),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                            dev.deviceType == 'Модем'
+                                ? Icons.cell_tower
+                                : Icons.usb,
+                            color: Colors.amber),
+                        title: Text(dev.name,
+                            style: const TextStyle(fontSize: 14)),
+                        subtitle: Text('ID: ${dev.id} | Тип: ${dev.deviceType}',
+                            style: const TextStyle(fontSize: 12)),
+                      )),
                 ],
               ),
             ),
@@ -384,7 +407,9 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Состояние мобильного модема', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('Состояние мобильного модема',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -392,9 +417,16 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Статус', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          const Text('Статус',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey)),
                           const SizedBox(height: 4),
-                          Text(_modem.status, style: TextStyle(fontWeight: FontWeight.bold, color: _modem.isUp ? Colors.green : Colors.orange)),
+                          Text(_modem.status,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: _modem.isUp
+                                      ? Colors.green
+                                      : Colors.orange)),
                         ],
                       ),
                     ),
@@ -402,9 +434,13 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Сигнал (RSSI)', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          const Text('Сигнал (RSSI)',
+                              style:
+                                  TextStyle(fontSize: 12, color: Colors.grey)),
                           const SizedBox(height: 4),
-                          Text(_modem.signalStrength, style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(_modem.signalStrength,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
@@ -423,16 +459,26 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Параметры подключения', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('Параметры подключения',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 14),
 
                 // Protocol Dropdown
                 DropdownButtonFormField<String>(
-                  value: _protocols.contains(_modem.protocol) ? _modem.protocol : 'qmi',
-                  decoration: const InputDecoration(labelText: 'Протокол модема', border: OutlineInputBorder()),
-                  items: _protocols.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase()))).toList(),
+                  value: _protocols.contains(_modem.protocol)
+                      ? _modem.protocol
+                      : 'qmi',
+                  decoration: const InputDecoration(
+                      labelText: 'Протокол модема',
+                      border: OutlineInputBorder()),
+                  items: _protocols
+                      .map((p) => DropdownMenuItem(
+                          value: p, child: Text(p.toUpperCase())))
+                      .toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _modem = _modem.copyWith(protocol: val));
+                    if (val != null)
+                      setState(() => _modem = _modem.copyWith(protocol: val));
                   },
                 ),
                 const SizedBox(height: 12),
@@ -461,22 +507,38 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
 
                 // PDP Type
                 DropdownButtonFormField<String>(
-                  value: _pdpTypes.contains(_modem.pdpType) ? _modem.pdpType : 'ipv4',
-                  decoration: const InputDecoration(labelText: 'Тип PDP (Стек IP)', border: OutlineInputBorder()),
-                  items: _pdpTypes.map((p) => DropdownMenuItem(value: p, child: Text(p.toUpperCase()))).toList(),
+                  value: _pdpTypes.contains(_modem.pdpType)
+                      ? _modem.pdpType
+                      : 'ipv4',
+                  decoration: const InputDecoration(
+                      labelText: 'Тип PDP (Стек IP)',
+                      border: OutlineInputBorder()),
+                  items: _pdpTypes
+                      .map((p) => DropdownMenuItem(
+                          value: p, child: Text(p.toUpperCase())))
+                      .toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _modem = _modem.copyWith(pdpType: val));
+                    if (val != null)
+                      setState(() => _modem = _modem.copyWith(pdpType: val));
                   },
                 ),
                 const SizedBox(height: 12),
 
                 // Auth Type
                 DropdownButtonFormField<String>(
-                  value: _authTypes.contains(_modem.authType) ? _modem.authType : 'none',
-                  decoration: const InputDecoration(labelText: 'Тип авторизации', border: OutlineInputBorder()),
-                  items: _authTypes.map((a) => DropdownMenuItem(value: a, child: Text(a.toUpperCase()))).toList(),
+                  value: _authTypes.contains(_modem.authType)
+                      ? _modem.authType
+                      : 'none',
+                  decoration: const InputDecoration(
+                      labelText: 'Тип авторизации',
+                      border: OutlineInputBorder()),
+                  items: _authTypes
+                      .map((a) => DropdownMenuItem(
+                          value: a, child: Text(a.toUpperCase())))
+                      .toList(),
                   onChanged: (val) {
-                    if (val != null) setState(() => _modem = _modem.copyWith(authType: val));
+                    if (val != null)
+                      setState(() => _modem = _modem.copyWith(authType: val));
                   },
                 ),
                 const SizedBox(height: 12),
@@ -523,7 +585,8 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
           child: ListTile(
             leading: const Icon(Icons.download, color: Colors.blue),
             title: const Text('Установить драйверы модемов'),
-            subtitle: const Text('kmod-usb-net-qmi-wwan, uqmi, mbim, modeswitch'),
+            subtitle:
+                const Text('kmod-usb-net-qmi-wwan, uqmi, mbim, modeswitch'),
             trailing: IconButton(
               icon: const Icon(Icons.arrow_forward),
               onPressed: _isLoading ? null : _installModemPackages,
@@ -546,7 +609,9 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                 children: const [
                   Icon(Icons.usb_off, size: 48, color: Colors.grey),
                   SizedBox(height: 12),
-                  Text('Диски не найдены', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('Диски не найдены',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   SizedBox(height: 6),
                   Text(
                     'Подключите USB накопитель или флешку в разъем роутера.',
@@ -570,40 +635,56 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                       children: [
                         const Icon(Icons.storage, color: Colors.blue),
                         const SizedBox(width: 8),
-                        Text(disk.deviceNode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text(disk.deviceNode,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: Colors.blue.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(disk.fileSystem, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          child: Text(disk.fileSystem,
+                              style: const TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                         const Spacer(),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: disk.isMounted ? Colors.green.shade800 : Colors.grey.shade700,
+                            color: disk.isMounted
+                                ? Colors.green.shade800
+                                : Colors.grey.shade700,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             disk.isMounted ? 'Смонтирован' : 'Не активен',
-                            style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ],
                     ),
                     if (disk.mountPoint.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Text('Точка монтирования: ${disk.mountPoint}', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+                      Text('Точка монтирования: ${disk.mountPoint}',
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.grey)),
                     ],
                     if (disk.isMounted) ...[
                       const SizedBox(height: 10),
-                      LinearProgressIndicator(value: (disk.usagePercentage / 100).clamp(0.0, 1.0)),
+                      LinearProgressIndicator(
+                          value: (disk.usagePercentage / 100).clamp(0.0, 1.0)),
                       const SizedBox(height: 4),
-                      Text('${disk.usedSize} / ${disk.totalSize} (${disk.usagePercentage.toStringAsFixed(0)}%)',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                          '${disk.usedSize} / ${disk.totalSize} (${disk.usagePercentage.toStringAsFixed(0)}%)',
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey)),
                     ],
                     const SizedBox(height: 12),
                     Row(
@@ -613,7 +694,8 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                             child: ElevatedButton.icon(
                               icon: const Icon(Icons.folder_open),
                               label: const Text('Смонтировать'),
-                              onPressed: _isLoading ? null : () => _mountDisk(disk),
+                              onPressed:
+                                  _isLoading ? null : () => _mountDisk(disk),
                             ),
                           )
                         else ...[
@@ -621,7 +703,8 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                             child: OutlinedButton.icon(
                               icon: const Icon(Icons.folder_off),
                               label: const Text('Размонтировать'),
-                              onPressed: _isLoading ? null : () => _unmountDisk(disk),
+                              onPressed:
+                                  _isLoading ? null : () => _unmountDisk(disk),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -629,7 +712,8 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
                             child: ElevatedButton.icon(
                               icon: const Icon(Icons.share),
                               label: const Text('Samba Шара'),
-                              onPressed: _isLoading ? null : () => _enableSamba(disk),
+                              onPressed:
+                                  _isLoading ? null : () => _enableSamba(disk),
                             ),
                           ),
                         ],
@@ -647,7 +731,8 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
           child: ListTile(
             leading: const Icon(Icons.download, color: Colors.green),
             title: const Text('Установить пакеты для USB дисков'),
-            subtitle: const Text('block-mount, kmod-usb-storage, ext4, ntfs, samba4'),
+            subtitle:
+                const Text('block-mount, kmod-usb-storage, ext4, ntfs, samba4'),
             trailing: IconButton(
               icon: const Icon(Icons.arrow_forward),
               onPressed: _isLoading ? null : _installStoragePackages,

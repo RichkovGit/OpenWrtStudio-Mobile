@@ -22,7 +22,9 @@ void main() {
       expect(dev.isSupported, isTrue);
     });
 
-    test('UsbDiskPartition correctly evaluates storage capacity and mount status', () {
+    test(
+        'UsbDiskPartition correctly evaluates storage capacity and mount status',
+        () {
       const disk = UsbDiskPartition(
         deviceNode: '/dev/sda1',
         mountPoint: '/mnt/sda1',
