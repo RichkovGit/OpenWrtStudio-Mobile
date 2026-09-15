@@ -28,7 +28,8 @@ class UsbConfigService {
     if (res.isSuccess && res.stdout.trim().isNotEmpty) {
       final lines = res.stdout.split('\n');
       for (final line in lines) {
-        final reg = RegExp(r'Bus\s+(\d+)\s+Device\s+(\d+):\s+ID\s+([0-9a-fA-F]{4}):([0-9a-fA-F]{4})\s*(.*)');
+        final reg = RegExp(
+            r'Bus\s+(\d+)\s+Device\s+(\d+):\s+ID\s+([0-9a-fA-F]{4}):([0-9a-fA-F]{4})\s*(.*)');
         final match = reg.firstMatch(line);
         if (match != null) {
           final vid = match.group(3)!;
@@ -79,9 +80,11 @@ class UsbConfigService {
             final name = '$man $prod'.trim();
 
             var type = 'USB Устройство';
-            if (name.toLowerCase().contains('modem') || name.toLowerCase().contains('lte')) {
+            if (name.toLowerCase().contains('modem') ||
+                name.toLowerCase().contains('lte')) {
               type = 'Модем';
-            } else if (name.toLowerCase().contains('storage') || name.toLowerCase().contains('flash')) {
+            } else if (name.toLowerCase().contains('storage') ||
+                name.toLowerCase().contains('flash')) {
               type = 'Накопитель';
             }
 
@@ -144,7 +147,9 @@ class UsbConfigService {
     if (dfRes.isSuccess && dfRes.stdout.trim().isNotEmpty) {
       final lines = dfRes.stdout.split('\n');
       for (final line in lines) {
-        final m = RegExp(r'^(/dev/sd[a-z][0-9]*)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)%\s+(.+)').firstMatch(line);
+        final m = RegExp(
+                r'^(/dev/sd[a-z][0-9]*)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)%\s+(.+)')
+            .firstMatch(line);
         if (m != null) {
           final dev = m.group(1)!;
           final total = m.group(2)!;
@@ -154,7 +159,8 @@ class UsbConfigService {
           final mnt = m.group(6)!.trim();
 
           final existing = partitions[dev];
-          partitions[dev] = (existing ?? UsbDiskPartition(deviceNode: dev)).copyWith(
+          partitions[dev] =
+              (existing ?? UsbDiskPartition(deviceNode: dev)).copyWith(
             totalSize: total,
             usedSize: used,
             freeSize: free,
@@ -192,14 +198,30 @@ class UsbConfigService {
           final val = kv[1].replaceAll("'", '').replaceAll('"', '').trim();
 
           switch (key) {
-            case 'proto': profile = profile.copyWith(protocol: val); break;
-            case 'device': profile = profile.copyWith(deviceNode: val); break;
-            case 'apn': profile = profile.copyWith(apn: val); break;
-            case 'pincode': profile = profile.copyWith(pinCode: val); break;
-            case 'auth': profile = profile.copyWith(authType: val); break;
-            case 'username': profile = profile.copyWith(username: val); break;
-            case 'password': profile = profile.copyWith(password: val); break;
-            case 'pdptype': profile = profile.copyWith(pdpType: val); break;
+            case 'proto':
+              profile = profile.copyWith(protocol: val);
+              break;
+            case 'device':
+              profile = profile.copyWith(deviceNode: val);
+              break;
+            case 'apn':
+              profile = profile.copyWith(apn: val);
+              break;
+            case 'pincode':
+              profile = profile.copyWith(pinCode: val);
+              break;
+            case 'auth':
+              profile = profile.copyWith(authType: val);
+              break;
+            case 'username':
+              profile = profile.copyWith(username: val);
+              break;
+            case 'password':
+              profile = profile.copyWith(password: val);
+              break;
+            case 'pdptype':
+              profile = profile.copyWith(pdpType: val);
+              break;
           }
         }
       }
@@ -261,7 +283,8 @@ class UsbConfigService {
       routerIp: routerIp,
       sysauth: sysauth,
       useHttps: useHttps,
-      command: 'ifdown $interfaceName 2>/dev/null; sleep 1; ifup $interfaceName 2>/dev/null || /etc/init.d/network reload',
+      command:
+          'ifdown $interfaceName 2>/dev/null; sleep 1; ifup $interfaceName 2>/dev/null || /etc/init.d/network reload',
     );
     return res.isSuccess;
   }
@@ -272,12 +295,48 @@ class UsbConfigService {
     required bool useHttps,
     required String deviceNode,
     required String mountPoint,
+    String? fileSystem,
   }) async {
+    final fs = (fileSystem ?? '').toLowerCase();
+    String mountCmd;
+
+    if (fs.contains('exfat')) {
+      // exFAT support with UTF-8 and full permissions
+      mountCmd =
+          'mount -t exfat -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount -o rw,noatime,iocharset=utf8,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount "$deviceNode" "$mountPoint"';
+    } else if (fs.contains('vfat') || fs.contains('fat')) {
+      // Windows FAT32 with Russian/Cyrillic support (CP866 + UTF-8) and full read/write permissions
+      mountCmd =
+          'mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000,dmask=0000,fmask=0000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount "$deviceNode" "$mountPoint"';
+    } else if (fs.contains('ntfs')) {
+      // Windows NTFS with ntfs-3g or kernel ntfs3 driver, UTF-8 and full write permissions
+      mountCmd =
+          'ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount -o rw,noatime,iocharset=utf8,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount "$deviceNode" "$mountPoint"';
+    } else {
+      mountCmd =
+          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount -o rw,noatime,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
+          'mount "$deviceNode" "$mountPoint"';
+    }
+
+    final cmd =
+        'mkdir -p "$mountPoint" && ($mountCmd) && (chmod 777 "$mountPoint" 2>/dev/null || true) && '
+        'block detect > /etc/config/fstab 2>/dev/null && '
+        "uci set fstab.@mount[-1].options='rw,sync,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000' 2>/dev/null && "
+        'uci commit fstab 2>/dev/null';
+
     final res = await commandsService.execute(
       routerIp: routerIp,
       sysauth: sysauth,
       useHttps: useHttps,
-      command: 'mkdir -p "$mountPoint" && mount "$deviceNode" "$mountPoint" && block detect > /etc/config/fstab 2>/dev/null',
+      command: cmd,
     );
     return res.isSuccess;
   }
@@ -304,14 +363,26 @@ class UsbConfigService {
     required String path,
     String shareName = 'USB_Storage',
   }) async {
-    final cmd = 'uci add samba4 sambashare >/dev/null 2>&1 || true && '
-        "uci set samba4.@sambashare[-1].name='$shareName' && "
-        "uci set samba4.@sambashare[-1].path='$path' && "
-        "uci set samba4.@sambashare[-1].read_only='no' && "
-        "uci set samba4.@sambashare[-1].guest_ok='yes' && "
-        "uci set samba4.@sambashare[-1].create_mask='0666' && "
-        "uci set samba4.@sambashare[-1].dir_mask='0777' && "
-        'uci commit samba4 && /etc/init.d/samba4 restart 2>/dev/null';
+    final cmd = 'mkdir -p "$path" && chmod 777 "$path" 2>/dev/null || true && '
+        'EXISTING=\$(uci show samba4 2>/dev/null | grep -E "\\.path=\'?$path\'?" | cut -d. -f2 | head -n1); '
+        'if [ -z "\$EXISTING" ]; then '
+        '  SECTION=\$(uci add samba4 sambashare); '
+        'else '
+        '  SECTION="samba4.\$EXISTING"; '
+        'fi; '
+        "uci set \${SECTION}.name='$shareName'; "
+        "uci set \${SECTION}.path='$path'; "
+        "uci set \${SECTION}.read_only='no'; "
+        "uci set \${SECTION}.guest_ok='yes'; "
+        "uci set \${SECTION}.force_root='1'; "
+        "uci set \${SECTION}.force_user='root'; "
+        "uci set \${SECTION}.force_group='root'; "
+        "uci set \${SECTION}.create_mask='0777'; "
+        "uci set \${SECTION}.dir_mask='0777'; "
+        "uci set \${SECTION}.force_create_mode='0777'; "
+        "uci set \${SECTION}.force_directory_mode='0777'; "
+        "uci set \${SECTION}.inherit_owner='yes'; "
+        'uci commit samba4 && /etc/init.d/samba4 enable 2>/dev/null && /etc/init.d/samba4 restart 2>/dev/null';
 
     final res = await commandsService.execute(
       routerIp: routerIp,
@@ -331,7 +402,8 @@ class UsbConfigService {
       routerIp: routerIp,
       sysauth: sysauth,
       useHttps: useHttps,
-      command: 'which apk 2>/dev/null; which opkg 2>/dev/null; which block 2>/dev/null; which uqmi 2>/dev/null',
+      command:
+          'which apk 2>/dev/null; which opkg 2>/dev/null; which block 2>/dev/null; which uqmi 2>/dev/null',
     );
 
     final out = res.stdout;
@@ -379,8 +451,8 @@ class UsbConfigService {
     );
 
     final cmd = status['hasApk'] == true
-        ? 'apk update && apk add block-mount kmod-usb-storage kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat e2fsprogs samba4-server'
-        : 'opkg update && opkg install block-mount kmod-usb-storage kmod-fs-ext4 kmod-fs-ntfs3 kmod-fs-vfat e2fsprogs samba4-server';
+        ? 'apk update && apk add block-mount kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-ntfs3 ntfs-3g kmod-fs-vfat kmod-fs-exfat kmod-nls-base kmod-nls-utf8 kmod-nls-cp866 kmod-nls-cp1251 kmod-nls-cp437 e2fsprogs samba4-server'
+        : 'opkg update && opkg install block-mount kmod-usb-storage kmod-usb-storage-uas kmod-fs-ext4 kmod-fs-ntfs3 ntfs-3g kmod-fs-vfat kmod-fs-exfat kmod-nls-base kmod-nls-utf8 kmod-nls-cp866 kmod-nls-cp1251 kmod-nls-cp437 e2fsprogs samba4-server';
 
     final res = await commandsService.execute(
       routerIp: routerIp,

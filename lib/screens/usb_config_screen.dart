@@ -167,6 +167,7 @@ class _UsbConfigScreenState extends ConsumerState<UsbConfigScreen>
       useHttps: appState.useHttps,
       deviceNode: disk.deviceNode,
       mountPoint: target,
+      fileSystem: disk.fileSystem,
     );
 
     if (mounted) {

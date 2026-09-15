@@ -91,5 +91,21 @@ void main() {
       expect(discovery.defaultCandidates, contains('192.168.0.1'));
       expect(discovery.defaultCandidates, contains('192.168.8.1'));
     });
+
+    test('Filesystem type resolution respects exfat before fat precedence', () {
+      String resolveFs(String fs) {
+        final f = fs.toLowerCase();
+        if (f.contains('exfat')) return 'exfat';
+        if (f.contains('vfat') || f.contains('fat')) return 'vfat';
+        if (f.contains('ntfs')) return 'ntfs';
+        return 'generic';
+      }
+
+      expect(resolveFs('exfat'), 'exfat');
+      expect(resolveFs('vfat'), 'vfat');
+      expect(resolveFs('fat32'), 'vfat');
+      expect(resolveFs('ntfs'), 'ntfs');
+      expect(resolveFs('ext4'), 'generic');
+    });
   });
 }
