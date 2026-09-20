@@ -241,7 +241,6 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       if (mounted) {
         setState(() {
           _isLoadingProtocols = false;
-          _isCheckingForkop = false;
         });
       }
       return;
