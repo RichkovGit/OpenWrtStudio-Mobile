@@ -141,16 +141,33 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
   Future<void> _selectNode(String nodeName, {String? groupName}) async {
     final appState = ref.read(appStateProvider);
     final router = appState.selectedRouter;
+    final sysauth = appState.sysauth;
     if (router == null) return;
 
-    final targetGroup = groupName ??
-        _groups.firstOrNull?.name ??
-        'GLOBAL';
+    // Find real selector group: never use Fallback 'GLOBAL' or non-selector groups
+    String? resolvedGroup = groupName;
+    if (resolvedGroup == null ||
+        resolvedGroup.isEmpty ||
+        resolvedGroup.toUpperCase() == 'GLOBAL') {
+      final selectorGroup = _groups.firstWhere(
+        (g) => g.type == ProxyType.selector,
+        orElse: () => _groups.firstWhere(
+          (g) => g.name.contains('priority') || g.name == 'main-out',
+          orElse: () => const ForkopNode(
+            name: 'main-priority-main_priority-out',
+            type: ProxyType.selector,
+          ),
+        ),
+      );
+      resolvedGroup = selectorGroup.name;
+    }
 
     final success = await _forkopService.selectNode(
       routerIp: router.activeAddress,
-      groupName: targetGroup,
       nodeName: nodeName,
+      groupName: resolvedGroup,
+      sysauth: sysauth,
+      useHttps: router.activeUseHttps,
     );
 
     if (success && mounted) {
@@ -161,9 +178,18 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
         SnackBar(
           content: Text('Выбран узел: $nodeName'),
           behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green.shade700,
         ),
       );
       unawaited(_loadData());
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Не удалось выбрать узел $nodeName'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
     }
   }
 
@@ -301,7 +327,8 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
             height: MediaQuery.of(context).size.height * 0.75,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -313,7 +340,8 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                     const SizedBox(width: 8),
                     const Text(
                       'Логи ForkOP & Sing-box',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
                     IconButton(
@@ -374,12 +402,14 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
           useHttps: router.activeUseHttps,
         ),
         builder: (context, snapshot) {
-          final content = snapshot.data ?? 'Чтение /etc/sing-box/config.json...';
+          final content =
+              snapshot.data ?? 'Чтение /etc/sing-box/config.json...';
           return Container(
             height: MediaQuery.of(context).size.height * 0.8,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
             ),
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -391,7 +421,8 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                     const SizedBox(width: 8),
                     const Text(
                       'Конфигурация Sing-box',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
                     IconButton(
@@ -453,8 +484,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                 title: Text(
                   candidate,
                   style: TextStyle(
-                    fontWeight:
-                        isCurrent ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 leading: Icon(
@@ -592,662 +622,698 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
         top: false,
         bottom: true,
         child: Column(
-        children: [
-          // Available Actions (Доступные действия) Card
-          Card(
-            margin: const EdgeInsets.fromLTRB(
-              LuciSpacing.md,
-              LuciSpacing.md,
-              LuciSpacing.md,
-              LuciSpacing.xs,
-            ),
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: LuciCardStyles.standardRadius,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(LuciSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.flash_on, color: Colors.amber, size: 20),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Доступные действия',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (_isActionRunning)
-                        const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      // 1. Перезапустить Forkop (зеленая)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF48BB78),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: _isActionRunning ? null : _restartForkop,
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text(
-                          'Перезапустить Forkop',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      // 2. Остановить Forkop (красная)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF7F1D1D),
-                          foregroundColor: const Color(0xFFFECACA),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: _isActionRunning ? null : _stopForkop,
-                        icon: const Icon(Icons.stop_circle_outlined, size: 16),
-                        label: const Text(
-                          'Остановить Forkop',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      // 3. Отключить автостарт (бордовая)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF581C1C),
-                          foregroundColor: const Color(0xFFFDE8E8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed:
-                            _isActionRunning ? null : () => _toggleAutostart(false),
-                        icon: const Icon(Icons.pause_circle_outline, size: 16),
-                        label: const Text(
-                          'Отключить автостарт',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      // 4. Получить глобальную проверку (синяя)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF3B82F6),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: _isTestingPing ? null : _testAllNodes,
-                        icon: const Icon(Icons.check_circle_outline, size: 16),
-                        label: const Text(
-                          'Получить глобальную проверку',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      // 5. Посмотреть логи (синяя)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF3B82F6),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: _showLogsModal,
-                        icon: const Icon(Icons.article_outlined, size: 16),
-                        label: const Text(
-                          'Посмотреть логи',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                      // 6. Показать sing-box конфигурацию (синяя)
-                      FilledButton.icon(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF3B82F6),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        onPressed: _showSingboxConfigModal,
-                        icon: const Icon(Icons.settings, size: 16),
-                        label: const Text(
-                          'Показать sing-box конфигурацию',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+          children: [
+            // Available Actions (Доступные действия) Card
+            Card(
+              margin: const EdgeInsets.fromLTRB(
+                LuciSpacing.md,
+                LuciSpacing.md,
+                LuciSpacing.md,
+                LuciSpacing.xs,
               ),
-            ),
-          ),
-
-          // Routing Mode Card
-          Card(
-            margin: const EdgeInsets.symmetric(
-              horizontal: LuciSpacing.md,
-              vertical: LuciSpacing.xs,
-            ),
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: LuciCardStyles.standardRadius,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: LuciSpacing.md,
-                vertical: LuciSpacing.sm,
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: LuciCardStyles.standardRadius,
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.hub, color: colorScheme.primary, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _selectedNodeName != null
-                          ? 'Активный: $_selectedNodeName'
-                          : 'Режим маршрутизации',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Wrap(
-                    spacing: 4,
-                    children: ['Rule', 'Global', 'Direct'].map((m) {
-                      final selected = _activeMode == m;
-                      return ChoiceChip(
-                        label: Text(m, style: const TextStyle(fontSize: 12)),
-                        selected: selected,
-                        visualDensity: VisualDensity.compact,
-                        onSelected: (_) => _setRoutingMode(m),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Tabs: Группы, Узлы, Подписки
-          TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                text: 'Группы (${_groups.length})',
-                icon: const Icon(Icons.account_tree_outlined, size: 20),
-              ),
-              Tab(
-                text: 'Узлы (${_regularNodes.length})',
-                icon: const Icon(Icons.dns_outlined, size: 20),
-              ),
-              Tab(
-                text: 'Подписки (${_subscriptions.length})',
-                icon: const Icon(Icons.rss_feed, size: 20),
-              ),
-            ],
-          ),
-
-          // Tab content
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              child: Padding(
+                padding: const EdgeInsets.all(LuciSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.orange,
-                        ),
-                        const SizedBox(height: 12),
+                        const Icon(Icons.flash_on,
+                            color: Colors.amber, size: 20),
+                        const SizedBox(width: 6),
                         Text(
-                          'Не удалось загрузить данные:\n$_error',
-                          textAlign: TextAlign.center,
+                          'Доступные действия',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        FilledButton.tonal(
-                          onPressed: _loadData,
-                          child: const Text('Повторить'),
+                        const Spacer(),
+                        if (_isActionRunning)
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        // 1. Перезапустить Forkop (зеленая)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF48BB78),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: _isActionRunning ? null : _restartForkop,
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text(
+                            'Перезапустить Forkop',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        // 2. Остановить Forkop (красная)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF7F1D1D),
+                            foregroundColor: const Color(0xFFFECACA),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: _isActionRunning ? null : _stopForkop,
+                          icon:
+                              const Icon(Icons.stop_circle_outlined, size: 16),
+                          label: const Text(
+                            'Остановить Forkop',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        // 3. Отключить автостарт (бордовая)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF581C1C),
+                            foregroundColor: const Color(0xFFFDE8E8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: _isActionRunning
+                              ? null
+                              : () => _toggleAutostart(false),
+                          icon:
+                              const Icon(Icons.pause_circle_outline, size: 16),
+                          label: const Text(
+                            'Отключить автостарт',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        // 4. Получить глобальную проверку (синяя)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF3B82F6),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: _isTestingPing ? null : _testAllNodes,
+                          icon:
+                              const Icon(Icons.check_circle_outline, size: 16),
+                          label: const Text(
+                            'Получить глобальную проверку',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        // 5. Посмотреть логи (синяя)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF3B82F6),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: _showLogsModal,
+                          icon: const Icon(Icons.article_outlined, size: 16),
+                          label: const Text(
+                            'Посмотреть логи',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        // 6. Показать sing-box конфигурацию (синяя)
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF3B82F6),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: _showSingboxConfigModal,
+                          icon: const Icon(Icons.settings, size: 16),
+                          label: const Text(
+                            'Показать sing-box конфигурацию',
+                            style: TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ],
                     ),
-                  )
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      // ==========================================
-                      // Tab 0: Groups (Группы выбора и URLTest)
-                      // ==========================================
-                      RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: _groups.isEmpty
-                            ? LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    SingleChildScrollView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minHeight: constraints.maxHeight,
-                                    ),
-                                    child: const Center(
-                                      child: Text('Нет доступных групп'),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  LuciSpacing.md,
-                                  LuciSpacing.sm,
-                                  LuciSpacing.md,
-                                  36,
-                                ),
-                                itemCount: _groups.length,
-                                itemBuilder: (context, index) {
-                                  final group = _groups[index];
-                                  final isSelected =
-                                      _selectedNodeName == group.name ||
-                                      _selectedNodeName == group.now;
-                                  final latColor = _getLatencyColor(
-                                    group.latencyMs,
-                                  );
+                  ],
+                ),
+              ),
+            ),
 
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 6,
-                                    ),
-                                    elevation: isSelected ? 3 : 1,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: isSelected
-                                          ? BorderSide(
-                                              color: Colors.greenAccent.shade700,
-                                              width: 2,
-                                            )
-                                          : BorderSide.none,
-                                    ),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: () {
-                                        if (group.all.isNotEmpty) {
-                                          _showCandidatesDialog(group);
-                                        } else {
-                                          _selectNode(group.name);
-                                        }
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(12),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    group.displayTitle,
-                                                    style: theme
-                                                        .textTheme
-                                                        .titleMedium
-                                                        ?.copyWith(
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.info_outline,
-                                                    size: 20,
-                                                    color: Colors.blue,
-                                                  ),
-                                                  onPressed: () =>
-                                                      _showCandidatesDialog(
-                                                    group,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 6),
-                                            Row(
-                                              children: [
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                    horizontal: 8,
-                                                    vertical: 2,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: colorScheme
-                                                        .primaryContainer,
-                                                    borderRadius:
-                                                        BorderRadius.circular(6),
-                                                  ),
-                                                  child: Text(
-                                                    group.type.displayName,
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: colorScheme
-                                                          .onPrimaryContainer,
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                if (group.latencyMs != null &&
-                                                    group.latencyMs! > 0)
-                                                  Text(
-                                                    '${group.latencyMs}ms',
-                                                    style: TextStyle(
-                                                      color: latColor,
-                                                      fontWeight:
-                                                          FontWeight.bold,
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
-                                                const Spacer(),
-                                                if (group.all.isNotEmpty)
-                                                  Text(
-                                                    '${group.all.length} узлов',
-                                                    style: theme
-                                                        .textTheme
-                                                        .bodySmall
-                                                        ?.copyWith(
-                                                      color: colorScheme
-                                                          .onSurfaceVariant,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                            if (group.now != null &&
-                                                group.now!.isNotEmpty) ...[
-                                              const SizedBox(height: 8),
-                                              Row(
+            // Routing Mode Card
+            Card(
+              margin: const EdgeInsets.symmetric(
+                horizontal: LuciSpacing.md,
+                vertical: LuciSpacing.xs,
+              ),
+              elevation: 1,
+              shape: RoundedRectangleBorder(
+                borderRadius: LuciCardStyles.standardRadius,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: LuciSpacing.md,
+                  vertical: LuciSpacing.sm,
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.hub, color: colorScheme.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _selectedNodeName != null
+                            ? 'Активный: $_selectedNodeName'
+                            : 'Режим маршрутизации',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Wrap(
+                      spacing: 4,
+                      children: ['Rule', 'Global', 'Direct'].map((m) {
+                        final selected = _activeMode == m;
+                        return ChoiceChip(
+                          label: Text(m, style: const TextStyle(fontSize: 12)),
+                          selected: selected,
+                          visualDensity: VisualDensity.compact,
+                          onSelected: (_) => _setRoutingMode(m),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Tabs: Группы, Узлы, Подписки
+            TabBar(
+              controller: _tabController,
+              tabs: [
+                Tab(
+                  text: 'Группы (${_groups.length})',
+                  icon: const Icon(Icons.account_tree_outlined, size: 20),
+                ),
+                Tab(
+                  text: 'Узлы (${_regularNodes.length})',
+                  icon: const Icon(Icons.dns_outlined, size: 20),
+                ),
+                Tab(
+                  text: 'Подписки (${_subscriptions.length})',
+                  icon: const Icon(Icons.rss_feed, size: 20),
+                ),
+              ],
+            ),
+
+            // Tab content
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: Colors.orange,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Не удалось загрузить данные:\n$_error',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 12),
+                              FilledButton.tonal(
+                                onPressed: _loadData,
+                                child: const Text('Повторить'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : TabBarView(
+                          controller: _tabController,
+                          children: [
+                            // ==========================================
+                            // Tab 0: Groups (Группы выбора и URLTest)
+                            // ==========================================
+                            RefreshIndicator(
+                              onRefresh: _loadData,
+                              child: _groups.isEmpty
+                                  ? LayoutBuilder(
+                                      builder: (context, constraints) =>
+                                          SingleChildScrollView(
+                                        physics:
+                                            const AlwaysScrollableScrollPhysics(),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight: constraints.maxHeight,
+                                          ),
+                                          child: const Center(
+                                            child: Text('Нет доступных групп'),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        LuciSpacing.md,
+                                        LuciSpacing.sm,
+                                        LuciSpacing.md,
+                                        36,
+                                      ),
+                                      itemCount: _groups.length,
+                                      itemBuilder: (context, index) {
+                                        final group = _groups[index];
+                                        final isSelected =
+                                            _selectedNodeName == group.name ||
+                                                _selectedNodeName == group.now;
+                                        final latColor = _getLatencyColor(
+                                          group.latencyMs,
+                                        );
+
+                                        return Card(
+                                          margin: const EdgeInsets.symmetric(
+                                            vertical: 6,
+                                          ),
+                                          elevation: isSelected ? 3 : 1,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            side: isSelected
+                                                ? BorderSide(
+                                                    color: Colors
+                                                        .greenAccent.shade700,
+                                                    width: 2,
+                                                  )
+                                                : BorderSide.none,
+                                          ),
+                                          child: InkWell(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            onTap: () {
+                                              if (group.all.isNotEmpty) {
+                                                _showCandidatesDialog(group);
+                                              } else {
+                                                _selectNode(group.name);
+                                              }
+                                            },
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(12),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
-                                                  const Icon(
-                                                    Icons.check_circle,
-                                                    color: Colors.green,
-                                                    size: 16,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Expanded(
-                                                    child: Text(
-                                                      'Активен: ${group.now}',
-                                                      style: theme
-                                                          .textTheme
-                                                          .bodySmall
-                                                          ?.copyWith(
-                                                        fontWeight:
-                                                            FontWeight.w600,
+                                                  Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: Text(
+                                                          group.displayTitle,
+                                                          style: theme.textTheme
+                                                              .titleMedium
+                                                              ?.copyWith(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
                                                       ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
+                                                      IconButton(
+                                                        icon: const Icon(
+                                                          Icons.info_outline,
+                                                          size: 20,
+                                                          color: Colors.blue,
+                                                        ),
+                                                        onPressed: () =>
+                                                            _showCandidatesDialog(
+                                                          group,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
+                                                  const SizedBox(height: 6),
+                                                  Row(
+                                                    children: [
+                                                      Container(
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 2,
+                                                        ),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color: colorScheme
+                                                              .primaryContainer,
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(6),
+                                                        ),
+                                                        child: Text(
+                                                          group
+                                                              .type.displayName,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: colorScheme
+                                                                .onPrimaryContainer,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      if (group.latencyMs !=
+                                                              null &&
+                                                          group.latencyMs! > 0)
+                                                        Text(
+                                                          '${group.latencyMs}ms',
+                                                          style: TextStyle(
+                                                            color: latColor,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13,
+                                                          ),
+                                                        ),
+                                                      const Spacer(),
+                                                      if (group.all.isNotEmpty)
+                                                        Text(
+                                                          '${group.all.length} узлов',
+                                                          style: theme.textTheme
+                                                              .bodySmall
+                                                              ?.copyWith(
+                                                            color: colorScheme
+                                                                .onSurfaceVariant,
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                  if (group.now != null &&
+                                                      group
+                                                          .now!.isNotEmpty) ...[
+                                                    const SizedBox(height: 8),
+                                                    Row(
+                                                      children: [
+                                                        const Icon(
+                                                          Icons.check_circle,
+                                                          color: Colors.green,
+                                                          size: 16,
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 6),
+                                                        Expanded(
+                                                          child: Text(
+                                                            'Активен: ${group.now}',
+                                                            style: theme
+                                                                .textTheme
+                                                                .bodySmall
+                                                                ?.copyWith(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                            ),
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
                                                 ],
                                               ),
-                                            ],
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-
-                      // ==========================================
-                      // Tab 1: Regular Nodes list (Узлы)
-                      // ==========================================
-                      RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: _regularNodes.isEmpty
-                            ? LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    SingleChildScrollView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  child: ConstrainedBox(
-                                    constraints: BoxConstraints(
-                                      minHeight: constraints.maxHeight,
-                                    ),
-                                    child: const Center(
-                                      child: Text('Нет доступных узлов'),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.fromLTRB(
-                                  LuciSpacing.md,
-                                  LuciSpacing.sm,
-                                  LuciSpacing.md,
-                                  36,
-                                ),
-                                itemCount: _regularNodes.length,
-                                itemBuilder: (context, index) {
-                                  final node = _regularNodes[index];
-                                  final isSelected =
-                                      _selectedNodeName == node.name;
-                                  final latColor = _getLatencyColor(
-                                    node.latencyMs,
-                                  );
-
-                                  return Card(
-                                    margin: const EdgeInsets.symmetric(
-                                      vertical: 4,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      side: isSelected
-                                          ? BorderSide(
-                                              color: colorScheme.primary,
-                                              width: 2,
-                                            )
-                                          : BorderSide.none,
-                                    ),
-                                    child: ListTile(
-                                      onTap: () => _selectNode(node.name),
-                                      leading: CircleAvatar(
-                                        backgroundColor: isSelected
-                                            ? colorScheme.primaryContainer
-                                            : colorScheme
-                                                  .surfaceContainerHighest,
-                                        child: Icon(
-                                          Icons.alt_route,
-                                          color: isSelected
-                                              ? colorScheme.primary
-                                              : colorScheme.onSurfaceVariant,
-                                        ),
-                                      ),
-                                      title: Text(
-                                        node.displayTitle,
-                                        style: TextStyle(
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.normal,
-                                        ),
-                                      ),
-                                      subtitle: Text(node.type.displayName),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (node.latencyMs != null &&
-                                              node.latencyMs! > 0)
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 4,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: latColor.withAlpha(30),
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                border: Border.all(
-                                                  color: latColor.withAlpha(
-                                                    100,
-                                                  ),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                '${node.latencyMs} ms',
-                                                style: TextStyle(
-                                                  color: latColor,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            )
-                                          else
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.bolt,
-                                                size: 20,
-                                              ),
-                                              onPressed: () async {
-                                                final appState = ref.read(
-                                                  appStateProvider,
-                                                );
-                                                final router =
-                                                    appState.selectedRouter;
-                                                if (router == null) return;
-                                                final delay =
-                                                    await _forkopService
-                                                        .testNodeDelay(
-                                                          routerIp: router
-                                                              .activeAddress,
-                                                          nodeName: node.name,
-                                                        );
-                                                if (mounted) {
-                                                  setState(() {
-                                                    final fullIdx =
-                                                        _nodes.indexWhere(
-                                                      (n) => n.name == node.name,
-                                                    );
-                                                    if (fullIdx >= 0) {
-                                                      _nodes[fullIdx] = node
-                                                          .copyWith(
-                                                        latencyMs: delay,
-                                                      );
-                                                    }
-                                                  });
-                                                }
-                                              },
                                             ),
-                                          const SizedBox(width: 4),
-                                          if (isSelected)
-                                            Icon(
-                                              Icons.check_circle,
-                                              color: colorScheme.primary,
-                                            ),
-                                        ],
-                                      ),
+                                          ),
+                                        );
+                                      },
                                     ),
-                                  );
-                                },
-                              ),
-                      ),
-
-                      // ==========================================
-                      // Tab 2: Subscriptions
-                      // ==========================================
-                      RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.all(LuciSpacing.md),
-                          children: [
-                            if (_subscriptions.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 40),
-                                child: Center(
-                                  child: Text('Нет настроенных подписок'),
-                                ),
-                              )
-                            else
-                              ..._subscriptions.map(
-                                (sub) => Card(
-                                  margin: const EdgeInsets.symmetric(vertical: 6),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                      backgroundColor:
-                                          colorScheme.secondaryContainer,
-                                      child: Icon(
-                                        Icons.rss_feed,
-                                        color: colorScheme.onSecondaryContainer,
-                                      ),
-                                    ),
-                                    title: Text(
-                                      sub.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    subtitle: Text(
-                                      sub.url,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.sync),
-                                      onPressed: () => _updateSubscription(sub),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            const SizedBox(height: 12),
-                            FilledButton.icon(
-                              onPressed: _showAddSubscriptionDialog,
-                              icon: const Icon(Icons.add),
-                              label: const Text('Добавить подписку'),
                             ),
-                            const SizedBox(height: 36),
+
+                            // ==========================================
+                            // Tab 1: Regular Nodes list (Узлы)
+                            // ==========================================
+                            RefreshIndicator(
+                              onRefresh: _loadData,
+                              child: _regularNodes.isEmpty
+                                  ? LayoutBuilder(
+                                      builder: (context, constraints) =>
+                                          SingleChildScrollView(
+                                        physics:
+                                            const AlwaysScrollableScrollPhysics(),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            minHeight: constraints.maxHeight,
+                                          ),
+                                          child: const Center(
+                                            child: Text('Нет доступных узлов'),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        LuciSpacing.md,
+                                        LuciSpacing.sm,
+                                        LuciSpacing.md,
+                                        36,
+                                      ),
+                                      itemCount: _regularNodes.length,
+                                      itemBuilder: (context, index) {
+                                        final node = _regularNodes[index];
+                                        final isSelected =
+                                            _selectedNodeName == node.name;
+                                        final latColor = _getLatencyColor(
+                                          node.latencyMs,
+                                        );
+
+                                        return Card(
+                                          margin: const EdgeInsets.symmetric(
+                                            vertical: 4,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                            side: isSelected
+                                                ? BorderSide(
+                                                    color: colorScheme.primary,
+                                                    width: 2,
+                                                  )
+                                                : BorderSide.none,
+                                          ),
+                                          child: ListTile(
+                                            onTap: () => _selectNode(node.name),
+                                            leading: CircleAvatar(
+                                              backgroundColor: isSelected
+                                                  ? colorScheme.primaryContainer
+                                                  : colorScheme
+                                                      .surfaceContainerHighest,
+                                              child: Icon(
+                                                Icons.alt_route,
+                                                color: isSelected
+                                                    ? colorScheme.primary
+                                                    : colorScheme
+                                                        .onSurfaceVariant,
+                                              ),
+                                            ),
+                                            title: Text(
+                                              node.displayTitle,
+                                              style: TextStyle(
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                            subtitle:
+                                                Text(node.type.displayName),
+                                            trailing: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                if (node.latencyMs != null &&
+                                                    node.latencyMs! > 0)
+                                                  Container(
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: latColor
+                                                          .withAlpha(30),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8),
+                                                      border: Border.all(
+                                                        color:
+                                                            latColor.withAlpha(
+                                                          100,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      '${node.latencyMs} ms',
+                                                      style: TextStyle(
+                                                        color: latColor,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                  )
+                                                else
+                                                  IconButton(
+                                                    icon: const Icon(
+                                                      Icons.bolt,
+                                                      size: 20,
+                                                    ),
+                                                    onPressed: () async {
+                                                      final appState = ref.read(
+                                                        appStateProvider,
+                                                      );
+                                                      final router = appState
+                                                          .selectedRouter;
+                                                      if (router == null)
+                                                        return;
+                                                      final delay =
+                                                          await _forkopService
+                                                              .testNodeDelay(
+                                                        routerIp: router
+                                                            .activeAddress,
+                                                        nodeName: node.name,
+                                                      );
+                                                      if (mounted) {
+                                                        setState(() {
+                                                          final fullIdx =
+                                                              _nodes.indexWhere(
+                                                            (n) =>
+                                                                n.name ==
+                                                                node.name,
+                                                          );
+                                                          if (fullIdx >= 0) {
+                                                            _nodes[fullIdx] =
+                                                                node.copyWith(
+                                                              latencyMs: delay,
+                                                            );
+                                                          }
+                                                        });
+                                                      }
+                                                    },
+                                                  ),
+                                                const SizedBox(width: 4),
+                                                if (isSelected)
+                                                  Icon(
+                                                    Icons.check_circle,
+                                                    color: colorScheme.primary,
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+
+                            // ==========================================
+                            // Tab 2: Subscriptions
+                            // ==========================================
+                            RefreshIndicator(
+                              onRefresh: _loadData,
+                              child: ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(LuciSpacing.md),
+                                children: [
+                                  if (_subscriptions.isEmpty)
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 40),
+                                      child: Center(
+                                        child: Text('Нет настроенных подписок'),
+                                      ),
+                                    )
+                                  else
+                                    ..._subscriptions.map(
+                                      (sub) => Card(
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 6),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: ListTile(
+                                          leading: CircleAvatar(
+                                            backgroundColor:
+                                                colorScheme.secondaryContainer,
+                                            child: Icon(
+                                              Icons.rss_feed,
+                                              color: colorScheme
+                                                  .onSecondaryContainer,
+                                            ),
+                                          ),
+                                          title: Text(
+                                            sub.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          subtitle: Text(
+                                            sub.url,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          trailing: IconButton(
+                                            icon: const Icon(Icons.sync),
+                                            onPressed: () =>
+                                                _updateSubscription(sub),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  const SizedBox(height: 12),
+                                  FilledButton.icon(
+                                    onPressed: _showAddSubscriptionDialog,
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Добавить подписку'),
+                                  ),
+                                  const SizedBox(height: 36),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 }

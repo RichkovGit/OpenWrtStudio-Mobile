@@ -81,6 +81,7 @@ void main() {
         final protocols = ProtocolItem.defaultList();
         final ids = protocols.map((p) => p.id).toList();
 
+        expect(ids, contains('forkop'));
         expect(ids, contains('amneziawg'));
         expect(ids, contains('wireguard'));
         expect(ids, contains('sing-box'));

@@ -6,6 +6,8 @@ import 'package:luci_mobile/services/protocol_service.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 
+import 'package:luci_mobile/screens/forkop_screen.dart';
+
 class ProtocolsScreen extends ConsumerStatefulWidget {
   const ProtocolsScreen({super.key});
 
@@ -26,6 +28,47 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
     if (appState.apiService != null) {
       _protocolService = ProtocolService(apiService: appState.apiService!);
       _scanProtocols();
+    }
+  }
+
+  Future<void> _switchProtocol(ProtocolItem target) async {
+    final appState = ref.read(appStateProvider);
+    final router = appState.selectedRouter;
+    final sysauth = appState.sysauth;
+    if (router == null || sysauth == null) return;
+
+    setState(() {
+      _busyProtocolId = target.id;
+    });
+
+    final currentRunning = _protocols.where((p) => p.isRunning).firstOrNull;
+
+    final success = await _protocolService.switchProtocol(
+      routerIp: router.activeAddress,
+      sysauth: sysauth,
+      useHttps: router.activeUseHttps,
+      targetServiceName: target.serviceName,
+      currentServiceName: currentRunning?.serviceName,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Протокол ${target.name} активирован'
+                : 'Ошибка переключения на ${target.name}',
+          ),
+          backgroundColor: success ? Colors.green : Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      await _scanProtocols();
+      if (mounted) {
+        setState(() {
+          _busyProtocolId = null;
+        });
+      }
     }
   }
 
@@ -174,157 +217,183 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                     40,
                   ),
                   itemCount: _protocols.length,
-                itemBuilder: (context, index) {
-                  final item = _protocols[index];
-                  final isBusy = _busyProtocolId == item.id;
+                  itemBuilder: (context, index) {
+                    final item = _protocols[index];
+                    final isBusy = _busyProtocolId == item.id;
 
-                  Color statusColor;
-                  String statusText;
-                  if (item.isRunning) {
-                    statusColor = Colors.green;
-                    statusText = 'Работает';
-                  } else if (item.isInstalled) {
-                    statusColor = Colors.orange;
-                    statusText = 'Остановлен';
-                  } else {
-                    statusColor = Colors.grey;
-                    statusText = 'Не установлен';
-                  }
+                    Color statusColor;
+                    String statusText;
+                    if (item.isRunning) {
+                      statusColor = Colors.green;
+                      statusText = 'Работает';
+                    } else if (item.isInstalled) {
+                      statusColor = Colors.orange;
+                      statusText = 'Остановлен';
+                    } else {
+                      statusColor = Colors.grey;
+                      statusText = 'Не установлен';
+                    }
 
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                      side: item.isRunning
-                          ? BorderSide(
-                              color: statusColor.withAlpha(120),
-                              width: 1.5,
-                            )
-                          : BorderSide.none,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(LuciSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: item.isRunning
-                                    ? Colors.green.withAlpha(30)
-                                    : colorScheme.surfaceContainerHighest,
-                                child: Icon(
-                                  item.category == ProtocolCategory.vpn
-                                      ? Icons.vpn_lock
-                                      : item.category == ProtocolCategory.proxy
-                                      ? Icons.shuffle
-                                      : Icons.device_hub,
-                                  color: item.isRunning
-                                      ? Colors.green
-                                      : colorScheme.onSurfaceVariant,
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: item.isRunning
+                            ? BorderSide(
+                                color: statusColor.withAlpha(120),
+                                width: 1.5,
+                              )
+                            : BorderSide.none,
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(LuciSpacing.md),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  backgroundColor: item.isRunning
+                                      ? Colors.green.withAlpha(30)
+                                      : colorScheme.surfaceContainerHighest,
+                                  child: Icon(
+                                    item.category == ProtocolCategory.vpn
+                                        ? Icons.vpn_lock
+                                        : item.category ==
+                                                ProtocolCategory.proxy
+                                            ? Icons.shuffle
+                                            : Icons.device_hub,
+                                    color: item.isRunning
+                                        ? Colors.green
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.name,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.name,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        item.category.displayName,
+                                        style:
+                                            theme.textTheme.bodySmall?.copyWith(
+                                          color: colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withAlpha(30),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: statusColor.withAlpha(100),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      item.category.displayName,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: colorScheme.onSurfaceVariant,
+                                  ),
+                                  child: Text(
+                                    statusText,
+                                    style: TextStyle(
+                                      color: statusColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              item.description,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onSurface.withAlpha(200),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (isBusy)
+                                  const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else if (!item.isInstalled)
+                                  FilledButton.tonalIcon(
+                                    onPressed: () => _installProtocol(item),
+                                    icon: const Icon(Icons.download, size: 18),
+                                    label: const Text('Установить'),
+                                  )
+                                else ...[
+                                  if (item.id == 'forkop' ||
+                                      item.id == 'sing-box') ...[
+                                    TextButton.icon(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                const ForkopScreen(),
                                           ),
+                                        ).then((_) => _scanProtocols());
+                                      },
+                                      icon: const Icon(Icons.tune, size: 16),
+                                      label: const Text('Узлы'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  if (item.isRunning) ...[
+                                    OutlinedButton(
+                                      onPressed: () =>
+                                          _controlService(item, 'stop'),
+                                      child: const Text('Стоп'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    FilledButton.tonal(
+                                      onPressed: () =>
+                                          _controlService(item, 'restart'),
+                                      child: const Text('Перезапуск'),
+                                    ),
+                                  ] else ...[
+                                    OutlinedButton(
+                                      onPressed: () =>
+                                          _controlService(item, 'start'),
+                                      child: const Text('Старт'),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    FilledButton.icon(
+                                      onPressed: () => _switchProtocol(item),
+                                      icon: const Icon(Icons.swap_horiz_rounded,
+                                          size: 18),
+                                      label: const Text('Переключить'),
                                     ),
                                   ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusColor.withAlpha(30),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: statusColor.withAlpha(100),
-                                  ),
-                                ),
-                                child: Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    color: statusColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            item.description,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.onSurface.withAlpha(200),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              if (isBusy)
-                                const SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              else if (!item.isInstalled)
-                                FilledButton.tonalIcon(
-                                  onPressed: () => _installProtocol(item),
-                                  icon: const Icon(Icons.download, size: 18),
-                                  label: const Text('Установить'),
-                                )
-                              else ...[
-                                if (item.isRunning) ...[
-                                  OutlinedButton(
-                                    onPressed: () =>
-                                        _controlService(item, 'stop'),
-                                    child: const Text('Стоп'),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  FilledButton.tonal(
-                                    onPressed: () =>
-                                        _controlService(item, 'restart'),
-                                    child: const Text('Перезапуск'),
-                                  ),
-                                ] else ...[
-                                  FilledButton(
-                                    onPressed: () =>
-                                        _controlService(item, 'start'),
-                                    child: const Text('Запустить'),
-                                  ),
                                 ],
                               ],
-                            ],
-                          ),
-                        ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
+                    );
+                  },
+                ),
         ),
       ),
     );

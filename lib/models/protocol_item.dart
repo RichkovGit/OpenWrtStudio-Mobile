@@ -5,11 +5,11 @@ enum ProtocolCategory {
   other;
 
   String get displayName => switch (this) {
-    ProtocolCategory.vpn => 'VPN',
-    ProtocolCategory.proxy => 'Proxy / Bypass',
-    ProtocolCategory.mesh => 'Mesh VPN',
-    ProtocolCategory.other => 'Other',
-  };
+        ProtocolCategory.vpn => 'VPN',
+        ProtocolCategory.proxy => 'Proxy / Bypass',
+        ProtocolCategory.mesh => 'Mesh VPN',
+        ProtocolCategory.other => 'Other',
+      };
 }
 
 class ProtocolItem {
@@ -89,13 +89,11 @@ class ProtocolItem {
       isRunning: json['isRunning'] as bool? ?? false,
       isEnabled: json['isEnabled'] as bool? ?? false,
       serviceName: json['serviceName'] as String? ?? '',
-      packageNames:
-          (json['packageNames'] as List<dynamic>?)
+      packageNames: (json['packageNames'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
-      binaryNames:
-          (json['binaryNames'] as List<dynamic>?)
+      binaryNames: (json['binaryNames'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -105,116 +103,142 @@ class ProtocolItem {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'category': category.name,
-    'description': description,
-    'isInstalled': isInstalled,
-    'isRunning': isRunning,
-    'isEnabled': isEnabled,
-    'serviceName': serviceName,
-    'packageNames': packageNames,
-    'binaryNames': binaryNames,
-    'configName': configName,
-    'version': version,
-  };
+        'id': id,
+        'name': name,
+        'category': category.name,
+        'description': description,
+        'isInstalled': isInstalled,
+        'isRunning': isRunning,
+        'isEnabled': isEnabled,
+        'serviceName': serviceName,
+        'packageNames': packageNames,
+        'binaryNames': binaryNames,
+        'configName': configName,
+        'version': version,
+      };
 
   static List<ProtocolItem> defaultList() => [
-    const ProtocolItem(
-      id: 'amneziawg',
-      name: 'AmneziaWG',
-      category: ProtocolCategory.vpn,
-      description: 'Modern obfuscated WireGuard fork designed to bypass deep packet inspection (DPI).',
-      serviceName: 'amneziawg',
-      packageNames: ['kmod-amneziawg', 'amneziawg-tools', 'luci-app-amneziawg'],
-      binaryNames: ['awg', 'awg-quick'],
-      configName: 'amneziawg',
-    ),
-    const ProtocolItem(
-      id: 'wireguard',
-      name: 'WireGuard',
-      category: ProtocolCategory.vpn,
-      description:
-          'Extremely fast, modern, and secure VPN kernel-level tunnel.',
-      serviceName: 'wireguard',
-      packageNames: [
-        'kmod-wireguard',
-        'wireguard-tools',
-        'luci-proto-wireguard',
-      ],
-      binaryNames: ['wg', 'wg-quick'],
-      configName: 'network',
-    ),
-    const ProtocolItem(
-      id: 'sing-box',
-      name: 'Sing-box',
-      category: ProtocolCategory.proxy,
-      description: 'Universal proxy platform with superior performance, TUN routing, and modern protocols.',
-      serviceName: 'sing-box',
-      packageNames: ['sing-box'],
-      binaryNames: ['sing-box'],
-      configName: 'sing-box',
-    ),
-    const ProtocolItem(
-      id: 'mihomo',
-      name: 'Mihomo (Clash Meta)',
-      category: ProtocolCategory.proxy,
-      description: 'Feature-rich rule-based proxy client supporting Clash Meta configs and Subscriptions.',
-      serviceName: 'mihomo',
-      packageNames: ['mihomo', 'luci-app-mihomo', 'nikki', 'openclash'],
-      binaryNames: ['mihomo', 'clash'],
-      configName: 'mihomo',
-    ),
-    const ProtocolItem(
-      id: 'passwall',
-      name: 'PassWall 2',
-      category: ProtocolCategory.proxy,
-      description:
-          'Comprehensive OpenWrt bypass and multi-protocol proxy director.',
-      serviceName: 'passwall',
-      packageNames: ['passwall', 'luci-app-passwall', 'luci-app-passwall2'],
-      binaryNames: ['passwall'],
-      configName: 'passwall',
-    ),
-    const ProtocolItem(
-      id: 'openvpn',
-      name: 'OpenVPN',
-      category: ProtocolCategory.vpn,
-      description: 'Battle-tested, reliable open source SSL/TLS VPN solution.',
-      serviceName: 'openvpn',
-      packageNames: ['openvpn-openssl', 'openvpn-mbedtls', 'luci-app-openvpn'],
-      binaryNames: ['openvpn'],
-      configName: 'openvpn',
-    ),
-    const ProtocolItem(
-      id: 'tailscale',
-      name: 'Tailscale',
-      category: ProtocolCategory.mesh,
-      description: 'Zero-config WireGuard mesh network connecting devices anywhere securely.',
-      serviceName: 'tailscale',
-      packageNames: ['tailscale', 'luci-app-tailscale'],
-      binaryNames: ['tailscale', 'tailscaled'],
-      configName: 'tailscale',
-    ),
-    const ProtocolItem(
-      id: 'zerotier',
-      name: 'ZeroTier',
-      category: ProtocolCategory.mesh,
-      description: 'Decentralized software-defined virtual Ethernet switch for mesh connectivity.',
-      serviceName: 'zerotier',
-      packageNames: ['zerotier', 'luci-app-zerotier'],
-      binaryNames: ['zerotier-one', 'zerotier-cli'],
-      configName: 'zerotier',
-    ),
-    const ProtocolItem(
-      id: 'xray',
-      name: 'Xray-core',
-      category: ProtocolCategory.proxy,
-      description: 'High-performance core for VLESS, VMess, XTLS, Trojan, and reality routing.',
-      serviceName: 'xray',
-      packageNames: ['xray-core', 'xray'],
-      binaryNames: ['xray'],
-      configName: 'xray',
-    ),
-  ];
+        const ProtocolItem(
+          id: 'forkop',
+          name: 'ForkOP (Sing-box)',
+          category: ProtocolCategory.proxy,
+          description:
+              'Transparent proxy platform powered by sing-box core with clash API support.',
+          serviceName: 'forkop',
+          packageNames: ['forkop', 'luci-app-forkop'],
+          binaryNames: ['forkop', 'sing-box'],
+          configName: 'forkop',
+        ),
+        const ProtocolItem(
+          id: 'amneziawg',
+          name: 'AmneziaWG',
+          category: ProtocolCategory.vpn,
+          description:
+              'Modern obfuscated WireGuard fork designed to bypass deep packet inspection (DPI).',
+          serviceName: 'amneziawg',
+          packageNames: [
+            'kmod-amneziawg',
+            'amneziawg-tools',
+            'luci-app-amneziawg'
+          ],
+          binaryNames: ['awg', 'awg-quick'],
+          configName: 'amneziawg',
+        ),
+        const ProtocolItem(
+          id: 'wireguard',
+          name: 'WireGuard',
+          category: ProtocolCategory.vpn,
+          description:
+              'Extremely fast, modern, and secure VPN kernel-level tunnel.',
+          serviceName: 'wireguard',
+          packageNames: [
+            'kmod-wireguard',
+            'wireguard-tools',
+            'luci-proto-wireguard',
+          ],
+          binaryNames: ['wg', 'wg-quick'],
+          configName: 'network',
+        ),
+        const ProtocolItem(
+          id: 'sing-box',
+          name: 'Sing-box',
+          category: ProtocolCategory.proxy,
+          description:
+              'Universal proxy platform with superior performance, TUN routing, and modern protocols.',
+          serviceName: 'sing-box',
+          packageNames: ['sing-box'],
+          binaryNames: ['sing-box'],
+          configName: 'sing-box',
+        ),
+        const ProtocolItem(
+          id: 'mihomo',
+          name: 'Mihomo (Clash Meta)',
+          category: ProtocolCategory.proxy,
+          description:
+              'Feature-rich rule-based proxy client supporting Clash Meta configs and Subscriptions.',
+          serviceName: 'mihomo',
+          packageNames: ['mihomo', 'luci-app-mihomo', 'nikki', 'openclash'],
+          binaryNames: ['mihomo', 'clash'],
+          configName: 'mihomo',
+        ),
+        const ProtocolItem(
+          id: 'passwall',
+          name: 'PassWall 2',
+          category: ProtocolCategory.proxy,
+          description:
+              'Comprehensive OpenWrt bypass and multi-protocol proxy director.',
+          serviceName: 'passwall',
+          packageNames: ['passwall', 'luci-app-passwall', 'luci-app-passwall2'],
+          binaryNames: ['passwall'],
+          configName: 'passwall',
+        ),
+        const ProtocolItem(
+          id: 'openvpn',
+          name: 'OpenVPN',
+          category: ProtocolCategory.vpn,
+          description:
+              'Battle-tested, reliable open source SSL/TLS VPN solution.',
+          serviceName: 'openvpn',
+          packageNames: [
+            'openvpn-openssl',
+            'openvpn-mbedtls',
+            'luci-app-openvpn'
+          ],
+          binaryNames: ['openvpn'],
+          configName: 'openvpn',
+        ),
+        const ProtocolItem(
+          id: 'tailscale',
+          name: 'Tailscale',
+          category: ProtocolCategory.mesh,
+          description:
+              'Zero-config WireGuard mesh network connecting devices anywhere securely.',
+          serviceName: 'tailscale',
+          packageNames: ['tailscale', 'luci-app-tailscale'],
+          binaryNames: ['tailscale', 'tailscaled'],
+          configName: 'tailscale',
+        ),
+        const ProtocolItem(
+          id: 'zerotier',
+          name: 'ZeroTier',
+          category: ProtocolCategory.mesh,
+          description:
+              'Decentralized software-defined virtual Ethernet switch for mesh connectivity.',
+          serviceName: 'zerotier',
+          packageNames: ['zerotier', 'luci-app-zerotier'],
+          binaryNames: ['zerotier-one', 'zerotier-cli'],
+          configName: 'zerotier',
+        ),
+        const ProtocolItem(
+          id: 'xray',
+          name: 'Xray-core',
+          category: ProtocolCategory.proxy,
+          description:
+              'High-performance core for VLESS, VMess, XTLS, Trojan, and reality routing.',
+          serviceName: 'xray',
+          packageNames: ['xray-core', 'xray'],
+          binaryNames: ['xray'],
+          configName: 'xray',
+        ),
+      ];
 }

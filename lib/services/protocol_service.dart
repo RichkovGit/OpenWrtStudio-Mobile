@@ -20,25 +20,31 @@ class ProtocolService {
     const scanScript = r'''
 echo "===PKGS==="
 if command -v apk >/dev/null 2>&1; then
-  apk info -e amneziawg* wireguard* sing-box* mihomo* passwall* openvpn* tailscale* zerotier* xray* 2>/dev/null
+  apk info -e forkop* luci-app-forkop* amneziawg* wireguard* sing-box* mihomo* passwall* openvpn* tailscale* zerotier* xray* 2>/dev/null
 elif command -v opkg >/dev/null 2>&1; then
-  opkg list-installed 2>/dev/null | grep -E "(amneziawg|wireguard|sing-box|mihomo|passwall|openvpn|tailscale|zerotier|xray)" | awk '{print $1}'
+  opkg list-installed 2>/dev/null | grep -E "(forkop|amneziawg|wireguard|sing-box|mihomo|passwall|openvpn|tailscale|zerotier|xray)" | awk '{print $1}'
 fi
 
 echo "===BINS==="
-for b in awg awg-quick wg wg-quick sing-box mihomo clash passwall openvpn tailscale tailscaled zerotier-one zerotier-cli xray /etc/mihomo/mihomo; do
+for b in forkop /usr/bin/forkop awg awg-quick wg wg-quick sing-box mihomo clash passwall openvpn tailscale tailscaled zerotier-one zerotier-cli xray /etc/mihomo/mihomo; do
   if command -v "$b" >/dev/null 2>&1 || [ -x "$b" ]; then
     echo "$b"
   fi
 done
 
 echo "===SERVICES==="
-for s in amneziawg wireguard sing-box mihomo passwall openvpn tailscale zerotier xray; do
+for s in forkop amneziawg wireguard sing-box mihomo passwall openvpn tailscale zerotier xray; do
   if [ -f "/etc/init.d/$s" ]; then
     if "/etc/init.d/$s" status >/dev/null 2>&1; then
       echo "$s:running"
     else
       echo "$s:stopped"
+    fi
+  elif [ "$s" = "forkop" ] && [ -x /usr/bin/forkop ]; then
+    if /usr/bin/forkop get_status 2>/dev/null | grep -q -i "running"; then
+      echo "forkop:running"
+    else
+      echo "forkop:stopped"
     fi
   fi
 done
@@ -51,7 +57,7 @@ for m in amneziawg wireguard; do
 done
 
 echo "===PROCS==="
-ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zerotier-one|xray|awg|wireguard)" | grep -v grep | awk '{print $NF}'
+ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled|zerotier-one|xray|awg|wireguard)" | grep -v grep | awk '{print $NF}'
 ''';
 
     try {
@@ -151,6 +157,20 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
     required String action, // 'start', 'stop', 'restart'
   }) async {
     try {
+      if (serviceName == 'forkop') {
+        final res = await apiService.systemExec(
+          routerIp,
+          sysauth,
+          useHttps,
+          command: '/bin/sh',
+          params: [
+            '-c',
+            '[ -x /usr/bin/forkop ] && /usr/bin/forkop $action || /etc/init.d/forkop $action',
+          ],
+        );
+        return res != null;
+      }
+
       final res = await apiService.systemExec(
         routerIp,
         sysauth,
@@ -165,6 +185,58 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
     }
   }
 
+  /// Safely switches active protocol by stopping conflicting proxy/bypass services
+  /// before starting the target service.
+  Future<bool> switchProtocol({
+    required String routerIp,
+    required String sysauth,
+    required bool useHttps,
+    required String targetServiceName,
+    String? currentServiceName,
+  }) async {
+    try {
+      if (currentServiceName != null &&
+          currentServiceName.isNotEmpty &&
+          currentServiceName != targetServiceName) {
+        await controlService(
+          routerIp: routerIp,
+          sysauth: sysauth,
+          useHttps: useHttps,
+          serviceName: currentServiceName,
+          action: 'stop',
+        );
+      }
+
+      // Conflict avoidance: if target is a transparent proxy, ensure other proxy cores are stopped
+      final proxyServices = ['forkop', 'mihomo', 'passwall', 'sing-box'];
+      if (proxyServices.contains(targetServiceName.toLowerCase())) {
+        for (final other in proxyServices) {
+          if (other != targetServiceName.toLowerCase()) {
+            await controlService(
+              routerIp: routerIp,
+              sysauth: sysauth,
+              useHttps: useHttps,
+              serviceName: other,
+              action: 'stop',
+            );
+          }
+        }
+      }
+
+      final started = await controlService(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+        serviceName: targetServiceName,
+        action: 'start',
+      );
+      return started;
+    } catch (e) {
+      Logger.error('Failed to switch protocol to $targetServiceName', e);
+      return false;
+    }
+  }
+
   /// Installs protocol packages using apk (OpenWrt 24/25) or opkg
   Future<bool> installProtocol({
     required String routerIp,
@@ -174,8 +246,7 @@ ps -w 2>/dev/null | grep -E "(mihomo|sing-box|passwall|openvpn|tailscaled|zeroti
   }) async {
     if (packageNames.isEmpty) return false;
     final pkgs = packageNames.join(' ');
-    final script =
-        '''
+    final script = '''
 if command -v apk >/dev/null 2>&1; then
   apk add $pkgs
 elif command -v opkg >/dev/null 2>&1; then

@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/forkop_service.dart';
+import 'package:luci_mobile/services/protocol_service.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/services/ota_service.dart';
 import 'package:luci_mobile/widgets/ota_update_dialog.dart';
 import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/screens/forkop_screen.dart';
+import 'package:luci_mobile/screens/protocols_screen.dart';
 
 class SimpleWifiNetwork {
   final String section;
@@ -37,18 +41,25 @@ class SimpleDashboardScreen extends ConsumerStatefulWidget {
   const SimpleDashboardScreen({super.key, required this.onSwitchToExpert});
 
   @override
-  ConsumerState<SimpleDashboardScreen> createState() => _SimpleDashboardScreenState();
+  ConsumerState<SimpleDashboardScreen> createState() =>
+      _SimpleDashboardScreenState();
 }
 
 class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   final ForkopService _forkopService = ForkopService(
     apiService: ServiceContainer.instance.factory.createApiService(),
   );
+  final ProtocolService _protocolService = ProtocolService(
+    apiService: ServiceContainer.instance.factory.createApiService(),
+  );
+
+  // Protocols state
+  bool _isLoadingProtocols = true;
+  List<ProtocolItem> _protocols = [];
+  ProtocolItem? _selectedProtocol;
+  bool _isSwitchingProtocol = false;
 
   // ForkOP state
-  bool _isCheckingForkop = true;
-  bool _isForkopInstalled = false;
-  bool _forkopActive = false;
   List<String> _forkopPresets = [];
   String? _selectedPreset;
   bool _isLoadingForkopAction = false;
@@ -73,7 +84,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   Future<void> _loadAll() async {
     await Future.wait([
       _loadWifiNetworks(),
-      _loadForkopState(),
+      _loadProtocolsState(),
     ]);
   }
 
@@ -121,18 +132,24 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       final rawBand = (radio['band']?.toString() ?? '').toLowerCase();
 
       String band;
-      if (rawBand.contains('5g') || device.contains('radio1') || ssid.toLowerCase().contains('5g')) {
+      if (rawBand.contains('5g') ||
+          device.contains('radio1') ||
+          ssid.toLowerCase().contains('5g')) {
         band = '5 GHz';
       } else if (rawBand.contains('6g')) {
         band = '6 GHz';
-      } else if (rawBand.contains('2g') || device.contains('radio0') || ssid.toLowerCase().contains('2.4g')) {
+      } else if (rawBand.contains('2g') ||
+          device.contains('radio0') ||
+          ssid.toLowerCase().contains('2.4g')) {
         band = '2.4 GHz';
       } else {
         band = 'Wi-Fi';
       }
 
-      final isRadioDisabled = radio['disabled'] == '1' || radio['disabled'] == true;
-      final isIfaceDisabled = iface['disabled'] == '1' || iface['disabled'] == true;
+      final isRadioDisabled =
+          radio['disabled'] == '1' || radio['disabled'] == true;
+      final isIfaceDisabled =
+          iface['disabled'] == '1' || iface['disabled'] == true;
 
       list.add(SimpleWifiNetwork(
         section: sec,
@@ -190,7 +207,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     // 1. Check if uciWirelessConfig is already cached in dashboardData
     final uciConfig = appState.dashboardData?['uciWirelessConfig'];
     if (uciConfig is Map && uciConfig['values'] is Map) {
-      networks = _parseWifiFromUciValues(Map<String, dynamic>.from(uciConfig['values'] as Map));
+      networks = _parseWifiFromUciValues(
+          Map<String, dynamic>.from(uciConfig['values'] as Map));
     }
 
     // 2. If empty or not loaded yet, query live router config
@@ -215,81 +233,78 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     }
   }
 
-  Future<void> _loadForkopState() async {
+  Future<void> _loadProtocolsState() async {
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
     if (ip == null || token == null) {
-      if (mounted) setState(() => _isCheckingForkop = false);
+      if (mounted) {
+        setState(() {
+          _isLoadingProtocols = false;
+          _isCheckingForkop = false;
+        });
+      }
       return;
     }
 
     try {
-      // 1. Check if ForkOP or Sing-box service is installed on the router
-      final checkRes = await appState.systemExec(
-        command: '/bin/sh',
-        params: [
-          '-c',
-          '[ -f /etc/init.d/forkop ] || [ -f /usr/bin/forkop ] || [ -f /etc/config/forkop ] || [ -f /etc/init.d/sing-box ] && echo 1 || echo 0',
-        ],
+      final items = await _protocolService.scanProtocols(
+        routerIp: ip,
+        sysauth: token,
+        useHttps: appState.useHttps,
       );
-      bool installed = false;
-      if (checkRes is List && checkRes.length > 1 && checkRes[1] is Map) {
-        final out = (checkRes[1]['stdout'] ?? '').toString().trim();
-        installed = out.contains('1');
-      }
 
-      if (!installed) {
-        if (mounted) {
-          setState(() {
-            _isForkopInstalled = false;
-            _forkopActive = false;
-            _forkopPresets = [];
-            _isCheckingForkop = false;
-          });
-        }
-        return;
-      }
+      final available =
+          items.where((p) => p.isInstalled || p.isRunning).toList();
+      final list = available.isNotEmpty ? available : items;
+      final active = list.where((p) => p.isRunning).firstOrNull;
 
-      // 2. Check if proxy daemon process is currently running
-      final runRes = await appState.systemExec(
-        command: '/bin/sh',
-        params: ['-c', 'pgrep -f "sing-box|forkop|mihomo" >/dev/null && echo 1 || echo 0'],
-      );
-      bool active = false;
-      if (runRes is List && runRes.length > 1 && runRes[1] is Map) {
-        final out = (runRes[1]['stdout'] ?? '').toString().trim();
-        active = out.contains('1');
-      }
-
-      // 3. Fetch real nodes / profiles from router
+      final hasForkop = list.any((p) => p.id == 'forkop' || p.id == 'sing-box');
       List<String> presets = [];
-      try {
-        final nodes = await _forkopService.fetchNodes(
-          routerIp: ip,
-          sysauth: token,
-          useHttps: appState.useHttps,
-        );
-        presets = nodes.map<String>((n) => n.displayTitle).where((s) => s.isNotEmpty).take(6).toList();
-      } catch (_) {}
+      String? activeNode;
+
+      if (hasForkop) {
+        try {
+          final nodes = await _forkopService.fetchNodes(
+            routerIp: ip,
+            sysauth: token,
+            useHttps: appState.useHttps,
+          );
+          presets = nodes
+              .where((n) => !n.isGroup)
+              .map((n) => n.displayTitle)
+              .where((s) => s.isNotEmpty)
+              .take(8)
+              .toList();
+
+          for (final n in nodes) {
+            if (n.isGroup && n.now != null && n.now!.isNotEmpty) {
+              activeNode = n.now;
+              break;
+            }
+          }
+        } catch (_) {}
+      }
 
       if (mounted) {
         setState(() {
-          _isForkopInstalled = true;
-          _forkopActive = active;
+          _protocols = list;
+          _selectedProtocol = active ?? _selectedProtocol ?? list.firstOrNull;
           _forkopPresets = presets;
-          if (presets.isNotEmpty && (_selectedPreset == null || !presets.contains(_selectedPreset))) {
+          if (activeNode != null) {
+            _selectedPreset = activeNode;
+          } else if (presets.isNotEmpty &&
+              (_selectedPreset == null ||
+                  !_forkopPresets.contains(_selectedPreset))) {
             _selectedPreset = presets.first;
           }
-          _isCheckingForkop = false;
+          _isLoadingProtocols = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _isForkopInstalled = false;
-          _forkopActive = false;
-          _isCheckingForkop = false;
+          _isLoadingProtocols = false;
         });
       }
     }
@@ -306,39 +321,84 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     );
   }
 
-  Future<void> _toggleForkopMaster() async {
-    if (!_isForkopInstalled) return;
+  Future<void> _selectForkopPreset(String name) async {
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
     if (ip == null || token == null) return;
 
     setState(() => _isLoadingForkopAction = true);
-    final next = !_forkopActive;
-    bool success;
-    if (next) {
-      success = await _forkopService.restartForkop(
-        routerIp: ip,
-        sysauth: token,
-        useHttps: appState.useHttps,
-      );
-    } else {
-      success = await _forkopService.stopForkop(
-        routerIp: ip,
-        sysauth: token,
-        useHttps: appState.useHttps,
-      );
-    }
+    final success = await _forkopService.selectNode(
+      routerIp: ip,
+      nodeName: name,
+      sysauth: token,
+      useHttps: appState.useHttps,
+    );
+
     if (mounted) {
       setState(() {
         _isLoadingForkopAction = false;
-        if (success) _forkopActive = next;
+        if (success) _selectedPreset = name;
       });
       _showMessage(
-        success
-            ? (next ? 'Защита трафика успешно включена' : 'Защита трафика остановлена')
-            : 'Ошибка переключения службы',
+        success ? 'Выбран узел: $name' : 'Не удалось переключить узел $name',
       );
+    }
+  }
+
+  Future<void> _switchActiveProtocol(ProtocolItem target) async {
+    final appState = ref.read(appStateProvider);
+    final ip = appState.activeIp;
+    final token = appState.sysauth;
+    if (ip == null || token == null) return;
+
+    setState(() => _isSwitchingProtocol = true);
+    final currentRunning = _protocols.where((p) => p.isRunning).firstOrNull;
+
+    final success = await _protocolService.switchProtocol(
+      routerIp: ip,
+      sysauth: token,
+      useHttps: appState.useHttps,
+      targetServiceName: target.serviceName,
+      currentServiceName: currentRunning?.serviceName,
+    );
+
+    if (mounted) {
+      setState(() => _isSwitchingProtocol = false);
+      _showMessage(
+        success
+            ? 'Протокол ${target.name} активирован'
+            : 'Ошибка запуска протокола ${target.name}',
+      );
+      unawaited(_loadProtocolsState());
+    }
+  }
+
+  Future<void> _toggleProtocolService(ProtocolItem protocol) async {
+    final appState = ref.read(appStateProvider);
+    final ip = appState.activeIp;
+    final token = appState.sysauth;
+    if (ip == null || token == null) return;
+
+    setState(() => _isSwitchingProtocol = true);
+    final action = protocol.isRunning ? 'stop' : 'start';
+
+    final success = await _protocolService.controlService(
+      routerIp: ip,
+      sysauth: token,
+      useHttps: appState.useHttps,
+      serviceName: protocol.serviceName,
+      action: action,
+    );
+
+    if (mounted) {
+      setState(() => _isSwitchingProtocol = false);
+      _showMessage(
+        success
+            ? 'Служба ${protocol.name} ${action == "start" ? "запущена" : "остановлена"}'
+            : 'Ошибка выполнения для ${protocol.name}',
+      );
+      unawaited(_loadProtocolsState());
     }
   }
 
@@ -357,11 +417,14 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           'Вы уверены, что хотите перезагрузить роутер? Сеть будет кратковременно недоступна (1-2 минуты).',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Отмена')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Перезагрузить', style: TextStyle(color: Colors.white)),
+            child: const Text('Перезагрузить',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -385,7 +448,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           children: [
             Icon(Icons.router, size: 24, color: Color(0xFF00D2FF)),
             SizedBox(width: 10),
-            Text('OpenWrt Studio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('OpenWrt Studio',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         actions: [
@@ -404,22 +468,28 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 GestureDetector(
                   onTap: () {},
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: const Color(0xFF00D2FF),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Text(
                       '⚡ Простой',
-                      style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12),
                     ),
                   ),
                 ),
                 GestureDetector(
                   onTap: widget.onSwitchToExpert,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    child: const Text('🛠️ Эксперт', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    child: const Text('🛠️ Эксперт',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
                   ),
                 ),
               ],
@@ -472,7 +542,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           ],
         ),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF00D2FF).withValues(alpha: 0.5)),
+        border:
+            Border.all(color: const Color(0xFF00D2FF).withValues(alpha: 0.5)),
       ),
       child: Row(
         children: [
@@ -482,14 +553,17 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.system_update, color: Color(0xFF00D2FF), size: 22),
+            child: const Icon(Icons.system_update,
+                color: Color(0xFF00D2FF), size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Доступно обновление!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Text('Доступно обновление!',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 2),
                 Text(
                   'Версия v${_availableOtaRelease!.version}',
@@ -504,7 +578,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               foregroundColor: Colors.black,
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
               OtaUpdateDialog.show(
@@ -513,7 +588,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 currentVersion: _currentAppVer,
               );
             },
-            child: const Text('Обновить', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: const Text('Обновить',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
         ],
       ),
@@ -522,7 +598,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   Widget _buildInternetCard(bool isOnline, AppState appState) {
     final routerIp = appState.activeIp ?? '192.168.1.1';
-    final boardInfo = appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
+    final boardInfo =
+        appState.dashboardData?['boardInfo'] as Map<String, dynamic>?;
     final modelRaw = boardInfo?['model']?.toString();
     final hostnameRaw = boardInfo?['hostname']?.toString();
     final routerName = appState.selectedRouter?.lastKnownHostname;
@@ -552,7 +629,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: isOnline ? Colors.green.withValues(alpha: 0.15) : Colors.red.withValues(alpha: 0.15),
+                color: isOnline
+                    ? Colors.green.withValues(alpha: 0.15)
+                    : Colors.red.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -567,8 +646,11 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    isOnline ? 'Подключено к роутеру' : 'Нет подключения к сети',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    isOnline
+                        ? 'Подключено к роутеру'
+                        : 'Нет подключения к сети',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -591,7 +673,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               ),
               child: Text(
                 isOnline ? 'В СЕТИ' : 'ОФЛАЙН',
-                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -601,7 +686,11 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   }
 
   Widget _buildForkopCard() {
-    if (_isCheckingForkop) {
+    return _buildProtocolControlCard();
+  }
+
+  Widget _buildProtocolControlCard() {
+    if (_isLoadingProtocols && _protocols.isEmpty) {
       return Card(
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -618,69 +707,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       );
     }
 
-    if (!_isForkopInstalled) {
-      return Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.blueGrey.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.shield_outlined, color: Colors.blueGrey, size: 24),
-                  ),
-                  const SizedBox(width: 14),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'ForkOP / Защита трафика',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Служба не установлена на роутере',
-                          style: TextStyle(color: Colors.white60, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Пакет ForkOP или Sing-box не обнаружен на данной прошивке. Для настройки сети, Wi-Fi и фаервола используйте Экспертный режим.',
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF00D2FF),
-                    side: const BorderSide(color: Color(0xFF00D2FF)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: const Text('Перейти в Экспертный режим'),
-                  onPressed: widget.onSwitchToExpert,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+    final activeRunning = _protocols.where((p) => p.isRunning).firstOrNull;
+    final selectedProto =
+        _selectedProtocol ?? activeRunning ?? _protocols.firstOrNull;
+    final isSelectedRunning = selectedProto?.isRunning ?? false;
 
     return Card(
       elevation: 2,
@@ -690,67 +720,324 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header Row: Title, active badge & master toggle
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.shield, color: Color(0xFF00D2FF), size: 24),
-                    SizedBox(width: 8),
-                    Text('ForkOP / Защита трафика', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.security_rounded,
+                        color: Color(0xFF00D2FF),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'VPN и Протоколы обхода',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          activeRunning != null
+                              ? '🟢 Активен: ${activeRunning.name}'
+                              : '⚪ Все службы остановлены',
+                          style: TextStyle(
+                            color: activeRunning != null
+                                ? Colors.greenAccent
+                                : Colors.grey.shade400,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-                if (_isLoadingForkopAction)
-                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                else
+                if (_isSwitchingProtocol || _isLoadingForkopAction)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else if (selectedProto != null)
                   Switch(
-                    value: _forkopActive,
+                    value: isSelectedRunning,
                     activeColor: const Color(0xFF00D2FF),
-                    onChanged: (_) => _toggleForkopMaster(),
+                    onChanged: (_) => _toggleProtocolService(selectedProto),
                   ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              _forkopActive
-                  ? 'Обход блокировок и маршрутизация активны'
-                  : 'Трафик идёт напрямую через провайдера без прокси',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-            ),
-            if (_forkopPresets.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              const Text('Выбор профиля:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _forkopPresets.map((preset) => _buildPresetChip(preset)).toList(),
+            const SizedBox(height: 12),
+
+            // Protocol Selection Chips (Horizontal list of available protocols)
+            if (_protocols.isNotEmpty) ...[
+              const Text(
+                'Протоколы роутера:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _protocols.map((p) {
+                    final isSel = selectedProto?.id == p.id;
+                    final isRun = p.isRunning;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        selected: isSel,
+                        selectedColor:
+                            const Color(0xFF00D2FF).withValues(alpha: 0.25),
+                        avatar: isRun
+                            ? const Icon(
+                                Icons.circle,
+                                size: 10,
+                                color: Colors.greenAccent,
+                              )
+                            : null,
+                        label: Text(
+                          p.name,
+                          style: TextStyle(
+                            color: isSel
+                                ? const Color(0xFF00D2FF)
+                                : (isRun ? Colors.greenAccent : Colors.white70),
+                            fontSize: 12,
+                            fontWeight:
+                                isSel ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        onSelected: (val) {
+                          if (val) {
+                            setState(() => _selectedProtocol = p);
+                          }
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Selected Protocol Status & Action Card
+            if (selectedProto != null) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelectedRunning
+                        ? Colors.greenAccent.withValues(alpha: 0.4)
+                        : Colors.white12,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          selectedProto.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelectedRunning
+                                ? Colors.green.withValues(alpha: 0.2)
+                                : Colors.orange.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            isSelectedRunning ? 'РАБОТАЕТ' : 'ОСТАНОВЛЕН',
+                            style: TextStyle(
+                              color: isSelectedRunning
+                                  ? Colors.greenAccent
+                                  : Colors.orangeAccent,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      selectedProto.description,
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 12,
+                      ),
+                    ),
+
+                    // Quick Switch Button if not running
+                    if (!isSelectedRunning) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00D2FF),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                          ),
+                          icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                          label: Text(
+                            'Переключить на ${selectedProto.name}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          onPressed: _isSwitchingProtocol
+                              ? null
+                              : () => _switchActiveProtocol(selectedProto),
+                        ),
+                      ),
+                    ],
+
+                    // ForkOP Specific Node Selection
+                    if ((selectedProto.id == 'forkop' ||
+                            selectedProto.id == 'sing-box') &&
+                        _forkopPresets.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Выбор узла / локации:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const ForkopScreen(),
+                                ),
+                              ).then((_) => _loadProtocolsState());
+                            },
+                            child: const Text(
+                              'Все узлы →',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF00D2FF),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: _forkopPresets.map((nodeName) {
+                          final isCurrent = _selectedPreset == nodeName;
+                          return ChoiceChip(
+                            selected: isCurrent,
+                            selectedColor:
+                                const Color(0xFF00D2FF).withValues(alpha: 0.25),
+                            label: Text(
+                              nodeName,
+                              style: TextStyle(
+                                color: isCurrent
+                                    ? const Color(0xFF00D2FF)
+                                    : Colors.white,
+                                fontSize: 11,
+                              ),
+                            ),
+                            onSelected: (val) {
+                              if (val) {
+                                _selectForkopPreset(nodeName);
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
+
+            const SizedBox(height: 8),
+            // Bottom Link: Open all protocols management
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (selectedProto?.id == 'forkop' ||
+                    selectedProto?.id == 'sing-box')
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF00D2FF),
+                    ),
+                    icon: const Icon(Icons.tune_rounded, size: 16),
+                    label: const Text(
+                      'Панель ForkOP',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ForkopScreen(),
+                        ),
+                      ).then((_) => _loadProtocolsState());
+                    },
+                  ),
+                const Spacer(),
+                TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey.shade400,
+                  ),
+                  icon: const Icon(Icons.list_alt_rounded, size: 16),
+                  label: const Text(
+                    'Все протоколы (VPN)',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProtocolsScreen(),
+                      ),
+                    ).then((_) => _loadProtocolsState());
+                  },
+                ),
+              ],
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildPresetChip(String name) {
-    final isSelected = _selectedPreset == name;
-    return ChoiceChip(
-      selected: isSelected,
-      selectedColor: const Color(0xFF00D2FF).withValues(alpha: 0.25),
-      label: Text(
-        name,
-        style: TextStyle(
-          color: isSelected ? const Color(0xFF00D2FF) : Colors.white,
-          fontSize: 12,
-        ),
-      ),
-      onSelected: (val) {
-        if (val) {
-          setState(() => _selectedPreset = name);
-          _showMessage('Выбран профиль: $name');
-        }
-      },
     );
   }
 
@@ -770,11 +1057,16 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                   children: [
                     Icon(Icons.wifi, color: Colors.tealAccent, size: 24),
                     SizedBox(width: 8),
-                    Text('Беспроводная сеть Wi-Fi', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('Беспроводная сеть Wi-Fi',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 if (_isLoadingWifi)
-                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                  const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
               ],
             ),
             const SizedBox(height: 12),
@@ -811,7 +1103,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               )
             else
               Column(
-                children: _wifiNetworks.map((net) => _buildSingleWifiItem(net)).toList(),
+                children: _wifiNetworks
+                    .map((net) => _buildSingleWifiItem(net))
+                    .toList(),
               ),
           ],
         ),
@@ -844,7 +1138,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                     Flexible(
                       child: Text(
                         net.ssid,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 14),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -860,7 +1155,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 ),
                 child: Text(
                   net.band,
-                  style: const TextStyle(color: Color(0xFF00D2FF), fontSize: 11, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Color(0xFF00D2FF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -869,11 +1167,15 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Пароль:', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const Text('Пароль:',
+                  style: TextStyle(color: Colors.grey, fontSize: 13)),
               if (!hasPassword)
                 const Text(
                   'Без пароля (Открытая сеть)',
-                  style: TextStyle(color: Colors.orangeAccent, fontSize: 12, fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic),
                 )
               else
                 Row(
@@ -881,10 +1183,17 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                   children: [
                     Text(
                       net.showPassword ? net.key : '••••••••••••',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'monospace'),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          fontFamily: 'monospace'),
                     ),
                     IconButton(
-                      icon: Icon(net.showPassword ? Icons.visibility_off : Icons.visibility, size: 18),
+                      icon: Icon(
+                          net.showPassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                          size: 18),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       constraints: const BoxConstraints(),
                       onPressed: () {
@@ -921,7 +1230,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Быстрые действия', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text('Быстрые действия',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -931,7 +1241,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       foregroundColor: Colors.orangeAccent,
                       side: const BorderSide(color: Colors.orangeAccent),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.restart_alt),
                     label: const Text('Перезагрузка'),
@@ -945,7 +1256,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       foregroundColor: const Color(0xFF00D2FF),
                       side: const BorderSide(color: Color(0xFF00D2FF)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: const Icon(Icons.build_outlined),
                     label: const Text('Все опции (Эксперт)'),

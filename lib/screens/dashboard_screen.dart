@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -9,6 +10,10 @@ import 'package:luci_mobile/models/glinet_data.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/utils/wifi_utils.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
+import 'package:luci_mobile/models/protocol_item.dart';
+import 'package:luci_mobile/services/protocol_service.dart';
+import 'package:luci_mobile/screens/forkop_screen.dart';
+import 'package:luci_mobile/screens/protocols_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -26,11 +31,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _showWanLeftArrow = false;
   bool _showWanRightArrow = false;
 
+  ProtocolService? _protocolService;
+  List<ProtocolItem>? _dashboardProtocols;
+  bool _isLoadingProtocols = false;
+
+  Future<void> _loadProtocolsQuietly() async {
+    if (_isLoadingProtocols) return;
+    final appState = ref.read(appStateProvider);
+    final router = appState.selectedRouter;
+    final sysauth = appState.sysauth;
+    if (router == null || sysauth == null || appState.apiService == null) return;
+
+    _protocolService ??= ProtocolService(apiService: appState.apiService!);
+    _isLoadingProtocols = true;
+    try {
+      final items = await _protocolService!.scanProtocols(
+        routerIp: router.activeAddress,
+        sysauth: sysauth,
+        useHttps: router.activeUseHttps,
+      );
+      if (mounted) {
+        setState(() {
+          _dashboardProtocols = items;
+        });
+      }
+    } catch (_) {} finally {
+      _isLoadingProtocols = false;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(appStateProvider).fetchDashboardData();
+      _loadProtocolsQuietly();
       // Initialize arrows after layout
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateWirelessArrows();
@@ -47,6 +82,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateWirelessArrows();
       _updateWanArrows();
+      _loadProtocolsQuietly();
     });
   }
 
@@ -56,6 +92,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateWirelessArrows();
       _updateWanArrows();
+      _loadProtocolsQuietly();
     });
   }
 
@@ -287,6 +324,259 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showProtocolSwitchSheet(BuildContext context, AppState appState) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final protocols = _dashboardProtocols ?? ProtocolItem.defaultList();
+        final currentRunning = protocols.where((p) => p.isRunning).firstOrNull;
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Переключение протокола VPN',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  currentRunning != null
+                      ? 'Текущий активный протокол: ${currentRunning.name}'
+                      : 'Сейчас ни один протокол не активен',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(ctx).size.height * 0.45,
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: protocols.length,
+                    itemBuilder: (context, idx) {
+                      final p = protocols[idx];
+                      final isRun = p.isRunning;
+
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: isRun
+                              ? Colors.green.withValues(alpha: 0.2)
+                              : Colors.grey.withValues(alpha: 0.1),
+                          child: Icon(
+                            isRun ? Icons.check_circle : Icons.swap_horiz,
+                            color: isRun ? Colors.greenAccent : Colors.grey,
+                            size: 20,
+                          ),
+                        ),
+                        title: Text(
+                          p.name,
+                          style: TextStyle(
+                            fontWeight: isRun ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        subtitle: Text(
+                          isRun
+                              ? 'Активен (работает)'
+                              : (p.isInstalled ? 'Установлен' : 'Не установлен'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isRun ? Colors.greenAccent : Colors.grey,
+                          ),
+                        ),
+                        trailing: isRun
+                            ? const Chip(
+                                label: Text(
+                                  'АКТИВЕН',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                              )
+                            : OutlinedButton(
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: () async {
+                                  Navigator.pop(ctx);
+                                  final router = appState.selectedRouter;
+                                  final sysauth = appState.sysauth;
+                                  if (router == null || sysauth == null) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Переключение на ${p.name}...'),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                  final ok = await _protocolService!.switchProtocol(
+                                    routerIp: router.activeAddress,
+                                    sysauth: sysauth,
+                                    useHttps: router.activeUseHttps,
+                                    targetServiceName: p.serviceName,
+                                    currentServiceName: currentRunning?.serviceName,
+                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Переключено на ${p.name}'
+                                              : 'Ошибка переключения',
+                                        ),
+                                        backgroundColor:
+                                            ok ? Colors.green : Colors.red,
+                                      ),
+                                    );
+                                    unawaited(_loadProtocolsQuietly());
+                                  }
+                                },
+                                child: const Text('Включить'),
+                              ),
+                      );
+                    },
+                  ),
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ForkopScreen()),
+                        ).then((_) => _loadProtocolsQuietly());
+                      },
+                      icon: const Icon(Icons.tune, size: 16),
+                      label: const Text('Узлы ForkOP'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ProtocolsScreen(),
+                          ),
+                        ).then((_) => _loadProtocolsQuietly());
+                      },
+                      icon: const Icon(Icons.settings, size: 16),
+                      label: const Text('Все протоколы'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProtocolStatusCard(AppState appState) {
+    final protocols = _dashboardProtocols;
+    final active = protocols?.where((p) => p.isRunning).firstOrNull;
+    final hasActive = active != null;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => _showProtocolSwitchSheet(context, appState),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: hasActive
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : Colors.grey.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  hasActive ? Icons.vpn_lock_rounded : Icons.shield_outlined,
+                  size: 18,
+                  color: hasActive ? Colors.greenAccent : Colors.grey,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'VPN / Протоколы обхода',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasActive
+                          ? '🟢 ${active.name} активен'
+                          : '⚪ VPN отключен (напрямую)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: hasActive
+                            ? Colors.greenAccent
+                            : Theme.of(context).colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.swap_horiz_rounded, size: 14),
+                    SizedBox(width: 4),
+                    Text(
+                      'Сменить',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1651,6 +1941,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             final landscapeContent = [
               const SizedBox(height: 16),
               _buildDeviceInfoCard(appState),
+              const SizedBox(height: 8),
+              _buildProtocolStatusCard(appState),
               const SizedBox(height: 12),
               SizedBox(
                 height: 240,
@@ -1692,6 +1984,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       children: [
                         const SizedBox(height: 4),
                         _buildDeviceInfoCard(appState),
+                        const SizedBox(height: 4),
+                        _buildProtocolStatusCard(appState),
                         const SizedBox(height: 4),
                         Expanded(child: _buildRealtimeThroughputCard(appState)),
                         const SizedBox(height: 4),
