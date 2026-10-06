@@ -137,9 +137,9 @@ class WifiEncryption {
     } else if (rawWpa is List && rawWpa.isNotEmpty) {
       // Take the highest WPA version from the array
       wpaVersion = rawWpa.whereType<int>().fold(
-        0,
-        (max, v) => v > max ? v : max,
-      );
+            0,
+            (max, v) => v > max ? v : max,
+          );
       if (wpaVersion == 0) {
         // Try parsing from dynamic types
         for (final v in rawWpa) {
@@ -153,8 +153,7 @@ class WifiEncryption {
     final enabled = json['enabled'] == true || wpaVersion > 0 || wep;
 
     // Auth suites: try multiple key names used by different OpenWrt versions
-    final authSuites =
-        _toStringList(json['auth_suites']) +
+    final authSuites = _toStringList(json['auth_suites']) +
         _toStringList(json['authentication']);
 
     // Ciphers: try multiple key names
@@ -176,10 +175,10 @@ class WifiEncryption {
       final wpaPart = wpaVersion >= 3
           ? 'WPA3'
           : wpaVersion >= 2
-          ? 'WPA2'
-          : wpaVersion >= 1
-          ? 'WPA'
-          : 'WPA';
+              ? 'WPA2'
+              : wpaVersion >= 1
+                  ? 'WPA'
+                  : 'WPA';
       final authPart = authSuites.isNotEmpty
           ? ' ${authSuites.map((s) => s.toUpperCase()).join("/")}'
           : '';

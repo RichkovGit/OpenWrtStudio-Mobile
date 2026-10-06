@@ -23,9 +23,8 @@ void main() {
 
       // If in assoclist, should be wireless regardless of heuristic
       final classified = client.copyWith(
-        connectionType: isWireless
-            ? ConnectionType.wireless
-            : client.connectionType,
+        connectionType:
+            isWireless ? ConnectionType.wireless : client.connectionType,
       );
 
       expect(classified.connectionType, ConnectionType.wireless);
@@ -49,9 +48,8 @@ void main() {
         // OLD behavior: would force ConnectionType.wired (BUG)
         // NEW behavior: keep the heuristic from _determineConnectionType
         final classified = client.copyWith(
-          connectionType: isWireless
-              ? ConnectionType.wireless
-              : client.connectionType,
+          connectionType:
+              isWireless ? ConnectionType.wireless : client.connectionType,
         );
 
         // "iPhone" in hostname triggers wireless heuristic in _determineConnectionType
@@ -59,7 +57,9 @@ void main() {
       },
     );
 
-    test('device with no wireless indicators and not in assoclist should be unknown', () {
+    test(
+        'device with no wireless indicators and not in assoclist should be unknown',
+        () {
       final lease = {
         'macaddr': '11:22:33:44:55:66',
         'ipaddr': '192.168.1.200',
@@ -72,9 +72,8 @@ void main() {
       final isWireless = wirelessMacs.contains(macNorm);
 
       final classified = client.copyWith(
-        connectionType: isWireless
-            ? ConnectionType.wireless
-            : client.connectionType,
+        connectionType:
+            isWireless ? ConnectionType.wireless : client.connectionType,
       );
 
       // No wireless indicators, not in assoclist → heuristic says unknown
@@ -95,9 +94,8 @@ void main() {
       final isWireless = wirelessMacs.contains(macNorm);
 
       final classified = client.copyWith(
-        connectionType: isWireless
-            ? ConnectionType.wireless
-            : client.connectionType,
+        connectionType:
+            isWireless ? ConnectionType.wireless : client.connectionType,
       );
 
       expect(classified.connectionType, ConnectionType.wired);

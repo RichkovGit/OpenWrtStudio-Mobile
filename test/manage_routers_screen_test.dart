@@ -44,10 +44,10 @@ void main() {
 
 class _TestAppState extends AppState {
   _TestAppState(this.router)
-    : super.forTesting(
-        apiService: MockApiService(),
-        authService: MockAuthService(),
-      );
+      : super.forTesting(
+          apiService: MockApiService(),
+          authService: MockAuthService(),
+        );
 
   final model.Router router;
   model.Router? updatedRouter;

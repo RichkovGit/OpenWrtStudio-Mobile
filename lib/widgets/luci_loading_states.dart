@@ -69,7 +69,9 @@ class _LuciSkeletonState extends State<LuciSkeleton>
                 end: Alignment.centerRight,
                 colors: [
                   Theme.of(context).colorScheme.surfaceContainerHighest,
-                  Theme.of(context).colorScheme.surfaceContainerHighest
+                  Theme.of(context)
+                      .colorScheme
+                      .surfaceContainerHighest
                       .withValues(alpha: 0.5),
                   Theme.of(context).colorScheme.surfaceContainerHighest,
                 ],
@@ -134,8 +136,7 @@ class LuciCardSkeleton extends StatelessWidget {
                 return Padding(
                   padding: EdgeInsets.only(bottom: isLast ? 0 : LuciSpacing.sm),
                   child: LuciSkeleton(
-                    width:
-                        MediaQuery.of(context).size.width *
+                    width: MediaQuery.of(context).size.width *
                         (isLast ? 0.3 : 0.8), // Make last line shorter
                     height: 14,
                   ),
@@ -215,7 +216,9 @@ class LuciChartSkeleton extends StatelessWidget {
               decoration: BoxDecoration(
                 borderRadius: LuciCardStyles.standardRadius,
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.outline
+                  color: Theme.of(context)
+                      .colorScheme
+                      .outline
                       .withValues(alpha: 0.2),
                 ),
               ),

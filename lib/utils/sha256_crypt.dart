@@ -106,9 +106,8 @@ class Sha256Crypt {
     }
     _b64Encode(sb, 0, c[_transpose[31]], c[_transpose[30]], 3);
 
-    final roundsPrefix = effectiveRounds == 5000
-        ? ''
-        : 'rounds=$effectiveRounds\$';
+    final roundsPrefix =
+        effectiveRounds == 5000 ? '' : 'rounds=$effectiveRounds\$';
     return '\$5\$$roundsPrefix$normalizedSalt\$$sb';
   }
 
@@ -127,9 +126,8 @@ class Sha256Crypt {
     final result = Uint8List(length);
     var offset = 0;
     while (offset < length) {
-      final copy = (data.length < length - offset)
-          ? data.length
-          : length - offset;
+      final copy =
+          (data.length < length - offset) ? data.length : length - offset;
       result.setRange(offset, offset + copy, data);
       offset += copy;
     }

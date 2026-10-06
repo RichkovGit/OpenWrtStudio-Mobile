@@ -14,42 +14,46 @@ class LuciSpacing {
 class LuciTextStyles {
   static TextStyle sectionHeader(BuildContext context) {
     return Theme.of(context).textTheme.titleSmall!.copyWith(
-      color: Theme.of(context).colorScheme.primary,
-      fontWeight: FontWeight.w900,
-      letterSpacing: 1.2,
-    );
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.2,
+        );
   }
 
   static TextStyle cardTitle(BuildContext context) {
     return Theme.of(context).textTheme.titleMedium!.copyWith(
-      fontWeight: FontWeight.bold,
-      color: Theme.of(context).colorScheme.onSurface,
-    );
+          fontWeight: FontWeight.bold,
+          color: Theme.of(context).colorScheme.onSurface,
+        );
   }
 
   static TextStyle cardSubtitle(BuildContext context) {
     return Theme.of(context).textTheme.bodySmall!.copyWith(
-      color: Theme.of(context).colorScheme.onSurfaceVariant,
-      fontSize: 12,
-      fontWeight: FontWeight.w400,
-      letterSpacing: 0.1,
-    );
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.1,
+        );
   }
 
   static TextStyle detailLabel(BuildContext context) {
-    return Theme.of(context).textTheme.bodySmall!
+    return Theme.of(context)
+        .textTheme
+        .bodySmall!
         .copyWith(color: Theme.of(context).colorScheme.onSurface);
   }
 
   static TextStyle detailValue(BuildContext context) {
     return Theme.of(context).textTheme.bodyMedium!.copyWith(
-      fontWeight: FontWeight.w500,
-      color: Theme.of(context).colorScheme.onSurface,
-    );
+          fontWeight: FontWeight.w500,
+          color: Theme.of(context).colorScheme.onSurface,
+        );
   }
 
   static TextStyle errorText(BuildContext context) {
-    return Theme.of(context).textTheme.bodyMedium!
+    return Theme.of(context)
+        .textTheme
+        .bodyMedium!
         .copyWith(color: Theme.of(context).colorScheme.onErrorContainer);
   }
 }
@@ -162,8 +166,8 @@ class LuciStatusIndicators {
     return Chip(
       label: Text(label),
       labelStyle: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: isActive ? colorScheme.onPrimary : colorScheme.onError,
-      ),
+            color: isActive ? colorScheme.onPrimary : colorScheme.onError,
+          ),
       backgroundColor: isActive
           ? colorScheme.primary.withValues(alpha: 0.8)
           : colorScheme.error.withValues(alpha: 0.7),

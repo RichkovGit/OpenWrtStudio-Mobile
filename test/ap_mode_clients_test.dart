@@ -121,9 +121,8 @@ List<Client> _buildMergedClientList(
   List<Map<String, dynamic>> dhcpLeases,
   Set<String> wirelessMacs,
 ) {
-  final normalizedWireless = wirelessMacs
-      .map((m) => m.toUpperCase().replaceAll('-', ':'))
-      .toSet();
+  final normalizedWireless =
+      wirelessMacs.map((m) => m.toUpperCase().replaceAll('-', ':')).toSet();
 
   // Build clients from DHCP leases (existing behavior)
   final clients = <String, Client>{};
@@ -132,9 +131,8 @@ List<Client> _buildMergedClientList(
     final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
     final isWireless = normalizedWireless.contains(macNorm);
     clients[macNorm] = client.copyWith(
-      connectionType: isWireless
-          ? ConnectionType.wireless
-          : ConnectionType.wired,
+      connectionType:
+          isWireless ? ConnectionType.wireless : ConnectionType.wired,
     );
   }
 
@@ -159,8 +157,8 @@ List<Client> _buildMergedClientList(
       }
     }
 
-    final cmpType = typeOrder(a.connectionType)
-        .compareTo(typeOrder(b.connectionType));
+    final cmpType =
+        typeOrder(a.connectionType).compareTo(typeOrder(b.connectionType));
     if (cmpType != 0) return cmpType;
     return a.hostname.toLowerCase().compareTo(b.hostname.toLowerCase());
   });

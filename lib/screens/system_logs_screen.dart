@@ -65,10 +65,13 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
           IconButton(
             icon: const Icon(Icons.copy),
             tooltip: 'Копировать лог',
-            onPressed: _logContent.isEmpty ? null : () {
-              Clipboard.setData(ClipboardData(text: _logContent));
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Лог скопирован в буфер')));
-            },
+            onPressed: _logContent.isEmpty
+                ? null
+                : () {
+                    Clipboard.setData(ClipboardData(text: _logContent));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Лог скопирован в буфер')));
+                  },
           ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchLogs),
         ],
@@ -94,7 +97,9 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
                         )
                       : null,
                   filled: true,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none),
                 ),
                 onSubmitted: (val) {
                   setState(() => _filter = val.trim());
@@ -115,11 +120,15 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF0F172A),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF334155)),
+                              border:
+                                  Border.all(color: const Color(0xFF334155)),
                             ),
                             child: SelectableText(
                               _logContent,
-                              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Color(0xFFE2E8F0)),
+                              style: const TextStyle(
+                                  fontFamily: 'monospace',
+                                  fontSize: 11,
+                                  color: Color(0xFFE2E8F0)),
                             ),
                           ),
                         ),

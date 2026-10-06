@@ -383,7 +383,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             SizedBox(
               width: 16,
               height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
             ),
             SizedBox(width: 12),
             Text('Проверка обновлений на GitHub...'),
@@ -415,7 +416,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               Text('Обновлений нет'),
             ],
           ),
-          content: Text('У вас установлена актуальная версия OpenWrt Studio Mobile v$currentVer.'),
+          content: Text(
+              'У вас установлена актуальная версия OpenWrt Studio Mobile v$currentVer.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -520,7 +522,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   icon: Icons.memory,
                   iconColor: const Color(0xFF38BDF8),
                   title: 'Диспетчер процессов',
-                  subtitle: 'Активные процессы (ps/top), PID, использование CPU и памяти',
+                  subtitle:
+                      'Активные процессы (ps/top), PID, использование CPU и памяти',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -562,7 +565,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   icon: Icons.play_circle_outline,
                   iconColor: const Color(0xFF34D399),
                   title: 'Службы автозапуска',
-                  subtitle: 'Управление сервисами (/etc/init.d), статус и перезапуск',
+                  subtitle:
+                      'Управление сервисами (/etc/init.d), статус и перезапуск',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -621,12 +625,11 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       icon: accessError != null
                           ? Icons.error_outline
                           : canReboot == false
-                          ? Icons.lock_outline
-                          : Icons.restart_alt,
+                              ? Icons.lock_outline
+                              : Icons.restart_alt,
                       iconColor: Theme.of(context).colorScheme.primary,
                       title: context.l10n.rebootRouter,
-                      subtitle:
-                          accessError ??
+                      subtitle: accessError ??
                           switch (canReboot) {
                             false => context.l10n.administratorAccessRequired,
                             null => context.l10n.checkingAdministratorAccess,
@@ -651,7 +654,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   iconColor: const Color(0xFF00D2FF),
                   title: 'ТГК программы: @OpenWrtStudio',
                   subtitle: 'Новости, обновления и обсуждение',
-                  onTap: () => _launchExternalUrl(context, AppConfig.appTelegramUrl),
+                  onTap: () =>
+                      _launchExternalUrl(context, AppConfig.appTelegramUrl),
                 ),
                 _buildMoreTile(
                   context,
@@ -659,7 +663,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   iconColor: const Color(0xFFA78BFA),
                   title: 'ТГК автора: @RichkovChannel',
                   subtitle: 'Личный канал разработчика и инсайды',
-                  onTap: () => _launchExternalUrl(context, AppConfig.authorTelegramUrl),
+                  onTap: () =>
+                      _launchExternalUrl(context, AppConfig.authorTelegramUrl),
                 ),
                 _buildMoreTile(
                   context,
@@ -667,7 +672,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   iconColor: const Color(0xFF10B981),
                   title: 'GitHub: RichkovGit/OpenWrtStudio',
                   subtitle: 'Исходный код и релизы на GitHub',
-                  onTap: () => _launchExternalUrl(context, AppConfig.githubRepositoryUrl),
+                  onTap: () => _launchExternalUrl(
+                      context, AppConfig.githubRepositoryUrl),
                 ),
                 _buildMoreTile(
                   context,
@@ -675,7 +681,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   iconColor: const Color(0xFFEF4444),
                   title: 'Сообщить о баге (Bug Report)',
                   subtitle: 'Отправить сообщение об ошибке в Issues',
-                  onTap: () => _launchExternalUrl(context, AppConfig.githubIssuesUrl),
+                  onTap: () =>
+                      _launchExternalUrl(context, AppConfig.githubIssuesUrl),
                 ),
               ],
             ),
@@ -733,7 +740,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   title: context.l10n.logout,
                   subtitle: context.l10n.logoutDescription,
                   titleColor: Theme.of(context).colorScheme.error,
-                  subtitleColor: Theme.of(context).colorScheme.error
+                  subtitleColor: Theme.of(context)
+                      .colorScheme
+                      .error
                       .withValues(alpha: 0.7),
                   onTap: () => _showLogoutDialog(context),
                 ),
@@ -794,7 +803,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
           subtitle,
           style: subtitleColor != null
               ? LuciTextStyles.cardSubtitle(context)
-                    .copyWith(color: subtitleColor)
+                  .copyWith(color: subtitleColor)
               : LuciTextStyles.cardSubtitle(context),
           semanticsLabel: subtitle,
         ),

@@ -2,7 +2,8 @@ import 'package:flutter/services.dart';
 import 'package:luci_mobile/utils/logger.dart';
 
 class NotificationService {
-  static const MethodChannel _channel = MethodChannel('com.openwrt.studio/notifications');
+  static const MethodChannel _channel =
+      MethodChannel('com.openwrt.studio/notifications');
 
   /// Displays a native Android notification with high priority
   static Future<bool> showNotification({

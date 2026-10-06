@@ -36,15 +36,15 @@ class Router {
   String? get inactiveAddress => !hasFallback
       ? null
       : activeAddressIndex == 0
-      ? alternateAddress
-      : ipAddress;
+          ? alternateAddress
+          : ipAddress;
 
   /// The protocol for the inactive address.
   bool? get inactiveUseHttps => !hasFallback
       ? null
       : activeAddressIndex == 0
-      ? alternateUseHttps
-      : useHttps;
+          ? alternateUseHttps
+          : useHttps;
 
   /// Whether this router has a fallback address configured.
   bool get hasFallback =>
@@ -64,22 +64,22 @@ class Router {
       alternateUseHttps: json['alternateUseHttps'] == null
           ? null
           : json['alternateUseHttps'] == true ||
-                json['alternateUseHttps'] == 'true',
+              json['alternateUseHttps'] == 'true',
       activeAddressIndex: json['activeAddressIndex'] as int? ?? 0,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'ipAddress': ipAddress,
-    'username': username,
-    'password': password,
-    'useHttps': useHttps,
-    if (lastKnownHostname != null) 'lastKnownHostname': lastKnownHostname,
-    if (alternateAddress != null) 'alternateAddress': alternateAddress,
-    if (alternateUseHttps != null) 'alternateUseHttps': alternateUseHttps,
-    if (activeAddressIndex != 0) 'activeAddressIndex': activeAddressIndex,
-  };
+        'id': id,
+        'ipAddress': ipAddress,
+        'username': username,
+        'password': password,
+        'useHttps': useHttps,
+        if (lastKnownHostname != null) 'lastKnownHostname': lastKnownHostname,
+        if (alternateAddress != null) 'alternateAddress': alternateAddress,
+        if (alternateUseHttps != null) 'alternateUseHttps': alternateUseHttps,
+        if (activeAddressIndex != 0) 'activeAddressIndex': activeAddressIndex,
+      };
 
   Router copyWith({
     String? id,
@@ -100,15 +100,12 @@ class Router {
       password: password ?? this.password,
       useHttps: useHttps ?? this.useHttps,
       lastKnownHostname: lastKnownHostname ?? this.lastKnownHostname,
-      alternateAddress: clearAlternate
-          ? null
-          : alternateAddress ?? this.alternateAddress,
-      alternateUseHttps: clearAlternate
-          ? null
-          : alternateUseHttps ?? this.alternateUseHttps,
-      activeAddressIndex: clearAlternate
-          ? 0
-          : activeAddressIndex ?? this.activeAddressIndex,
+      alternateAddress:
+          clearAlternate ? null : alternateAddress ?? this.alternateAddress,
+      alternateUseHttps:
+          clearAlternate ? null : alternateUseHttps ?? this.alternateUseHttps,
+      activeAddressIndex:
+          clearAlternate ? 0 : activeAddressIndex ?? this.activeAddressIndex,
     );
   }
 }

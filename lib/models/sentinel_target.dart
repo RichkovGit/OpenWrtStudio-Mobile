@@ -6,12 +6,12 @@ enum SentinelStatus {
   unknown;
 
   String get displayName => switch (this) {
-    SentinelStatus.online => 'Online',
-    SentinelStatus.blocked => 'Blocked',
-    SentinelStatus.timeout => 'Timeout',
-    SentinelStatus.pending => 'Checking...',
-    SentinelStatus.unknown => 'Unknown',
-  };
+        SentinelStatus.online => 'Online',
+        SentinelStatus.blocked => 'Blocked',
+        SentinelStatus.timeout => 'Timeout',
+        SentinelStatus.pending => 'Checking...',
+        SentinelStatus.unknown => 'Unknown',
+      };
 }
 
 class SentinelTarget {
@@ -77,45 +77,45 @@ class SentinelTarget {
   }
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'host': host,
-    'category': category,
-    'status': status.name,
-    'latencyMs': latencyMs,
-    'lastChecked': lastChecked?.toIso8601String(),
-    'details': details,
-  };
+        'name': name,
+        'host': host,
+        'category': category,
+        'status': status.name,
+        'latencyMs': latencyMs,
+        'lastChecked': lastChecked?.toIso8601String(),
+        'details': details,
+      };
 
   static List<SentinelTarget> defaultTargets() => [
-    const SentinelTarget(
-      name: 'Google',
-      host: 'www.google.com',
-      category: 'Search & Infrastructure',
-    ),
-    const SentinelTarget(
-      name: 'YouTube',
-      host: 'www.youtube.com',
-      category: 'Media & Streaming',
-    ),
-    const SentinelTarget(
-      name: 'Telegram',
-      host: 'api.telegram.org',
-      category: 'Messengers',
-    ),
-    const SentinelTarget(
-      name: 'GitHub',
-      host: 'github.com',
-      category: 'Developer Services',
-    ),
-    const SentinelTarget(
-      name: 'Cloudflare',
-      host: '1.1.1.1',
-      category: 'DNS & CDN',
-    ),
-    const SentinelTarget(
-      name: 'RuTracker',
-      host: 'rutracker.org',
-      category: 'Bypass Verification',
-    ),
-  ];
+        const SentinelTarget(
+          name: 'Google',
+          host: 'www.google.com',
+          category: 'Search & Infrastructure',
+        ),
+        const SentinelTarget(
+          name: 'YouTube',
+          host: 'www.youtube.com',
+          category: 'Media & Streaming',
+        ),
+        const SentinelTarget(
+          name: 'Telegram',
+          host: 'api.telegram.org',
+          category: 'Messengers',
+        ),
+        const SentinelTarget(
+          name: 'GitHub',
+          host: 'github.com',
+          category: 'Developer Services',
+        ),
+        const SentinelTarget(
+          name: 'Cloudflare',
+          host: '1.1.1.1',
+          category: 'DNS & CDN',
+        ),
+        const SentinelTarget(
+          name: 'RuTracker',
+          host: 'rutracker.org',
+          category: 'Bypass Verification',
+        ),
+      ];
 }

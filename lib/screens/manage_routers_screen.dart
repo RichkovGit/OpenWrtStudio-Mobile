@@ -51,12 +51,12 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                         Center(
                           child: Text(
                             context.l10n.noRoutersYet,
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant,
-                                ),
+                            style:
+                                Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
                           ),
                         ),
                       ],
@@ -77,9 +77,9 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                             final hostname = boardInfo?['hostname']?.toString();
                             routerTitle =
                                 (hostname != null && hostname.isNotEmpty)
-                                ? hostname
-                                : (router.lastKnownHostname ??
-                                      router.ipAddress);
+                                    ? hostname
+                                    : (router.lastKnownHostname ??
+                                        router.ipAddress);
                           } else if (router.lastKnownHostname != null &&
                               router.lastKnownHostname!.isNotEmpty) {
                             routerTitle = router.lastKnownHostname!;
@@ -116,10 +116,8 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                     // Set Dashboard tab as active
                                     WidgetsBinding.instance
                                         .addPostFrameCallback((_) {
-                                          ref
-                                              .read(appStateProvider)
-                                              .requestTab(0);
-                                        });
+                                      ref.read(appStateProvider).requestTab(0);
+                                    });
                                   } finally {
                                     if (mounted) {
                                       setState(() {
@@ -149,12 +147,12 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                   final boardInfo =
                                       appState.dashboardData?['boardInfo']
                                           as Map<String, dynamic>?;
-                                  final hostname = boardInfo?['hostname']
-                                      ?.toString();
+                                  final hostname =
+                                      boardInfo?['hostname']?.toString();
                                   routerLabel =
                                       (hostname != null && hostname.isNotEmpty)
-                                      ? hostname
-                                      : router.ipAddress;
+                                          ? hostname
+                                          : router.ipAddress;
                                 } else {
                                   routerLabel = router.ipAddress;
                                 }
@@ -189,9 +187,9 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                     unawaited(
                                       Navigator.of(context)
                                           .pushNamedAndRemoveUntil(
-                                            '/login',
-                                            (route) => false,
-                                          ),
+                                        '/login',
+                                        (route) => false,
+                                      ),
                                     );
                                   }
                                 }
@@ -219,12 +217,10 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                backgroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .primary,
-                                foregroundColor: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimary,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.onPrimary,
                                 elevation: 2,
                               ),
                               onPressed: () async {
@@ -263,9 +259,9 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                 .withValues(alpha: 0.10),
                                             insetPadding:
                                                 const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 60,
-                                                ), // Make dialog larger
+                                              horizontal: 16,
+                                              vertical: 60,
+                                            ), // Make dialog larger
                                             content: ConstrainedBox(
                                               constraints: const BoxConstraints(
                                                 maxWidth: 400,
@@ -278,8 +274,8 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                   child: Padding(
                                                     padding:
                                                         const EdgeInsets.only(
-                                                          top: 32,
-                                                        ),
+                                                      top: 32,
+                                                    ),
                                                     child: Column(
                                                       mainAxisSize:
                                                           MainAxisSize.min,
@@ -287,13 +283,15 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                         TextFormField(
                                                           controller:
                                                               ipController,
-                                                          decoration: InputDecoration(
+                                                          decoration:
+                                                              InputDecoration(
                                                             labelText: context
                                                                 .l10n
                                                                 .routerAddress,
                                                             border:
                                                                 const OutlineInputBorder(),
-                                                            prefixIcon: const Icon(
+                                                            prefixIcon:
+                                                                const Icon(
                                                               Icons
                                                                   .router_outlined,
                                                             ),
@@ -310,8 +308,8 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                             }
                                                             final parsed =
                                                                 UrlParser.parse(
-                                                                  value,
-                                                                );
+                                                              value,
+                                                            );
                                                             if (!parsed
                                                                 .isValid) {
                                                               return context
@@ -335,82 +333,110 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                               TextButton.icon(
                                                                 onPressed: () =>
                                                                     setState(
-                                                                      () =>
-                                                                          showAlternate =
-                                                                              true,
-                                                                    ),
-                                                                icon: const Icon(
+                                                                  () =>
+                                                                      showAlternate =
+                                                                          true,
+                                                                ),
+                                                                icon:
+                                                                    const Icon(
                                                                   Icons.add,
                                                                   size: 16,
                                                                 ),
                                                                 label: Text(
-                                                                  context
-                                                                      .l10n
+                                                                  context.l10n
                                                                       .addFallbackAddress,
-                                                                  style: const TextStyle(fontSize: 12),
+                                                                  style: const TextStyle(
+                                                                      fontSize:
+                                                                          12),
                                                                 ),
-                                                                style: TextButton.styleFrom(
-                                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                                style: TextButton
+                                                                    .styleFrom(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          4),
                                                                 ),
                                                               ),
                                                               const Spacer(),
                                                               TextButton.icon(
-                                                                onPressed: isDiscovering ? null : () async {
-                                                                  setState(() {
-                                                                    isDiscovering = true;
-                                                                    discoveryStatus = 'Поиск...';
-                                                                  });
-                                                                  try {
-                                                                    final res = await RouterDiscoveryService().discoverAndAuthenticate(
-                                                                      username: userController.text.trim().isEmpty ? 'root' : userController.text.trim(),
-                                                                      password: passController.text,
-                                                                      onProgress: (st) {
-                                                                        setState(() => discoveryStatus = st);
-                                                                      },
-                                                                    );
-                                                                    if (res != null) {
-                                                                      setState(() {
-                                                                        ipController.text = res.ip;
-                                                                      });
-                                                                      if (context.mounted) {
-                                                                        ScaffoldMessenger.of(context).showSnackBar(
-                                                                          SnackBar(
-                                                                            content: Text('Найден роутер: ${res.hostname} (${res.ip})'),
-                                                                            backgroundColor: const Color(0xFF10B981),
-                                                                            behavior: SnackBarBehavior.floating,
-                                                                          ),
-                                                                        );
-                                                                      }
-                                                                    }
-                                                                  } catch (_) {
-                                                                  } finally {
-                                                                    setState(() {
-                                                                      isDiscovering = false;
-                                                                      discoveryStatus = null;
-                                                                    });
-                                                                  }
-                                                                },
+                                                                onPressed:
+                                                                    isDiscovering
+                                                                        ? null
+                                                                        : () async {
+                                                                            setState(() {
+                                                                              isDiscovering = true;
+                                                                              discoveryStatus = 'Поиск...';
+                                                                            });
+                                                                            try {
+                                                                              final res = await RouterDiscoveryService().discoverAndAuthenticate(
+                                                                                username: userController.text.trim().isEmpty ? 'root' : userController.text.trim(),
+                                                                                password: passController.text,
+                                                                                onProgress: (st) {
+                                                                                  setState(() => discoveryStatus = st);
+                                                                                },
+                                                                              );
+                                                                              if (res != null) {
+                                                                                setState(() {
+                                                                                  ipController.text = res.ip;
+                                                                                });
+                                                                                if (context.mounted) {
+                                                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                                                    SnackBar(
+                                                                                      content: Text('Найден роутер: ${res.hostname} (${res.ip})'),
+                                                                                      backgroundColor: const Color(0xFF10B981),
+                                                                                      behavior: SnackBarBehavior.floating,
+                                                                                    ),
+                                                                                  );
+                                                                                }
+                                                                              }
+                                                                            } catch (_) {
+                                                                            } finally {
+                                                                              setState(() {
+                                                                                isDiscovering = false;
+                                                                                discoveryStatus = null;
+                                                                              });
+                                                                            }
+                                                                          },
                                                                 icon: isDiscovering
                                                                     ? const SizedBox(
-                                                                        width: 14,
-                                                                        height: 14,
-                                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                                        width:
+                                                                            14,
+                                                                        height:
+                                                                            14,
+                                                                        child: CircularProgressIndicator(
+                                                                            strokeWidth:
+                                                                                2),
                                                                       )
                                                                     : const Icon(
-                                                                        Icons.travel_explore,
-                                                                        size: 16,
-                                                                        color: Color(0xFF00D2FF),
+                                                                        Icons
+                                                                            .travel_explore,
+                                                                        size:
+                                                                            16,
+                                                                        color: Color(
+                                                                            0xFF00D2FF),
                                                                       ),
                                                                 label: Text(
-                                                                  isDiscovering ? (discoveryStatus ?? 'Поиск...') : '🔍 Автопоиск',
-                                                                  style: const TextStyle(
-                                                                    fontSize: 12,
-                                                                    color: Color(0xFF00D2FF),
-                                                                    fontWeight: FontWeight.w600,
+                                                                  isDiscovering
+                                                                      ? (discoveryStatus ??
+                                                                          'Поиск...')
+                                                                      : '🔍 Автопоиск',
+                                                                  style:
+                                                                      const TextStyle(
+                                                                    fontSize:
+                                                                        12,
+                                                                    color: Color(
+                                                                        0xFF00D2FF),
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
                                                                   ),
                                                                 ),
-                                                                style: TextButton.styleFrom(
-                                                                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                                style: TextButton
+                                                                    .styleFrom(
+                                                                  padding: const EdgeInsets
+                                                                      .symmetric(
+                                                                      horizontal:
+                                                                          6),
                                                                 ),
                                                               ),
                                                             ],
@@ -419,7 +445,8 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           TextFormField(
                                                             controller:
                                                                 alternateController,
-                                                            decoration: InputDecoration(
+                                                            decoration:
+                                                                InputDecoration(
                                                               labelText: context
                                                                   .l10n
                                                                   .fallbackAddress,
@@ -427,9 +454,9 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                   const OutlineInputBorder(),
                                                               prefixIcon:
                                                                   const Icon(
-                                                                    Icons
-                                                                        .swap_horiz,
-                                                                  ),
+                                                                Icons
+                                                                    .swap_horiz,
+                                                              ),
                                                               helperText: context
                                                                   .l10n
                                                                   .fallbackCredentialsHelp,
@@ -438,13 +465,15 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                             validator: (value) {
                                                               if (value ==
                                                                       null ||
-                                                                  value.isEmpty) {
+                                                                  value
+                                                                      .isEmpty) {
                                                                 return null;
                                                               }
                                                               final parsed =
-                                                                  UrlParser.parse(
-                                                                    value,
-                                                                  );
+                                                                  UrlParser
+                                                                      .parse(
+                                                                value,
+                                                              );
                                                               if (!parsed
                                                                   .isValid) {
                                                                 return context
@@ -452,10 +481,11 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                     .invalidAddressFormat;
                                                               }
                                                               final primary =
-                                                                  UrlParser.parse(
-                                                                    ipController
-                                                                        .text,
-                                                                  );
+                                                                  UrlParser
+                                                                      .parse(
+                                                                ipController
+                                                                    .text,
+                                                              );
                                                               if (primary
                                                                       .isValid &&
                                                                   parsed.hostWithPort ==
@@ -474,13 +504,14 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                         TextFormField(
                                                           controller:
                                                               userController,
-                                                          decoration: InputDecoration(
+                                                          decoration:
+                                                              InputDecoration(
                                                             labelText: context
-                                                                .l10n
-                                                                .username,
+                                                                .l10n.username,
                                                             border:
                                                                 const OutlineInputBorder(),
-                                                            prefixIcon: const Icon(
+                                                            prefixIcon:
+                                                                const Icon(
                                                               Icons
                                                                   .person_outline,
                                                             ),
@@ -490,11 +521,10 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           ),
                                                           validator: (v) =>
                                                               v == null ||
-                                                                  v.isEmpty
-                                                              ? context
-                                                                    .l10n
-                                                                    .required
-                                                              : null,
+                                                                      v.isEmpty
+                                                                  ? context.l10n
+                                                                      .required
+                                                                  : null,
                                                           autofillHints: const [
                                                             AutofillHints
                                                                 .username,
@@ -506,39 +536,39 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                         TextFormField(
                                                           controller:
                                                               passController,
-                                                          decoration: InputDecoration(
+                                                          decoration:
+                                                              InputDecoration(
                                                             labelText: context
-                                                                .l10n
-                                                                .password,
+                                                                .l10n.password,
                                                             border:
                                                                 const OutlineInputBorder(),
-                                                            prefixIcon: const Icon(
+                                                            prefixIcon:
+                                                                const Icon(
                                                               Icons
                                                                   .lock_outline,
                                                             ),
                                                             helperText: context
                                                                 .l10n
                                                                 .routerPasswordHelp,
-                                                            suffixIcon: IconButton(
+                                                            suffixIcon:
+                                                                IconButton(
                                                               icon: Icon(
                                                                 obscureText
                                                                     ? Icons
-                                                                          .visibility_outlined
+                                                                        .visibility_outlined
                                                                     : Icons
-                                                                          .visibility_off_outlined,
+                                                                        .visibility_off_outlined,
                                                               ),
-                                                              onPressed: () => setState(
+                                                              onPressed: () =>
+                                                                  setState(
                                                                 () => obscureText =
                                                                     !obscureText,
                                                               ),
-                                                              tooltip:
-                                                                  obscureText
-                                                                  ? context
-                                                                        .l10n
-                                                                        .hidePassword
-                                                                  : context
-                                                                        .l10n
-                                                                        .showPassword,
+                                                              tooltip: obscureText
+                                                                  ? context.l10n
+                                                                      .hidePassword
+                                                                  : context.l10n
+                                                                      .showPassword,
                                                             ),
                                                           ),
                                                           obscureText:
@@ -555,33 +585,37 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           ),
                                                           Container(
                                                             padding:
-                                                                const EdgeInsets.all(
-                                                                  10,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .errorContainer
-                                                                      .withValues(
-                                                                        alpha:
-                                                                            1,
-                                                                      ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    8,
+                                                                const EdgeInsets
+                                                                    .all(
+                                                              10,
+                                                            ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                              color: Theme.of(
+                                                                context,
+                                                              )
+                                                                  .colorScheme
+                                                                  .errorContainer
+                                                                  .withValues(
+                                                                    alpha: 1,
                                                                   ),
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                8,
+                                                              ),
                                                             ),
                                                             child: Row(
                                                               children: [
                                                                 Icon(
                                                                   Icons
                                                                       .error_outline,
-                                                                  color: Theme.of(
+                                                                  color: Theme
+                                                                          .of(
                                                                     context,
-                                                                  ).colorScheme.onErrorContainer,
+                                                                  )
+                                                                      .colorScheme
+                                                                      .onErrorContainer,
                                                                 ),
                                                                 const SizedBox(
                                                                   width: 12,
@@ -589,11 +623,15 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                 Expanded(
                                                                   child: Text(
                                                                     errorMessage!,
-                                                                    style:
-                                                                        Theme.of(
-                                                                          context,
-                                                                        ).textTheme.bodyMedium?.copyWith(
-                                                                          color: Theme.of(
+                                                                    style: Theme
+                                                                            .of(
+                                                                      context,
+                                                                    )
+                                                                        .textTheme
+                                                                        .bodyMedium
+                                                                        ?.copyWith(
+                                                                          color:
+                                                                              Theme.of(
                                                                             context,
                                                                           ).colorScheme.onErrorContainer,
                                                                         ),
@@ -612,164 +650,147 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           child: ElevatedButton(
                                                             onPressed:
                                                                 isConnecting
-                                                                ? null
-                                                                : () async {
-                                                                    if (formKey
-                                                                        .currentState!
-                                                                        .validate()) {
-                                                                      final input = ipController
-                                                                          .text
-                                                                          .trim();
-                                                                      final user = userController
-                                                                          .text
-                                                                          .trim();
-                                                                      final pass =
-                                                                          passController
-                                                                              .text;
+                                                                    ? null
+                                                                    : () async {
+                                                                        if (formKey
+                                                                            .currentState!
+                                                                            .validate()) {
+                                                                          final input = ipController
+                                                                              .text
+                                                                              .trim();
+                                                                          final user = userController
+                                                                              .text
+                                                                              .trim();
+                                                                          final pass =
+                                                                              passController.text;
 
-                                                                      // Parse the input to extract host, port, and protocol
-                                                                      final parsedUrl =
-                                                                          UrlParser.parse(
+                                                                          // Parse the input to extract host, port, and protocol
+                                                                          final parsedUrl =
+                                                                              UrlParser.parse(
                                                                             input,
                                                                           );
 
-                                                                      if (!parsedUrl
-                                                                          .isValid) {
-                                                                        setState(() {
-                                                                          errorMessage = context
-                                                                              .l10n
-                                                                              .invalidAddressFormat;
-                                                                        });
-                                                                        return;
-                                                                      }
+                                                                          if (!parsedUrl
+                                                                              .isValid) {
+                                                                            setState(() {
+                                                                              errorMessage = context.l10n.invalidAddressFormat;
+                                                                            });
+                                                                            return;
+                                                                          }
 
-                                                                      final hostWithPort =
-                                                                          parsedUrl
-                                                                              .hostWithPort;
-                                                                      final useHttps =
-                                                                          parsedUrl
-                                                                              .useHttps;
-                                                                      final altText = alternateController
-                                                                          .text
-                                                                          .trim();
-                                                                      final parsedAlt =
-                                                                          altText
-                                                                              .isEmpty
-                                                                          ? null
-                                                                          : UrlParser.parse(
-                                                                              altText,
-                                                                            );
-                                                                      final id =
-                                                                          '$hostWithPort-$user';
+                                                                          final hostWithPort =
+                                                                              parsedUrl.hostWithPort;
+                                                                          final useHttps =
+                                                                              parsedUrl.useHttps;
+                                                                          final altText = alternateController
+                                                                              .text
+                                                                              .trim();
+                                                                          final parsedAlt = altText.isEmpty
+                                                                              ? null
+                                                                              : UrlParser.parse(
+                                                                                  altText,
+                                                                                );
+                                                                          final id =
+                                                                              '$hostWithPort-$user';
 
-                                                                      if (routers.any(
-                                                                        (r) =>
-                                                                            r.id ==
-                                                                            id,
-                                                                      )) {
-                                                                        setState(() {
-                                                                          errorMessage = context
-                                                                              .l10n
-                                                                              .routerAlreadyExists;
-                                                                        });
-                                                                        return;
-                                                                      }
+                                                                          if (routers
+                                                                              .any(
+                                                                            (r) =>
+                                                                                r.id ==
+                                                                                id,
+                                                                          )) {
+                                                                            setState(() {
+                                                                              errorMessage = context.l10n.routerAlreadyExists;
+                                                                            });
+                                                                            return;
+                                                                          }
 
-                                                                      // Show connecting state
-                                                                      setState(() {
-                                                                        errorMessage =
-                                                                            null;
-                                                                        isConnecting =
-                                                                            true;
-                                                                      });
-
-                                                                      // Always fetch hostname from router after login
-                                                                      try {
-                                                                        // Attempt login with the new router's credentials
-                                                                        final loginSuccess = await appState.login(
-                                                                          hostWithPort,
-                                                                          user,
-                                                                          pass,
-                                                                          useHttps,
-                                                                          fromRouter:
-                                                                              false,
-                                                                          alternateAddress:
-                                                                              parsedAlt?.hostWithPort,
-                                                                          alternateUseHttps:
-                                                                              parsedAlt?.useHttps,
-                                                                          context:
-                                                                              context,
-                                                                        );
-                                                                        // The dialog is barrier-dismissible; bail out
-                                                                        // instead of calling its setState after it
-                                                                        // has been dismissed.
-                                                                        if (!context
-                                                                            .mounted) {
-                                                                          return;
-                                                                        }
-                                                                        if (!loginSuccess) {
-                                                                          setState(() {
+                                                                          // Show connecting state
+                                                                          setState(
+                                                                              () {
                                                                             errorMessage =
-                                                                                appState.errorMessage ??
-                                                                                context.l10n.failedToConnectCredentials;
+                                                                                null;
                                                                             isConnecting =
-                                                                                false;
+                                                                                true;
                                                                           });
-                                                                          return;
-                                                                        }
-                                                                        Navigator.pop(
-                                                                          context,
-                                                                        );
-                                                                      } catch (
-                                                                        e
-                                                                      ) {
-                                                                        if (!context
-                                                                            .mounted) {
-                                                                          return;
-                                                                        }
-                                                                        setState(() {
-                                                                          errorMessage = context
-                                                                              .l10n
-                                                                              .failedToConnect(
+
+                                                                          // Always fetch hostname from router after login
+                                                                          try {
+                                                                            // Attempt login with the new router's credentials
+                                                                            final loginSuccess =
+                                                                                await appState.login(
+                                                                              hostWithPort,
+                                                                              user,
+                                                                              pass,
+                                                                              useHttps,
+                                                                              fromRouter: false,
+                                                                              alternateAddress: parsedAlt?.hostWithPort,
+                                                                              alternateUseHttps: parsedAlt?.useHttps,
+                                                                              context: context,
+                                                                            );
+                                                                            // The dialog is barrier-dismissible; bail out
+                                                                            // instead of calling its setState after it
+                                                                            // has been dismissed.
+                                                                            if (!context.mounted) {
+                                                                              return;
+                                                                            }
+                                                                            if (!loginSuccess) {
+                                                                              setState(() {
+                                                                                errorMessage = appState.errorMessage ?? context.l10n.failedToConnectCredentials;
+                                                                                isConnecting = false;
+                                                                              });
+                                                                              return;
+                                                                            }
+                                                                            Navigator.pop(
+                                                                              context,
+                                                                            );
+                                                                          } catch (e) {
+                                                                            if (!context.mounted) {
+                                                                              return;
+                                                                            }
+                                                                            setState(() {
+                                                                              errorMessage = context.l10n.failedToConnect(
                                                                                 e,
                                                                               );
-                                                                          isConnecting =
-                                                                              false;
-                                                                        });
-                                                                      }
-                                                                    }
-                                                                  },
-                                                            style: ElevatedButton.styleFrom(
+                                                                              isConnecting = false;
+                                                                            });
+                                                                          }
+                                                                        }
+                                                                      },
+                                                            style:
+                                                                ElevatedButton
+                                                                    .styleFrom(
                                                               padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    vertical:
-                                                                        18,
-                                                                  ),
+                                                                  const EdgeInsets
+                                                                      .symmetric(
+                                                                vertical: 18,
+                                                              ),
                                                               textStyle:
                                                                   const TextStyle(
-                                                                    fontSize:
-                                                                        18,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                  ),
-                                                              shape: RoundedRectangleBorder(
+                                                                fontSize: 18,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
+                                                              shape:
+                                                                  RoundedRectangleBorder(
                                                                 borderRadius:
-                                                                    BorderRadius.circular(
-                                                                      14,
-                                                                    ),
+                                                                    BorderRadius
+                                                                        .circular(
+                                                                  14,
+                                                                ),
                                                               ),
                                                               elevation: 4,
                                                               backgroundColor:
                                                                   Theme.of(
-                                                                        context,
-                                                                      )
+                                                                context,
+                                                              )
                                                                       .colorScheme
                                                                       .primary,
                                                               foregroundColor:
                                                                   Theme.of(
-                                                                        context,
-                                                                      )
+                                                                context,
+                                                              )
                                                                       .colorScheme
                                                                       .onPrimary,
                                                             ),
@@ -787,10 +808,12 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                             22,
                                                                         height:
                                                                             22,
-                                                                        child: CircularProgressIndicator(
+                                                                        child:
+                                                                            CircularProgressIndicator(
                                                                           strokeWidth:
                                                                               3,
-                                                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                                                          valueColor:
+                                                                              AlwaysStoppedAnimation<Color>(
                                                                             Theme.of(
                                                                               context,
                                                                             ).colorScheme.onPrimary,
@@ -920,9 +943,8 @@ class _UnifiedRouterCard extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.router,
-                  color: isSelected
-                      ? colorScheme.primary
-                      : colorScheme.onSurface,
+                  color:
+                      isSelected ? colorScheme.primary : colorScheme.onSurface,
                   size: 22,
                   semanticLabel: context.l10n.routerIcon,
                 ),

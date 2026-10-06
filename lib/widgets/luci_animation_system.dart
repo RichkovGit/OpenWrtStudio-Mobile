@@ -171,13 +171,13 @@ class _LuciSlideTransitionState extends State<LuciSlideTransition>
         break;
     }
 
-    _slideAnimation = Tween<Offset>(begin: beginOffset, end: Offset.zero)
-        .animate(
-          CurvedAnimation(
-            parent: _controller,
-            curve: widget.bounce ? Curves.elasticOut : widget.curve,
-          ),
-        );
+    _slideAnimation =
+        Tween<Offset>(begin: beginOffset, end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: widget.bounce ? Curves.elasticOut : widget.curve,
+      ),
+    );
 
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -251,13 +251,12 @@ class _LuciScaleTransitionState extends State<LuciScaleTransition>
         end: widget.finalScale,
       ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
     } else {
-      _scaleAnimation =
-          Tween<double>(
-            begin: widget.initialScale,
-            end: widget.finalScale,
-          ).animate(
-            CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-          );
+      _scaleAnimation = Tween<double>(
+        begin: widget.initialScale,
+        end: widget.finalScale,
+      ).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+      );
     }
 
     if (widget.delay > Duration.zero) {
@@ -462,8 +461,7 @@ class _LuciInteractiveButtonState extends State<LuciInteractiveButton>
             child: Container(
               decoration: BoxDecoration(
                 color: _colorAnimation.value ?? widget.backgroundColor,
-                borderRadius:
-                    widget.borderRadius ??
+                borderRadius: widget.borderRadius ??
                     BorderRadius.circular(LuciSpacing.sm),
               ),
               child: widget.child,
@@ -488,19 +486,19 @@ class LuciPageTransition extends PageRouteBuilder {
     this.duration = const Duration(milliseconds: 400),
     this.curve = Curves.easeInOutCubic,
   }) : super(
-         pageBuilder: (context, animation, secondaryAnimation) => child,
-         transitionDuration: duration,
-         reverseTransitionDuration: duration,
-         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-           return _buildTransition(
-             child: child,
-             animation: animation,
-             secondaryAnimation: secondaryAnimation,
-             transitionType: transitionType,
-             curve: curve,
-           );
-         },
-       );
+          pageBuilder: (context, animation, secondaryAnimation) => child,
+          transitionDuration: duration,
+          reverseTransitionDuration: duration,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return _buildTransition(
+              child: child,
+              animation: animation,
+              secondaryAnimation: secondaryAnimation,
+              transitionType: transitionType,
+              curve: curve,
+            );
+          },
+        );
 
   static Widget _buildTransition({
     required Widget child,

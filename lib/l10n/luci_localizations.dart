@@ -5,9 +5,9 @@ import 'app_localizations.dart';
 
 const List<LocalizationsDelegate<dynamic>> luciLocalizationsDelegates =
     <LocalizationsDelegate<dynamic>>[
-      AppLocalizations.delegate,
-      ...GlobalMaterialLocalizations.delegates,
-    ];
+  AppLocalizations.delegate,
+  ...GlobalMaterialLocalizations.delegates,
+];
 
 extension LuciLocalizationsContext on BuildContext {
   AppLocalizations get l10n =>
@@ -24,8 +24,7 @@ Locale? resolveLuciLocale(
   for (final device in locales) {
     final language = device.languageCode.toLowerCase();
     final script = device.scriptCode?.toLowerCase();
-    final prefersTraditional =
-        language == 'zh' &&
+    final prefersTraditional = language == 'zh' &&
         (script == 'hant' ||
             (script == null &&
                 const {

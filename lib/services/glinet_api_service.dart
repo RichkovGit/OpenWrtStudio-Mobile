@@ -172,9 +172,8 @@ class GlInetApiService implements IGlInetApiService {
         final iface = _asString(client?['iface']);
         clients[mac] = GlInetClient(
           online: _asBool(client?['online']),
-          wifiBand: iface != null && formatWifiBand(iface).isNotEmpty
-              ? iface
-              : null,
+          wifiBand:
+              iface != null && formatWifiBand(iface).isNotEmpty ? iface : null,
           deviceClass: _asString(client?['class']),
           name: _asString(client?['name']),
           alias: _asString(client?['alias']),
@@ -235,23 +234,23 @@ class GlInetApiService implements IGlInetApiService {
       value is String && value.isNotEmpty ? value : null;
 
   static int? _asInt(dynamic value) => switch (value) {
-    int number => number,
-    num number => number.toInt(),
-    String text => int.tryParse(text),
-    _ => null,
-  };
+        int number => number,
+        num number => number.toInt(),
+        String text => int.tryParse(text),
+        _ => null,
+      };
 
   static double? _asDouble(dynamic value) => switch (value) {
-    num number => number.toDouble(),
-    String text => double.tryParse(text),
-    _ => null,
-  };
+        num number => number.toDouble(),
+        String text => double.tryParse(text),
+        _ => null,
+      };
 
   static bool? _asBool(dynamic value) => switch (value) {
-    bool flag => flag,
-    num number => number != 0,
-    String text when text == '1' || text.toLowerCase() == 'true' => true,
-    String text when text == '0' || text.toLowerCase() == 'false' => false,
-    _ => null,
-  };
+        bool flag => flag,
+        num number => number != 0,
+        String text when text == '1' || text.toLowerCase() == 'true' => true,
+        String text when text == '0' || text.toLowerCase() == 'false' => false,
+        _ => null,
+      };
 }

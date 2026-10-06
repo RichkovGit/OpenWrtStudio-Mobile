@@ -11,8 +11,10 @@ class DiagnosticsScreen extends ConsumerStatefulWidget {
 }
 
 class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
-  final TextEditingController _targetCtrl = TextEditingController(text: '1.1.1.1');
-  final TextEditingController _packetSizeCtrl = TextEditingController(text: '56');
+  final TextEditingController _targetCtrl =
+      TextEditingController(text: '1.1.1.1');
+  final TextEditingController _packetSizeCtrl =
+      TextEditingController(text: '56');
   final ScrollController _pageScroll = ScrollController();
 
   List<String> _interfaces = ['По умолчанию (Авто)'];
@@ -67,6 +69,13 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     final target = _targetCtrl.text.trim();
     if (target.isEmpty) return;
 
+    if (!RegExp(r'^[a-zA-Z0-9\.\-:_]+$').hasMatch(target)) {
+      setState(() {
+        _output = 'Ошибка: Недопустимый адрес цели (обнаружены спецсимволы или пробелы).\n';
+      });
+      return;
+    }
+
     _selectedTool = tool;
     setState(() {
       _running = true;
@@ -78,11 +87,13 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     String cmd = '/bin/ping';
     List<String> args = [];
 
+    final cleanIface = _selectedInterface.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '');
+
     if (tool == 'ping') {
       cmd = '/bin/ping';
       // Interface
-      if (_selectedInterface != 'По умолчанию (Авто)') {
-        args.addAll(['-I', _selectedInterface]);
+      if (_selectedInterface != 'По умолчанию (Авто)' && cleanIface.isNotEmpty) {
+        args.addAll(['-I', cleanIface]);
       }
       // Count
       if (_selectedPingCountPreset != 'Бесконечно (∞)') {
@@ -97,8 +108,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       args.add(target);
     } else if (tool == 'traceroute') {
       cmd = '/usr/bin/traceroute';
-      if (_selectedInterface != 'По умолчанию (Авто)') {
-        args.addAll(['-i', _selectedInterface]);
+      if (_selectedInterface != 'По умолчанию (Авто)' && cleanIface.isNotEmpty) {
+        args.addAll(['-i', cleanIface]);
       }
       args.addAll(['-q', '1', '-w', '1', target]);
     } else if (tool == 'nslookup') {
@@ -201,294 +212,322 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-            // Target input & Stop button
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _targetCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Хост или IP-адрес',
-                      hintText: '1.1.1.1, ya.ru',
-                      isDense: true,
-                      prefixIcon: const Icon(Icons.language, size: 20),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              // Target input & Stop button
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _targetCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Хост или IP-адрес',
+                        hintText: '1.1.1.1, ya.ru',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.language, size: 20),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
-                ),
-                if (_running) ...[
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    icon: const Icon(Icons.stop, size: 18),
-                    label: const Text('Стоп', style: TextStyle(fontWeight: FontWeight.bold)),
-                    onPressed: _stopDiagnostic,
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 10),
-
-            // Interface, Packets count, Packet size
-            Card(
-              elevation: 0,
-              color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        // Interface selector
-                        Expanded(
-                          flex: 3,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Интерфейс (-I):',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedInterface,
-                                isDense: true,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                items: _interfaces.map((iface) {
-                                  return DropdownMenuItem(
-                                    value: iface,
-                                    child: Text(
-                                      iface,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  );
-                                }).toList(),
-                                onChanged: _running
-                                    ? null
-                                    : (val) {
-                                        if (val != null) {
-                                          setState(() => _selectedInterface = val);
-                                        }
-                                      },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Packet count preset
-                        Expanded(
-                          flex: 2,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Пакетов (-c):',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedPingCountPreset,
-                                isDense: true,
-                                isExpanded: true,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: colorScheme.onSurface,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                items: const [
-                                  DropdownMenuItem(value: '5', child: Text('5')),
-                                  DropdownMenuItem(value: '10', child: Text('10')),
-                                  DropdownMenuItem(value: '20', child: Text('20')),
-                                  DropdownMenuItem(value: '50', child: Text('50')),
-                                  DropdownMenuItem(value: '100', child: Text('100')),
-                                  DropdownMenuItem(value: 'Бесконечно (∞)', child: Text('Бесконечно (∞)')),
-                                ],
-                                onChanged: _running
-                                    ? null
-                                    : (val) {
-                                        if (val != null) {
-                                          setState(() => _selectedPingCountPreset = val);
-                                        }
-                                      },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Packet size
-                        SizedBox(
-                          width: 68,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Размер (-s):',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              TextField(
-                                controller: _packetSizeCtrl,
-                                keyboardType: TextInputType.number,
-                                enabled: !_running,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                  hintText: '56',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                  if (_running) ...[
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.stop, size: 18),
+                      label: const Text('Стоп',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: _stopDiagnostic,
                     ),
                   ],
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // Interface, Packets count, Packet size
+              Card(
+                elevation: 0,
+                color:
+                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          // Interface selector
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Интерфейс (-I):',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _selectedInterface,
+                                  isDense: true,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  items: _interfaces.map((iface) {
+                                    return DropdownMenuItem(
+                                      value: iface,
+                                      child: Text(
+                                        iface,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: _running
+                                      ? null
+                                      : (val) {
+                                          if (val != null) {
+                                            setState(
+                                                () => _selectedInterface = val);
+                                          }
+                                        },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Packet count preset
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Пакетов (-c):',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _selectedPingCountPreset,
+                                  isDense: true,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colorScheme.onSurface,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                        value: '5', child: Text('5')),
+                                    DropdownMenuItem(
+                                        value: '10', child: Text('10')),
+                                    DropdownMenuItem(
+                                        value: '20', child: Text('20')),
+                                    DropdownMenuItem(
+                                        value: '50', child: Text('50')),
+                                    DropdownMenuItem(
+                                        value: '100', child: Text('100')),
+                                    DropdownMenuItem(
+                                        value: 'Бесконечно (∞)',
+                                        child: Text('Бесконечно (∞)')),
+                                  ],
+                                  onChanged: _running
+                                      ? null
+                                      : (val) {
+                                          if (val != null) {
+                                            setState(() =>
+                                                _selectedPingCountPreset = val);
+                                          }
+                                        },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Packet size
+                          SizedBox(
+                            width: 68,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Размер (-s):',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                TextField(
+                                  controller: _packetSizeCtrl,
+                                  keyboardType: TextInputType.number,
+                                  enabled: !_running,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.zero,
+                                    hintText: '56',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
 
-            // Action buttons
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00D2FF),
-                      foregroundColor: Colors.black,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00D2FF),
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      icon: const Icon(Icons.network_ping, size: 16),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Ping',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                            maxLines: 1),
+                      ),
+                      onPressed:
+                          _running ? null : () => _executeDiagnostic('ping'),
                     ),
-                    icon: const Icon(Icons.network_ping, size: 16),
-                    label: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text('Ping', style: TextStyle(fontWeight: FontWeight.bold), maxLines: 1),
-                    ),
-                    onPressed: _running ? null : () => _executeDiagnostic('ping'),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: colorScheme.onSurface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.onSurface,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      icon: const Icon(Icons.alt_route, size: 16),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('Traceroute', maxLines: 1),
+                      ),
+                      onPressed: _running
+                          ? null
+                          : () => _executeDiagnostic('traceroute'),
                     ),
-                    icon: const Icon(Icons.alt_route, size: 16),
-                    label: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text('Traceroute', maxLines: 1),
-                    ),
-                    onPressed: _running ? null : () => _executeDiagnostic('traceroute'),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: colorScheme.onSurface,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.onSurface,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                      ),
+                      icon: const Icon(Icons.dns, size: 16),
+                      label: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text('NSLookup', maxLines: 1),
+                      ),
+                      onPressed: _running
+                          ? null
+                          : () => _executeDiagnostic('nslookup'),
                     ),
-                    icon: const Icon(Icons.dns, size: 16),
-                    label: const FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text('NSLookup', maxLines: 1),
-                    ),
-                    onPressed: _running ? null : () => _executeDiagnostic('nslookup'),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Terminal output header
-            Row(
-              children: [
-                const Icon(Icons.terminal, size: 18, color: Color(0xFF00D2FF)),
-                const SizedBox(width: 6),
-                Text(
-                  'Вывод утилиты',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                if (_output.isNotEmpty)
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                    ),
-                    icon: const Icon(Icons.clear_all, size: 16),
-                    label: const Text('Очистить', style: TextStyle(fontSize: 12)),
-                    onPressed: () {
-                      setState(() {
-                        _output = '';
-                      });
-                    },
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-
-            // Terminal output container
-            Container(
-              constraints: const BoxConstraints(minHeight: 260),
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF334155)),
+                ],
               ),
-              child: SelectableText(
-                _output.isEmpty
-                    ? 'Готов к диагностике. Выберите инструмент и нажмите кнопку выше.'
-                    : _output,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 12,
-                  color: Color(0xFFE2E8F0),
-                  height: 1.4,
+              const SizedBox(height: 14),
+
+              // Terminal output header
+              Row(
+                children: [
+                  const Icon(Icons.terminal,
+                      size: 18, color: Color(0xFF00D2FF)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Вывод утилиты',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (_output.isNotEmpty)
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      icon: const Icon(Icons.clear_all, size: 16),
+                      label: const Text('Очистить',
+                          style: TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        setState(() {
+                          _output = '';
+                        });
+                      },
+                    ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // Terminal output container
+              Container(
+                constraints: const BoxConstraints(minHeight: 260),
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: SelectableText(
+                  _output.isEmpty
+                      ? 'Готов к диагностике. Выберите инструмент и нажмите кнопку выше.'
+                      : _output,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Color(0xFFE2E8F0),
+                    height: 1.4,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 36),
-          ],
+              const SizedBox(height: 36),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 }

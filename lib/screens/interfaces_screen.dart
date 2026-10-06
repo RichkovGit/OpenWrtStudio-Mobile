@@ -330,7 +330,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
     final cardHeight = renderBox.size.height;
     final scrollableBox = _scrollController.position.hasContentDimensions
         ? _scrollController.position.context.storageContext.findRenderObject()
-              as RenderBox?
+            as RenderBox?
         : null;
     final scrollableTop = scrollableBox?.localToGlobal(Offset.zero).dy ?? 0.0;
     final visibleTop = scrollableTop + headerOffset;
@@ -341,9 +341,8 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
     final visibleCardTop = max(cardOffset, visibleTop);
     final visibleCardBottom = min(cardBottom, visibleBottom);
     final visibleCardHeight = max(0.0, visibleCardBottom - visibleCardTop);
-    final cardVisibilityRatio = cardHeight > 0
-        ? visibleCardHeight / cardHeight
-        : 0.0;
+    final cardVisibilityRatio =
+        cardHeight > 0 ? visibleCardHeight / cardHeight : 0.0;
 
     // Only scroll if less than 90% of the card is visible
     final needsScroll = cardVisibilityRatio < 0.9;
@@ -361,18 +360,18 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
 
       _scrollController
           .animateTo(
-            clampedPosition,
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.fastOutSlowIn,
-          )
+        clampedPosition,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.fastOutSlowIn,
+      )
           .then((_) {
-            if (mounted) {
-              setState(() {
-                _targetInterface = null;
-              });
-              widget.onScrollComplete?.call();
-            }
+        if (mounted) {
+          setState(() {
+            _targetInterface = null;
           });
+          widget.onScrollComplete?.call();
+        }
+      });
     } else {
       if (mounted) {
         setState(() {
@@ -394,20 +393,20 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
 
     _scrollController
         .animateTo(
-          clampedPosition,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeInOut,
-        )
+      clampedPosition,
+      duration: const Duration(milliseconds: 800),
+      curve: Curves.easeInOut,
+    )
         .then((_) {
-          Future.delayed(const Duration(milliseconds: 500), () {
-            if (mounted) {
-              setState(() {
-                _targetInterface = null;
-              });
-              widget.onScrollComplete?.call();
-            }
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          setState(() {
+            _targetInterface = null;
           });
-        });
+          widget.onScrollComplete?.call();
+        }
+      });
+    });
   }
 
   @override
@@ -554,8 +553,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
       ) {
         final stats = detailedInterfaceMap['stats'];
         if (stats == null || (stats is Map && stats.isEmpty)) {
-          final String? deviceName =
-              detailedInterfaceMap['l3_device'] ??
+          final String? deviceName = detailedInterfaceMap['l3_device'] ??
               detailedInterfaceMap['device'];
           if (deviceName != null) {
             final statsContainer = networkStatsMap[deviceName];
@@ -599,8 +597,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
         final iface = interfaces[index];
-        final isTargetInterface =
-            _targetInterface != null &&
+        final isTargetInterface = _targetInterface != null &&
             iface.name.toLowerCase() == _targetInterface!.toLowerCase();
 
         final keyStr = _interfaceKey(name: iface.name);
@@ -634,8 +631,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
     final uciInterfaces = <String, Map<String, dynamic>>{};
 
     // Try 'values' key (real API) then 'wireless' key (mock data)
-    final uciValues =
-        (uciWirelessConfig?['values'] as Map?) ??
+    final uciValues = (uciWirelessConfig?['values'] as Map?) ??
         (uciWirelessConfig?['wireless'] as Map?);
     if (uciValues != null) {
       uciValues.forEach((key, value) {
@@ -662,8 +658,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
             }
 
             final isRadioEnabled = uciRadios[radioName]?['disabled'] != '1';
-            final isIfaceEnabled =
-                config['disabled'] != '1' &&
+            final isIfaceEnabled = config['disabled'] != '1' &&
                 config['disabled'] != 1 &&
                 config['disabled'] != true;
             final isEnabled = isRadioEnabled && isIfaceEnabled;
@@ -677,8 +672,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
                 ? _uciString(config['mode']).toUpperCase()
                 : (iwinfo['mode']?.toString().toUpperCase() ?? 'N/A');
             final glInetRadio = glInetData?.radioForDevice(radioName);
-            final channel =
-                normalizeWifiChannel(iwinfo['channel']) ??
+            final channel = normalizeWifiChannel(iwinfo['channel']) ??
                 normalizeWifiChannel(config['channel']) ??
                 normalizeWifiChannel(glInetRadio?.channel) ??
                 'N/A';
@@ -692,8 +686,7 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
             // Build encryption description
             final rawEncIwinfo = iwinfo['encryption'];
             final encIwinfo = rawEncIwinfo is Map ? rawEncIwinfo : null;
-            final encDescription =
-                encIwinfo?['description'] ??
+            final encDescription = encIwinfo?['description'] ??
                 _uciString(config['encryption'], 'N/A');
 
             interfacesList.add({
@@ -799,13 +792,13 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
     String? resolvedTargetKey;
     if (target != null) {
       String? keyOf(Map<String, dynamic> iface) => _interfaceKeyForWireless(
-        ssid: iface['ssid'] ?? '',
-        radioName: iface['radioName'] ?? '',
-        deviceName: iface['deviceName'] ?? '',
-        name: iface['interfaceName'] ?? '',
-        sectionName: iface['section'] as String?,
-        ifname: iface['ifname'] as String?,
-      );
+            ssid: iface['ssid'] ?? '',
+            radioName: iface['radioName'] ?? '',
+            deviceName: iface['deviceName'] ?? '',
+            name: iface['interfaceName'] ?? '',
+            sectionName: iface['section'] as String?,
+            ifname: iface['ifname'] as String?,
+          );
       // Pass 1: exact (case-sensitive) section match.
       for (final iface in interfaces) {
         final section = (iface['section'] as String?)?.trim() ?? '';
@@ -968,8 +961,8 @@ class _InterfacesScreenState extends ConsumerState<InterfacesScreen> {
                       mode.toLowerCase() == 'sta'
                           ? context.l10n.clientStationMode
                           : mode.toLowerCase() == 'ap'
-                          ? context.l10n.accessPointMode
-                          : context.l10n.modeValue(mode.toUpperCase()),
+                              ? context.l10n.accessPointMode
+                              : context.l10n.modeValue(mode.toUpperCase()),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                         fontStyle: FontStyle.italic,
@@ -1827,13 +1820,11 @@ class _WifiEditBottomSheetState extends ConsumerState<_WifiEditBottomSheet> {
     );
 
     final rawEncryption = widget.iface['encryption']?.toString().trim() ?? '';
-    final currentEnc = (rawEncryption.isEmpty ? 'none' : rawEncryption)
-        .split('+')
-        .first;
+    final currentEnc =
+        (rawEncryption.isEmpty ? 'none' : rawEncryption).split('+').first;
     _originalEncryption = currentEnc;
-    _selectedEncryption = _encryptionOptions.contains(currentEnc)
-        ? currentEnc
-        : null;
+    _selectedEncryption =
+        _encryptionOptions.contains(currentEnc) ? currentEnc : null;
   }
 
   @override
@@ -1854,15 +1845,15 @@ class _WifiEditBottomSheetState extends ConsumerState<_WifiEditBottomSheet> {
       _encryptionOptions.contains(_selectedEncryption);
 
   String _encryptionLabel(String value) => switch (value) {
-    'none' => context.l10n.encryptionNone,
-    'owe' => 'OWE',
-    'psk2' => 'WPA2-PSK',
-    'psk' => 'WPA-PSK',
-    'psk-mixed' => 'WPA/WPA2 Mixed PSK',
-    'sae' => 'WPA3-SAE',
-    'sae-mixed' => 'WPA2/WPA3 Mixed',
-    _ => value,
-  };
+        'none' => context.l10n.encryptionNone,
+        'owe' => 'OWE',
+        'psk2' => 'WPA2-PSK',
+        'psk' => 'WPA-PSK',
+        'psk-mixed' => 'WPA/WPA2 Mixed PSK',
+        'sae' => 'WPA3-SAE',
+        'sae-mixed' => 'WPA2/WPA3 Mixed',
+        _ => value,
+      };
 
   /// True when switching from an open interface to a password-protected one.
   bool get _changingToEncrypted =>
@@ -2244,7 +2235,9 @@ class _WifiEditBottomSheetState extends ConsumerState<_WifiEditBottomSheet> {
   Widget _buildLabel(BuildContext context, String text) {
     return Text(
       text,
-      style: Theme.of(context).textTheme.titleSmall
+      style: Theme.of(context)
+          .textTheme
+          .titleSmall
           ?.copyWith(fontWeight: FontWeight.w600),
     );
   }
@@ -2347,12 +2340,10 @@ class _WifiDeleteDialogState extends ConsumerState<_WifiDeleteDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final displayName = widget.ssid.isNotEmpty
-        ? widget.ssid
-        : widget.uciSection;
+    final displayName =
+        widget.ssid.isNotEmpty ? widget.ssid : widget.uciSection;
     final modeLower = widget.mode.toLowerCase();
-    final isStaMode =
-        modeLower.contains('sta') ||
+    final isStaMode = modeLower.contains('sta') ||
         modeLower.contains('client') ||
         modeLower == 'station';
     final warningMessage = isStaMode

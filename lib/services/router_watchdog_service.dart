@@ -6,12 +6,13 @@ import 'package:luci_mobile/utils/logger.dart';
 
 class RouterWatchdogService {
   static RouterWatchdogService? _instance;
-  static RouterWatchdogService get instance => _instance ??= RouterWatchdogService._();
+  static RouterWatchdogService get instance =>
+      _instance ??= RouterWatchdogService._();
   RouterWatchdogService._();
 
   Timer? _timer;
   bool _isMonitoring = false;
-  
+
   // Previous states to avoid alert storms
   bool? _lastWanOnline;
   bool? _lastForkopOnline;
@@ -40,13 +41,16 @@ class RouterWatchdogService {
     Logger.info('RouterWatchdogService stopped');
   }
 
-  Future<void> _checkHealth(String routerIp, String sysauth, bool useHttps) async {
+  Future<void> _checkHealth(
+      String routerIp, String sysauth, bool useHttps) async {
     final api = ServiceFactory.apiService;
 
     // 1. Check router connectivity
     bool routerReachable = false;
     try {
-      final boardRes = await api.call(routerIp, sysauth, useHttps, object: 'system', method: 'board').timeout(const Duration(seconds: 5));
+      final boardRes = await api
+          .call(routerIp, sysauth, useHttps, object: 'system', method: 'board')
+          .timeout(const Duration(seconds: 5));
       routerReachable = boardRes != null && boardRes.isNotEmpty;
     } catch (_) {
       routerReachable = false;
@@ -76,11 +80,15 @@ class RouterWatchdogService {
 
     // 2. Check WAN status
     try {
-      final netRes = await api.call(
-        routerIp, sysauth, useHttps,
-        object: 'network.interface.wan',
-        method: 'status',
-      ).timeout(const Duration(seconds: 5));
+      final netRes = await api
+          .call(
+            routerIp,
+            sysauth,
+            useHttps,
+            object: 'network.interface.wan',
+            method: 'status',
+          )
+          .timeout(const Duration(seconds: 5));
 
       bool wanUp = false;
       if (netRes is List && netRes.length > 1 && netRes[1] is Map) {
@@ -112,7 +120,9 @@ class RouterWatchdogService {
     // 3. Check ForkOP / Sing-box
     try {
       final checkRes = await api.systemExec(
-        routerIp, sysauth, useHttps,
+        routerIp,
+        sysauth,
+        useHttps,
         command: '/bin/sh',
         params: ['-c', 'pidof sing-box >/dev/null && echo UP || echo DOWN'],
       ).timeout(const Duration(seconds: 5));
@@ -145,20 +155,27 @@ class RouterWatchdogService {
     // 4. Check CPU Thermal
     try {
       final tempRes = await api.systemExec(
-        routerIp, sysauth, useHttps,
+        routerIp,
+        sysauth,
+        useHttps,
         command: '/bin/sh',
-        params: ['-c', 'cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0'],
+        params: [
+          '-c',
+          'cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0'
+        ],
       ).timeout(const Duration(seconds: 5));
 
       if (tempRes is List && tempRes.length > 1 && tempRes[1] is Map) {
-        final raw = int.tryParse((tempRes[1]['stdout'] ?? '0').toString().trim()) ?? 0;
+        final raw =
+            int.tryParse((tempRes[1]['stdout'] ?? '0').toString().trim()) ?? 0;
         final tempC = raw > 1000 ? raw / 1000.0 : raw.toDouble();
         if (tempC > 78.0 && _lastHighTemp != true) {
           _lastHighTemp = true;
           await NotificationService.showNotification(
             id: 1004,
             title: '🌡️ Внимание: Перегрев роутера',
-            message: 'Температура процессора достигла ${tempC.toStringAsFixed(1)}°C!',
+            message:
+                'Температура процессора достигла ${tempC.toStringAsFixed(1)}°C!',
           );
         } else if (tempC < 70.0) {
           _lastHighTemp = false;

@@ -13,8 +13,10 @@ import 'package:luci_mobile/services/throughput_service.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
 
 abstract class ServiceFactory {
-  static IApiService get apiService => ServiceContainer.instance.factory.createApiService();
-  static IAuthService get authService => ServiceContainer.instance.factory.createAuthService();
+  static IApiService get apiService =>
+      ServiceContainer.instance.factory.createApiService();
+  static IAuthService get authService =>
+      ServiceContainer.instance.factory.createAuthService();
   IAuthService createAuthService();
   IApiService createApiService();
   IGlInetApiService createGlInetApiService();

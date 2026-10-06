@@ -19,18 +19,23 @@ class SentinelService {
     // Script to probe each target using curl or nc with timeout
     final probeScript = StringBuffer();
     for (final t in targets) {
+      final host = t.host.trim();
+      if (!RegExp(r'^[a-zA-Z0-9\.\-:_]+$').hasMatch(host)) continue;
+      final safeHost = host.replaceAll("'", r"'\''");
+      final safeName = t.name.replaceAll("'", r"'\''");
+
       probeScript.writeln('''
 start_time=\$(date +%s%3N 2>/dev/null || date +%s)
-if curl -s -k -m 3 -o /dev/null -w "%{http_code}" "https://${t.host}" >/dev/null 2>&1; then
+if curl -s -k -m 3 -o /dev/null -w "%{http_code}" 'https://$safeHost' >/dev/null 2>&1; then
   end_time=\$(date +%s%3N 2>/dev/null || date +%s)
   lat=\$((end_time - start_time))
-  echo "${t.name}:online:\$lat"
-elif nc -w 2 -z "${t.host}" 443 2>/dev/null; then
-  echo "${t.name}:online:100"
-elif ping -c 1 -W 2 "${t.host}" >/dev/null 2>&1; then
-  echo "${t.name}:online:50"
+  echo '$safeName:online:'"\$lat"
+elif nc -w 2 -z '$safeHost' 443 2>/dev/null; then
+  echo '$safeName:online:100'
+elif ping -c 1 -W 2 '$safeHost' >/dev/null 2>&1; then
+  echo '$safeName:online:50'
 else
-  echo "${t.name}:blocked:0"
+  echo '$safeName:blocked:0'
 fi
 ''');
     }
@@ -48,10 +53,8 @@ fi
           ? res[1] as Map<String, dynamic>?
           : null;
       final stdout = data?['stdout'] as String? ?? '';
-      final lines = stdout
-          .split('\n')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty);
+      final lines =
+          stdout.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty);
 
       final statusMap = <String, (SentinelStatus, int?)>{};
       for (final line in lines) {

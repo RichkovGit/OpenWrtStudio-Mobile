@@ -71,14 +71,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   List<Widget> get _widgetOptions => [
-    const DashboardScreen(),
-    const ClientsScreen(),
-    InterfacesScreen(
-      scrollToInterface: _currentInterfaceToScroll,
-      onScrollComplete: _clearInterfaceToScroll,
-    ),
-    const MoreScreen(),
-  ];
+        const DashboardScreen(),
+        const ClientsScreen(),
+        InterfacesScreen(
+          scrollToInterface: _currentInterfaceToScroll,
+          onScrollComplete: _clearInterfaceToScroll,
+        ),
+        const MoreScreen(),
+      ];
 
   void _onItemTapped(int index) {
     setState(() {

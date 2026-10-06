@@ -32,7 +32,11 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
       final list = <Map<String, dynamic>>[];
       if (res is List && res.length > 1 && res[1] is Map) {
         final stdout = (res[1]['stdout'] ?? '').toString();
-        final lines = stdout.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+        final lines = stdout
+            .split('\n')
+            .map((l) => l.trim())
+            .where((l) => l.isNotEmpty)
+            .toList();
         for (final line in lines.skip(1)) {
           final parts = line.split(RegExp(r'\s+'));
           if (parts.length >= 4) {
@@ -63,7 +67,8 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
       params: ['-$signal', pid],
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Процесс $pid: $actionName')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Процесс $pid: $actionName')));
     }
     await _fetchProcesses();
   }
@@ -74,7 +79,8 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
       appBar: AppBar(
         title: const Text('Диспетчер процессов'),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchProcesses),
+          IconButton(
+              icon: const Icon(Icons.refresh), onPressed: _fetchProcesses),
         ],
       ),
       body: SafeArea(
@@ -93,16 +99,33 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: const Color(0xFF1E293B),
-                          child: Text(p['pid'], style: const TextStyle(fontSize: 11, color: Color(0xFF00D2FF))),
+                          child: Text(p['pid'],
+                              style: const TextStyle(
+                                  fontSize: 11, color: Color(0xFF00D2FF))),
                         ),
-                        title: Text(p['command'], style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        subtitle: Text('Пользователь: ${p['user']} • Статус: ${p['stat']}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        title: Text(p['command'],
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                            'Пользователь: ${p['user']} • Статус: ${p['stat']}',
+                            style: const TextStyle(
+                                fontSize: 11, color: Colors.grey)),
                         trailing: PopupMenuButton<int>(
                           icon: const Icon(Icons.more_vert, size: 20),
-                          onSelected: (sig) => _killProcess(p['pid'], sig, sig == 15 ? 'SIGTERM (завершение)' : 'SIGKILL (принудительно)'),
+                          onSelected: (sig) => _killProcess(
+                              p['pid'],
+                              sig,
+                              sig == 15
+                                  ? 'SIGTERM (завершение)'
+                                  : 'SIGKILL (принудительно)'),
                           itemBuilder: (ctx) => const [
-                            PopupMenuItem(value: 15, child: Text('Завершить (SIGTERM)')),
-                            PopupMenuItem(value: 9, child: Text('Принудительно убить (SIGKILL)')),
+                            PopupMenuItem(
+                                value: 15, child: Text('Завершить (SIGTERM)')),
+                            PopupMenuItem(
+                                value: 9,
+                                child: Text('Принудительно убить (SIGKILL)')),
                           ],
                         ),
                       );

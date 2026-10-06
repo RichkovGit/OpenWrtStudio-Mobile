@@ -143,9 +143,8 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
                     child: ActionChip(
                       avatar: const Icon(Icons.terminal, size: 16),
                       label: Text(p.title),
-                      onPressed: _isExecuting
-                          ? null
-                          : () => _runCommand(p.command),
+                      onPressed:
+                          _isExecuting ? null : () => _runCommand(p.command),
                     ),
                   );
                 },

@@ -14,11 +14,11 @@ void main() {
     final server = await _startRpcServer((request) {
       return switch (request['method']) {
         'challenge' => _result({
-          'nonce': 'nonce',
-          'salt': 'salt',
-          'alg': 5,
-          'hash-method': 'sha256',
-        }),
+            'nonce': 'nonce',
+            'salt': 'salt',
+            'alg': 5,
+            'hash-method': 'sha256',
+          }),
         'login' => _result({'sid': 'sid-1'}),
         _ => _result({}),
       };
@@ -92,22 +92,22 @@ void main() {
       final module = (request['params'] as List)[1];
       return switch (module) {
         'wifi' => _result({
-          'res': [
-            {'name': 'wifi0', 'channel': '44', 'band': '5g'},
-          ],
-        }),
+            'res': [
+              {'name': 'wifi0', 'channel': '44', 'band': '5g'},
+            ],
+          }),
         'clients' => _result({
-          'clients': [
-            {'mac': 'AA:BB:CC:DD:EE:FF', 'online': 1, 'iface': '5G'},
-            {'mac': 'AA:BB:CC:DD:EE:00', 'online': 1, 'iface': 'cable'},
-            {'mac': 'AA-BB-CC-DD-EE-01', 'online': 1, 'iface': 'wlan0'},
-          ],
-        }),
+            'clients': [
+              {'mac': 'AA:BB:CC:DD:EE:FF', 'online': 1, 'iface': '5G'},
+              {'mac': 'AA:BB:CC:DD:EE:00', 'online': 1, 'iface': 'cable'},
+              {'mac': 'AA-BB-CC-DD-EE-01', 'online': 1, 'iface': 'wlan0'},
+            ],
+          }),
         'system' => _result({
-          'system': {
-            'cpu': {'temperature': 45.5},
-          },
-        }),
+            'system': {
+              'cpu': {'temperature': 45.5},
+            },
+          }),
         'fan' => _result({'speed': '1200', 'status': 1}),
         'tailscale' => _result({'address_v4': '100.64.0.1'}),
         _ => _result({}),
@@ -178,10 +178,10 @@ void main() {
 }
 
 Map<String, dynamic> _result(Map<String, dynamic> result) => {
-  'jsonrpc': '2.0',
-  'id': 1,
-  'result': result,
-};
+      'jsonrpc': '2.0',
+      'id': 1,
+      'result': result,
+    };
 
 Future<HttpServer> _startRpcServer(
   Map<String, dynamic> Function(Map<String, dynamic>) respond,

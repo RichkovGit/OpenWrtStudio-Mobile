@@ -64,14 +64,14 @@ class ForkopSubscription {
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'url': url,
-    'updatedAt': updatedAt?.toIso8601String(),
-    'nodeCount': nodeCount,
-    'uploadBytes': uploadBytes,
-    'downloadBytes': downloadBytes,
-    'totalBytes': totalBytes,
-    'expireDate': expireDate?.toIso8601String(),
-  };
+        'id': id,
+        'name': name,
+        'url': url,
+        'updatedAt': updatedAt?.toIso8601String(),
+        'nodeCount': nodeCount,
+        'uploadBytes': uploadBytes,
+        'downloadBytes': downloadBytes,
+        'totalBytes': totalBytes,
+        'expireDate': expireDate?.toIso8601String(),
+      };
 }

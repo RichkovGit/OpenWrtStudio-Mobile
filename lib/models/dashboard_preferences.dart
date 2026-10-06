@@ -9,8 +9,8 @@ class DashboardPreferences {
     Set<String>? enabledWiredInterfaces,
     this.primaryThroughputInterface,
     this.showAllThroughput = true,
-  }) : enabledWirelessInterfaces = enabledWirelessInterfaces ?? {},
-       enabledWiredInterfaces = enabledWiredInterfaces ?? {};
+  })  : enabledWirelessInterfaces = enabledWirelessInterfaces ?? {},
+        enabledWiredInterfaces = enabledWiredInterfaces ?? {};
 
   DashboardPreferences copyWith({
     Set<String>? enabledWirelessInterfaces,
@@ -30,11 +30,11 @@ class DashboardPreferences {
   }
 
   Map<String, dynamic> toJson() => {
-    'enabledWirelessInterfaces': enabledWirelessInterfaces.toList(),
-    'enabledWiredInterfaces': enabledWiredInterfaces.toList(),
-    'primaryThroughputInterface': primaryThroughputInterface,
-    'showAllThroughput': showAllThroughput,
-  };
+        'enabledWirelessInterfaces': enabledWirelessInterfaces.toList(),
+        'enabledWiredInterfaces': enabledWiredInterfaces.toList(),
+        'primaryThroughputInterface': primaryThroughputInterface,
+        'showAllThroughput': showAllThroughput,
+      };
 
   factory DashboardPreferences.fromJson(Map<String, dynamic> json) {
     return DashboardPreferences(

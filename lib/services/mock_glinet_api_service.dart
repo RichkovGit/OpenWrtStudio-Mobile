@@ -10,7 +10,8 @@ class MockGlInetApiService implements IGlInetApiService {
     String host,
     String password,
     bool useHttps,
-  ) async => null;
+  ) async =>
+      null;
 
   @override
   void clearSession() {}

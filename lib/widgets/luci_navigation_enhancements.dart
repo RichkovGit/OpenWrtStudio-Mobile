@@ -404,22 +404,22 @@ class _LuciAnimatedCardState extends State<LuciAnimatedCard>
                   duration: LuciAdvancedAnimations.microInteraction,
                   curve: Curves.easeInOut,
                   padding: widget.padding ?? EdgeInsets.all(LuciSpacing.md),
-                  decoration:
-                      LuciCardStyles.standardCard(
-                        context,
-                        isElevated: _isHovered || widget.elevation > 0,
-                      ).copyWith(
-                        boxShadow: _isHovered
-                            ? [
-                                BoxShadow(
-                                  color: Theme.of(context).shadowColor
-                                      .withValues(alpha: 0.15),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ]
-                            : null,
-                      ),
+                  decoration: LuciCardStyles.standardCard(
+                    context,
+                    isElevated: _isHovered || widget.elevation > 0,
+                  ).copyWith(
+                    boxShadow: _isHovered
+                        ? [
+                            BoxShadow(
+                              color: Theme.of(context)
+                                  .shadowColor
+                                  .withValues(alpha: 0.15),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
                   child: InkWell(
                     onTap: widget.onTap,
                     borderRadius: LuciCardStyles.standardRadius,

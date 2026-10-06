@@ -22,11 +22,11 @@ void main() {
           'result': method == 'delete'
               ? [0, {}]
               : method == 'exec'
-              ? [
-                  0,
-                  {'code': 1, 'stderr': 'forced exit'},
-                ]
-              : [4, 'forced failure'],
+                  ? [
+                      0,
+                      {'code': 1, 'stderr': 'forced exit'},
+                    ]
+                  : [4, 'forced failure'],
         }),
       );
       await request.response.close();

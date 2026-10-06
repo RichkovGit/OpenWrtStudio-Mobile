@@ -279,12 +279,13 @@ class UsbConfigService {
     required bool useHttps,
     String interfaceName = 'wwan',
   }) async {
+    final cleanIface = interfaceName.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
     final res = await commandsService.execute(
       routerIp: routerIp,
       sysauth: sysauth,
       useHttps: useHttps,
       command:
-          'ifdown $interfaceName 2>/dev/null; sleep 1; ifup $interfaceName 2>/dev/null || /etc/init.d/network reload',
+          'ifdown $cleanIface 2>/dev/null; sleep 1; ifup $cleanIface 2>/dev/null || /etc/init.d/network reload',
     );
     return res.isSuccess;
   }
@@ -298,36 +299,38 @@ class UsbConfigService {
     String? fileSystem,
   }) async {
     final fs = (fileSystem ?? '').toLowerCase();
+    final escDev = "'${deviceNode.replaceAll("'", r"'\''")}'";
+    final escTarget = "'${mountPoint.replaceAll("'", r"'\''")}'";
     String mountCmd;
 
     if (fs.contains('exfat')) {
       // exFAT support with UTF-8 and full permissions
       mountCmd =
-          'mount -t exfat -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount -o rw,noatime,iocharset=utf8,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount "$deviceNode" "$mountPoint"';
+          'mount -t exfat -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
+          'mount -o rw,noatime,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
+          'mount $escDev $escTarget';
     } else if (fs.contains('vfat') || fs.contains('fat')) {
       // Windows FAT32 with Russian/Cyrillic support (CP866 + UTF-8) and full read/write permissions
       mountCmd =
-          'mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000,dmask=0000,fmask=0000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount "$deviceNode" "$mountPoint"';
+          'mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
+          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 $escDev $escTarget 2>/dev/null || '
+          'mount $escDev $escTarget';
     } else if (fs.contains('ntfs')) {
       // Windows NTFS with ntfs-3g or kernel ntfs3 driver, UTF-8 and full write permissions
       mountCmd =
-          'ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount -o rw,noatime,iocharset=utf8,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount "$deviceNode" "$mountPoint"';
+          'ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
+          'mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
+          'mount -o rw,noatime,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
+          'mount $escDev $escTarget';
     } else {
       mountCmd =
-          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount -o rw,noatime,umask=000 "$deviceNode" "$mountPoint" 2>/dev/null || '
-          'mount "$deviceNode" "$mountPoint"';
+          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 $escDev $escTarget 2>/dev/null || '
+          'mount -o rw,noatime,umask=000 $escDev $escTarget 2>/dev/null || '
+          'mount $escDev $escTarget';
     }
 
     final cmd =
-        'mkdir -p "$mountPoint" && ($mountCmd) && (chmod 777 "$mountPoint" 2>/dev/null || true) && '
+        'mkdir -p $escTarget && ($mountCmd) && (chmod 777 $escTarget 2>/dev/null || true) && '
         'block detect > /etc/config/fstab 2>/dev/null && '
         "uci set fstab.@mount[-1].options='rw,sync,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000' 2>/dev/null && "
         'uci commit fstab 2>/dev/null';
@@ -357,11 +360,12 @@ class UsbConfigService {
     required bool useHttps,
     required String mountPoint,
   }) async {
+    final escTarget = "'${mountPoint.replaceAll("'", r"'\''")}'";
     final res = await commandsService.execute(
       routerIp: routerIp,
       sysauth: sysauth,
       useHttps: useHttps,
-      command: 'umount "$mountPoint"',
+      command: 'umount $escTarget',
     );
     return res.isSuccess;
   }
@@ -373,15 +377,17 @@ class UsbConfigService {
     required String path,
     String shareName = 'USB_Storage',
   }) async {
-    final cmd = 'mkdir -p "$path" && chmod 777 "$path" 2>/dev/null || true && '
-        'EXISTING=\$(uci show samba4 2>/dev/null | grep -E "\\.path=\'?$path\'?" | cut -d. -f2 | head -n1); '
+    final escPath = "'${path.replaceAll("'", r"'\''")}'";
+    final escShare = "'${shareName.replaceAll("'", r"'\''")}'";
+    final cmd = 'mkdir -p $escPath && chmod 777 $escPath 2>/dev/null || true && '
+        'EXISTING=\$(uci show samba4 2>/dev/null | grep -F ".path=" | grep -F $escPath | cut -d. -f2 | head -n1); '
         'if [ -z "\$EXISTING" ]; then '
         '  SECTION=\$(uci add samba4 sambashare); '
         'else '
         '  SECTION="samba4.\$EXISTING"; '
         'fi; '
-        "uci set \${SECTION}.name='$shareName'; "
-        "uci set \${SECTION}.path='$path'; "
+        "uci set \${SECTION}.name=$escShare; "
+        "uci set \${SECTION}.path=$escPath; "
         "uci set \${SECTION}.read_only='no'; "
         "uci set \${SECTION}.guest_ok='yes'; "
         "uci set \${SECTION}.force_root='1'; "
@@ -487,8 +493,7 @@ class UsbConfigService {
     required String sysauth,
     required bool useHttps,
   }) async {
-    const hotplugScript =
-        'mkdir -p /etc/hotplug.d/block && '
+    const hotplugScript = 'mkdir -p /etc/hotplug.d/block && '
         'cat << \'EOF\' > /etc/hotplug.d/block/20-automount\n'
         '#!/bin/sh\n'
         '# /etc/hotplug.d/block/20-automount - Auto mount/unmount USB drives with Cyrillic & RW permissions\n'

@@ -20,7 +20,8 @@ String _encryptionLabel(BuildContext context, WifiEncryption encryption) =>
 String _encryptionDescription(
   BuildContext context,
   WifiEncryption encryption,
-) => encryption.isOpen ? context.l10n.encryptionNone : encryption.description;
+) =>
+    encryption.isOpen ? context.l10n.encryptionNone : encryption.description;
 
 class WifiScanScreen extends ConsumerStatefulWidget {
   const WifiScanScreen({super.key});
@@ -240,8 +241,8 @@ class _WifiScanScreenState extends ConsumerState<WifiScanScreen>
             child: _isScanning
                 ? _buildScanningIndicator(theme, colorScheme)
                 : _scanResults.isEmpty
-                ? _buildEmptyState(theme, colorScheme)
-                : _buildResultsList(theme, colorScheme),
+                    ? _buildEmptyState(theme, colorScheme)
+                    : _buildResultsList(theme, colorScheme),
           ),
         ],
       ),
@@ -297,12 +298,10 @@ class _WifiScanScreenState extends ConsumerState<WifiScanScreen>
                   final radioName = device['radioName'] ?? '';
                   final ssid = device['ssid'] ?? '';
                   final band = device['band'] ?? '';
-                  final label = band.isNotEmpty
-                      ? '$radioName ($band)'
-                      : radioName;
-                  final subtitle = ssid != radioName && ssid.isNotEmpty
-                      ? ssid
-                      : null;
+                  final label =
+                      band.isNotEmpty ? '$radioName ($band)' : radioName;
+                  final subtitle =
+                      ssid != radioName && ssid.isNotEmpty ? ssid : null;
                   return DropdownMenuItem<String>(
                     value: radioName,
                     child: Row(
@@ -390,8 +389,8 @@ class _WifiScanScreenState extends ConsumerState<WifiScanScreen>
                 child: OutlinedButton.icon(
                   onPressed:
                       _isScanning || _isRestarting || _selectedRadio == null
-                      ? null
-                      : _restartRadio,
+                          ? null
+                          : _restartRadio,
                   icon: _isRestarting
                       ? SizedBox(
                           width: 18,
@@ -547,9 +546,8 @@ class _WifiScanScreenState extends ConsumerState<WifiScanScreen>
 
   Widget _buildResultsList(ThemeData theme, ColorScheme colorScheme) {
     // Separate networks with SSIDs from hidden ones
-    final visibleNetworks = _scanResults
-        .where((r) => r.ssid.isNotEmpty)
-        .toList();
+    final visibleNetworks =
+        _scanResults.where((r) => r.ssid.isNotEmpty).toList();
     final hiddenNetworks = _scanResults.where((r) => r.ssid.isEmpty).toList();
 
     return ListView(
@@ -908,9 +906,8 @@ class _ConnectBottomSheetState extends ConsumerState<_ConnectBottomSheet> {
     });
 
     // Use the entered SSID for hidden networks; otherwise use the scanned SSID.
-    final ssid = _isHidden
-        ? _hiddenSsidController.text.trim()
-        : widget.network.ssid;
+    final ssid =
+        _isHidden ? _hiddenSsidController.text.trim() : widget.network.ssid;
 
     final appState = ref.read(appStateProvider);
     final success = await appState.connectToWirelessNetwork(
@@ -1083,9 +1080,8 @@ class _ConnectBottomSheetState extends ConsumerState<_ConnectBottomSheet> {
                     items: widget.radioDevices.map((device) {
                       final radioName = device['radioName'] ?? '';
                       final band = device['band'] ?? '';
-                      final label = band.isNotEmpty
-                          ? '$radioName ($band)'
-                          : radioName;
+                      final label =
+                          band.isNotEmpty ? '$radioName ($band)' : radioName;
                       return DropdownMenuItem<String>(
                         value: device['radioName'],
                         child: Text(label, style: theme.textTheme.bodyMedium),

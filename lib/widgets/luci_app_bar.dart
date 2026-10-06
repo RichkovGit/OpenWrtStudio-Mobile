@@ -42,8 +42,7 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
               tooltip: context.l10n.back,
             )
           : null,
-      title:
-          titleWidget ??
+      title: titleWidget ??
           (title != null
               ? Text(
                   title!,
@@ -57,10 +56,14 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
       shadowColor: theme.shadowColor,
       surfaceTintColor: backgroundColor ?? theme.colorScheme.surface,
       systemOverlayStyle: Theme.of(context).brightness == Brightness.dark
-          ? Theme.of(context).appBarTheme.systemOverlayStyle
-                ?.copyWith(statusBarBrightness: Brightness.dark)
-          : Theme.of(context).appBarTheme.systemOverlayStyle
-                ?.copyWith(statusBarBrightness: Brightness.light),
+          ? Theme.of(context)
+              .appBarTheme
+              .systemOverlayStyle
+              ?.copyWith(statusBarBrightness: Brightness.dark)
+          : Theme.of(context)
+              .appBarTheme
+              .systemOverlayStyle
+              ?.copyWith(statusBarBrightness: Brightness.light),
     );
   }
 

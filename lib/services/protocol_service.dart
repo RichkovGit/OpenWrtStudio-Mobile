@@ -156,8 +156,14 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
     required String serviceName,
     required String action, // 'start', 'stop', 'restart'
   }) async {
+    const allowedActions = {'start', 'stop', 'restart', 'reload', 'status', 'enable', 'disable'};
+    final cleanAction = action.trim().toLowerCase();
+    if (!allowedActions.contains(cleanAction)) return false;
+    final cleanService = serviceName.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
+    if (cleanService.isEmpty) return false;
+
     try {
-      if (serviceName == 'forkop') {
+      if (cleanService == 'forkop') {
         final res = await apiService.systemExec(
           routerIp,
           sysauth,
@@ -165,7 +171,7 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
           command: '/bin/sh',
           params: [
             '-c',
-            '[ -x /usr/bin/forkop ] && /usr/bin/forkop $action || /etc/init.d/forkop $action',
+            '[ -x /usr/bin/forkop ] && /usr/bin/forkop $cleanAction || /etc/init.d/forkop $cleanAction',
           ],
         );
         return res != null;
@@ -175,12 +181,12 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
         routerIp,
         sysauth,
         useHttps,
-        command: '/etc/init.d/$serviceName',
-        params: [action],
+        command: '/etc/init.d/$cleanService',
+        params: [cleanAction],
       );
       return res != null;
     } catch (e) {
-      Logger.error('Failed to $action service $serviceName', e);
+      Logger.error('Failed to $cleanAction service $cleanService', e);
       return false;
     }
   }
@@ -244,8 +250,12 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
     required bool useHttps,
     required List<String> packageNames,
   }) async {
-    if (packageNames.isEmpty) return false;
-    final pkgs = packageNames.join(' ');
+    final safePkgs = packageNames
+        .map((p) => p.trim())
+        .where((p) => RegExp(r'^[a-zA-Z0-9_\-\.\+@:]+$').hasMatch(p))
+        .toList();
+    if (safePkgs.isEmpty) return false;
+    final pkgs = safePkgs.join(' ');
     final script = '''
 if command -v apk >/dev/null 2>&1; then
   apk add $pkgs

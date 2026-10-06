@@ -96,7 +96,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                     final appState = ref.watch(appStateProvider);
                     final isLoading =
                         snapshot.connectionState == ConnectionState.waiting &&
-                        (aggregatedClients.isEmpty);
+                            (aggregatedClients.isEmpty);
                     final dashboardError = appState.dashboardError;
 
                     if (isLoading) {
@@ -124,9 +124,9 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                     SizedBox(height: LuciSpacing.sm),
                                 itemBuilder: (context, index) =>
                                     LuciListItemSkeleton(
-                                      showLeading: true,
-                                      showTrailing: true,
-                                    ),
+                                  showLeading: true,
+                                  showTrailing: true,
+                                ),
                               ),
                             ),
                           ],
@@ -152,14 +152,18 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
 
                     final clients = aggregatedClients;
                     final totalCount = clients.length;
-                    final onlineCount = clients.where((c) => c.isOnline == true).length;
-                    final offlineCount = clients.where((c) => c.isOnline == false).length;
+                    final onlineCount =
+                        clients.where((c) => c.isOnline == true).length;
+                    final offlineCount =
+                        clients.where((c) => c.isOnline == false).length;
 
                     final filteredClients = clients.where((client) {
-                      if (_statusFilter == ClientStatusFilter.online && client.isOnline != true) {
+                      if (_statusFilter == ClientStatusFilter.online &&
+                          client.isOnline != true) {
                         return false;
                       }
-                      if (_statusFilter == ClientStatusFilter.offline && client.isOnline != false) {
+                      if (_statusFilter == ClientStatusFilter.offline &&
+                          client.isOnline != false) {
                         return false;
                       }
                       final query = _searchQuery.toLowerCase();
@@ -209,7 +213,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                               ),
                               hintStyle: TextStyle(
                                 color: colorScheme.onSurfaceVariant.withValues(
-                                   alpha: 0.7,
+                                  alpha: 0.7,
                                 ),
                               ),
                             ),
@@ -233,14 +237,16 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                 value: ClientStatusFilter.online,
                                 label: FittedBox(
                                   fit: BoxFit.scaleDown,
-                                  child: Text('🟢 В сети ($onlineCount)', maxLines: 1),
+                                  child: Text('🟢 В сети ($onlineCount)',
+                                      maxLines: 1),
                                 ),
                               ),
                               ButtonSegment<ClientStatusFilter>(
                                 value: ClientStatusFilter.offline,
                                 label: FittedBox(
                                   fit: BoxFit.scaleDown,
-                                  child: Text('💤 Офлайн ($offlineCount)', maxLines: 1),
+                                  child: Text('💤 Офлайн ($offlineCount)',
+                                      maxLines: 1),
                                 ),
                               ),
                             ],
@@ -269,7 +275,9 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                               mainAxisAlignment: MainAxisAlignment.end,
                               children: [
                                 ChoiceChip(
-                                  label: Text(_aggregateAllRouters ? 'Все роутеры' : 'Выбранный роутер'),
+                                  label: Text(_aggregateAllRouters
+                                      ? 'Все роутеры'
+                                      : 'Выбранный роутер'),
                                   selected: _aggregateAllRouters,
                                   visualDensity: VisualDensity.compact,
                                   onSelected: (val) {
@@ -296,8 +304,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                   message: _searchQuery.isEmpty
                                       ? context.l10n.noActiveClientsDescription
                                       : context
-                                            .l10n
-                                            .noMatchingClientsDescription,
+                                          .l10n.noMatchingClientsDescription,
                                   icon: Icons.people_outline,
                                 )
                               : ListView.separated(
@@ -309,8 +316,8 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                     final client = filteredClients[index];
                                     final clientKey =
                                         '${client.macAddress}|${client.ipAddress}';
-                                    final isExpanded = _expandedClientKeys
-                                        .contains(clientKey);
+                                    final isExpanded =
+                                        _expandedClientKeys.contains(clientKey);
 
                                     return LuciSlideTransition(
                                       direction: LuciSlideDirection.up,
@@ -481,8 +488,8 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                                 color: widget.client.isOnline == false
                                     ? Colors.grey
                                     : widget.client.isOnline == true
-                                    ? Colors.green
-                                    : Colors.amber,
+                                        ? Colors.green
+                                        : Colors.amber,
                                 shape: BoxShape.circle,
                                 border: Border.all(
                                   color: colorScheme.surface,
@@ -502,10 +509,10 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                           Text(
                             widget.client.hostname,
                             style: LuciTextStyles.cardTitle(context),
-                            semanticsLabel: context.l10n
-                                .clientHostnameSemantics(
-                                  widget.client.hostname,
-                                ),
+                            semanticsLabel:
+                                context.l10n.clientHostnameSemantics(
+                              widget.client.hostname,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -546,18 +553,25 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                     ),
                     if (widget.client.isBlocked) ...[
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+                          border: Border.all(
+                              color: Colors.redAccent.withValues(alpha: 0.6)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.block, size: 12, color: Colors.redAccent),
+                            Icon(Icons.block,
+                                size: 12, color: Colors.redAccent),
                             SizedBox(width: 4),
-                            Text('БЛОК', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.bold)),
+                            Text('БЛОК',
+                                style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold)),
                           ],
                         ),
                       ),
@@ -659,7 +673,7 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                     value,
                     style: valueColor != null
                         ? LuciTextStyles.detailValue(context)
-                              .copyWith(color: valueColor)
+                            .copyWith(color: valueColor)
                         : LuciTextStyles.detailValue(context),
                     semanticsLabel: semanticsLabel ?? value,
                   ),
@@ -797,12 +811,21 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                     ),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: client.isBlocked ? Colors.greenAccent : Colors.redAccent,
-                        side: BorderSide(color: client.isBlocked ? Colors.greenAccent : Colors.redAccent),
+                        foregroundColor: client.isBlocked
+                            ? Colors.greenAccent
+                            : Colors.redAccent,
+                        side: BorderSide(
+                            color: client.isBlocked
+                                ? Colors.greenAccent
+                                : Colors.redAccent),
                         visualDensity: VisualDensity.compact,
                       ),
-                      icon: Icon(client.isBlocked ? Icons.lock_open : Icons.block, size: 16),
-                      label: Text(client.isBlocked ? 'Разблок. Интернет' : 'Блок. Интернет'),
+                      icon: Icon(
+                          client.isBlocked ? Icons.lock_open : Icons.block,
+                          size: 16),
+                      label: Text(client.isBlocked
+                          ? 'Разблок. Интернет'
+                          : 'Блок. Интернет'),
                       onPressed: () => _handleBlock(context, client),
                     ),
                   ],
@@ -822,23 +845,30 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Сброс соединения'),
-        content: Text('Отключить ${client.hostname} (${client.macAddress}) от сети Wi-Fi на 30 секунд?'),
+        content: Text(
+            'Отключить ${client.hostname} (${client.macAddress}) от сети Wi-Fi на 30 секунд?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Отмена')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Отключить', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Отключить', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
     if (confirmed == true) {
-      final success = await appState.kickClient(client.macAddress, banTimeSeconds: 30);
+      final success =
+          await appState.kickClient(client.macAddress, banTimeSeconds: 30);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? 'Клиент ${client.hostname} отключен на 30 сек' : 'Ошибка отправки команды'),
+            content: Text(success
+                ? 'Клиент ${client.hostname} отключен на 30 сек'
+                : 'Ошибка отправки команды'),
           ),
         );
         widget.onRefresh?.call();
@@ -848,8 +878,10 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
 
   Future<void> _handleStaticLease(BuildContext context, Client client) async {
     final appState = ref.read(appStateProvider);
-    final nameCtrl = TextEditingController(text: client.hostname != '*' ? client.hostname : 'Device');
-    final ipCtrl = TextEditingController(text: client.ipAddress != 'N/A' ? client.ipAddress : '192.168.10.');
+    final nameCtrl = TextEditingController(
+        text: client.hostname != '*' ? client.hostname : 'Device');
+    final ipCtrl = TextEditingController(
+        text: client.ipAddress != 'N/A' ? client.ipAddress : '192.168.10.');
 
     final save = await showDialog<bool>(
       context: context,
@@ -859,15 +891,23 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('MAC: ${client.macAddress}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            Text('MAC: ${client.macAddress}',
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
             const SizedBox(height: 12),
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Имя устройства')),
+            TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Имя устройства')),
             const SizedBox(height: 8),
-            TextField(controller: ipCtrl, decoration: const InputDecoration(labelText: 'Статический IP')),
+            TextField(
+                controller: ipCtrl,
+                decoration: const InputDecoration(labelText: 'Статический IP')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Отмена')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Сохранить'),
@@ -877,10 +917,14 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
     );
 
     if (save == true) {
-      final ok = await appState.setStaticLease(client.macAddress, ipCtrl.text, nameCtrl.text);
+      final ok = await appState.setStaticLease(
+          client.macAddress, ipCtrl.text, nameCtrl.text);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ok ? 'Статический IP ${ipCtrl.text} зафиксирован!' : 'Ошибка фиксации IP')),
+          SnackBar(
+              content: Text(ok
+                  ? 'Статический IP ${ipCtrl.text} зафиксирован!'
+                  : 'Ошибка фиксации IP')),
         );
       }
     }
@@ -892,25 +936,32 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
     final block = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(isCurrentlyBlocked ? 'Разблокировка доступа' : 'Блокировка доступа'),
+        title: Text(isCurrentlyBlocked
+            ? 'Разблокировка доступа'
+            : 'Блокировка доступа'),
         content: Text(
           isCurrentlyBlocked
               ? 'Разблокировать доступ в интернет для ${client.hostname} (${client.macAddress})?'
               : 'Заблокировать доступ в интернет (включая VPN/иностранный трафик) для ${client.hostname} (${client.macAddress})?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, null), child: const Text('Отмена')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, null),
+              child: const Text('Отмена')),
           if (isCurrentlyBlocked)
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Разблокировать', style: TextStyle(color: Colors.white)),
+              child: const Text('Разблокировать',
+                  style: TextStyle(color: Colors.white)),
             )
           else
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Заблокировать', style: TextStyle(color: Colors.white)),
+              child: const Text('Заблокировать',
+                  style: TextStyle(color: Colors.white)),
             ),
         ],
       ),

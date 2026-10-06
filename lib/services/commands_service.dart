@@ -15,43 +15,43 @@ class QuickCommand {
   });
 
   static List<QuickCommand> presets() => const [
-    QuickCommand(
-      title: 'Drop RAM Cache',
-      description: 'Free up cached pagecache, dentries and inodes',
-      command: 'sync; echo 3 > /proc/sys/vm/drop_caches && free -m',
-      icon: 'memory',
-    ),
-    QuickCommand(
-      title: 'Flush DNS Cache',
-      description: 'Flush DNS caches via dnsmasq reload',
-      command: '/etc/init.d/dnsmasq reload',
-      icon: 'dns',
-    ),
-    QuickCommand(
-      title: 'Reload Firewall (FW4)',
-      description: 'Re-apply nftables / iptables rules',
-      command: 'fw4 reload 2>/dev/null || /etc/init.d/firewall reload',
-      icon: 'security',
-    ),
-    QuickCommand(
-      title: 'Show IP Routes',
-      description: 'View current kernel routing tables',
-      command: 'ip route show',
-      icon: 'alt_route',
-    ),
-    QuickCommand(
-      title: 'View System Log (logread)',
-      description: 'Recent 50 lines from syslog buffer',
-      command: 'logread | tail -n 50',
-      icon: 'history_edu',
-    ),
-    QuickCommand(
-      title: 'Kernel Messages (dmesg)',
-      description: 'Recent kernel ring buffer messages',
-      command: 'dmesg | tail -n 50',
-      icon: 'terminal',
-    ),
-  ];
+        QuickCommand(
+          title: 'Drop RAM Cache',
+          description: 'Free up cached pagecache, dentries and inodes',
+          command: 'sync; echo 3 > /proc/sys/vm/drop_caches && free -m',
+          icon: 'memory',
+        ),
+        QuickCommand(
+          title: 'Flush DNS Cache',
+          description: 'Flush DNS caches via dnsmasq reload',
+          command: '/etc/init.d/dnsmasq reload',
+          icon: 'dns',
+        ),
+        QuickCommand(
+          title: 'Reload Firewall (FW4)',
+          description: 'Re-apply nftables / iptables rules',
+          command: 'fw4 reload 2>/dev/null || /etc/init.d/firewall reload',
+          icon: 'security',
+        ),
+        QuickCommand(
+          title: 'Show IP Routes',
+          description: 'View current kernel routing tables',
+          command: 'ip route show',
+          icon: 'alt_route',
+        ),
+        QuickCommand(
+          title: 'View System Log (logread)',
+          description: 'Recent 50 lines from syslog buffer',
+          command: 'logread | tail -n 50',
+          icon: 'history_edu',
+        ),
+        QuickCommand(
+          title: 'Kernel Messages (dmesg)',
+          description: 'Recent kernel ring buffer messages',
+          command: 'dmesg | tail -n 50',
+          icon: 'terminal',
+        ),
+      ];
 }
 
 class CommandResult {

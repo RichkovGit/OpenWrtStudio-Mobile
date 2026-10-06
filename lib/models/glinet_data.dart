@@ -55,14 +55,14 @@ class GlInetData {
   }
 
   GlInetData withCpuCores(int cores) => GlInetData(
-    radios: radios,
-    clients: clients,
-    cpuTemperature: cpuTemperature,
-    fanSpeed: fanSpeed,
-    fanActive: fanActive,
-    tailscaleIp: tailscaleIp,
-    tailscaleLogin: tailscaleLogin,
-    tailscaleStatus: tailscaleStatus,
-    cpuCores: cores,
-  );
+        radios: radios,
+        clients: clients,
+        cpuTemperature: cpuTemperature,
+        fanSpeed: fanSpeed,
+        fanActive: fanActive,
+        tailscaleIp: tailscaleIp,
+        tailscaleLogin: tailscaleLogin,
+        tailscaleStatus: tailscaleStatus,
+        cpuCores: cores,
+      );
 }

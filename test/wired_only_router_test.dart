@@ -61,9 +61,8 @@ void main() {
         if (result[0] == 0) {
           return result[1];
         } else {
-          final errorMessage = result[1] is String
-              ? result[1]
-              : 'Unknown API Error';
+          final errorMessage =
+              result[1] is String ? result[1] : 'Unknown API Error';
           throw Exception(errorMessage);
         }
       }
@@ -147,22 +146,20 @@ void main() {
         interfacesList = interfaceDataList
             .whereType<Map<String, dynamic>>()
             .map((detailedInterfaceMap) {
-              // Enrich with stats if available (but don't require it)
-              final stats = detailedInterfaceMap['stats'];
-              if (stats == null || (stats is Map && stats.isEmpty)) {
-                final String? deviceName =
-                    detailedInterfaceMap['l3_device'] ??
-                    detailedInterfaceMap['device'];
-                if (deviceName != null) {
-                  final statsContainer = networkStatsMap[deviceName];
-                  if (statsContainer is Map && statsContainer['stats'] is Map) {
-                    detailedInterfaceMap['stats'] = statsContainer['stats'];
-                  }
-                }
+          // Enrich with stats if available (but don't require it)
+          final stats = detailedInterfaceMap['stats'];
+          if (stats == null || (stats is Map && stats.isEmpty)) {
+            final String? deviceName = detailedInterfaceMap['l3_device'] ??
+                detailedInterfaceMap['device'];
+            if (deviceName != null) {
+              final statsContainer = networkStatsMap[deviceName];
+              if (statsContainer is Map && statsContainer['stats'] is Map) {
+                detailedInterfaceMap['stats'] = statsContainer['stats'];
               }
-              return NetworkInterface.fromJson(detailedInterfaceMap);
-            })
-            .toList();
+            }
+          }
+          return NetworkInterface.fromJson(detailedInterfaceMap);
+        }).toList();
       }
 
       // With the fix, we should still get interfaces even without stats

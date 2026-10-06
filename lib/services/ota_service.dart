@@ -47,7 +47,8 @@ class OtaInstallResult {
 }
 
 class OtaService {
-  static const MethodChannel _channel = MethodChannel('com.openwrt.studio/notifications');
+  static const MethodChannel _channel =
+      MethodChannel('com.openwrt.studio/notifications');
   static const String repo = 'RichkovGit/OpenWrtStudio-Mobile';
   static const String currentAppVersion = '2.5.16';
 
@@ -65,7 +66,8 @@ class OtaService {
   /// Checks GitHub Releases for updates
   Future<OtaReleaseInfo?> checkForUpdate() async {
     try {
-      final response = await _dio.get('https://api.github.com/repos/$repo/releases');
+      final response =
+          await _dio.get('https://api.github.com/repos/$repo/releases');
       if (response.statusCode != 200 || response.data is! List) return null;
 
       final releases = response.data as List;
@@ -123,7 +125,8 @@ class OtaService {
 
       if (selectedAsset == null) return null;
 
-      final downloadUrl = selectedAsset['browser_download_url']?.toString() ?? '';
+      final downloadUrl =
+          selectedAsset['browser_download_url']?.toString() ?? '';
       final sizeBytes = (selectedAsset['size'] as num?)?.toInt() ?? 0;
 
       return OtaReleaseInfo(
@@ -149,6 +152,13 @@ class OtaService {
     CancelToken? cancelToken,
   }) async {
     try {
+      if (!downloadUrl.startsWith('https://')) {
+        return const OtaInstallResult(
+          OtaInstallStatus.downloadError,
+          'Небезопасный URL для загрузки обновления (требуется HTTPS)',
+        );
+      }
+
       String? dirPath;
       try {
         dirPath = await _channel.invokeMethod<String>('getDownloadDir');
@@ -260,8 +270,10 @@ class OtaService {
       final cleanLatest = _cleanVersion(latest);
       final cleanCurrent = _cleanVersion(current);
 
-      final lParts = cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final cParts = cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final lParts =
+          cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+      final cParts =
+          cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
       for (var i = 0; i < 3; i++) {
         final l = i < lParts.length ? lParts[i] : 0;

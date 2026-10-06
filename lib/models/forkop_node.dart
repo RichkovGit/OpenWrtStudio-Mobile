@@ -38,22 +38,22 @@ enum ProxyType {
   }
 
   String get displayName => switch (this) {
-    ProxyType.shadowsocks => 'Shadowsocks',
-    ProxyType.vmess => 'VMess',
-    ProxyType.vless => 'VLESS',
-    ProxyType.trojan => 'Trojan',
-    ProxyType.hysteria => 'Hysteria',
-    ProxyType.hysteria2 => 'Hysteria 2',
-    ProxyType.wireguard => 'WireGuard',
-    ProxyType.amneziawg => 'AmneziaWG',
-    ProxyType.direct => 'Direct',
-    ProxyType.reject => 'Reject',
-    ProxyType.selector => 'Selector',
-    ProxyType.urltest => 'URLTest',
-    ProxyType.priority => 'Priority',
-    ProxyType.fallback => 'Fallback',
-    ProxyType.unknown => 'Other',
-  };
+        ProxyType.shadowsocks => 'Shadowsocks',
+        ProxyType.vmess => 'VMess',
+        ProxyType.vless => 'VLESS',
+        ProxyType.trojan => 'Trojan',
+        ProxyType.hysteria => 'Hysteria',
+        ProxyType.hysteria2 => 'Hysteria 2',
+        ProxyType.wireguard => 'WireGuard',
+        ProxyType.amneziawg => 'AmneziaWG',
+        ProxyType.direct => 'Direct',
+        ProxyType.reject => 'Reject',
+        ProxyType.selector => 'Selector',
+        ProxyType.urltest => 'URLTest',
+        ProxyType.priority => 'Priority',
+        ProxyType.fallback => 'Fallback',
+        ProxyType.unknown => 'Other',
+      };
 }
 
 class ForkopNode {
@@ -136,7 +136,7 @@ class ForkopNode {
 
     final allList =
         (json['all'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
-        [];
+            [];
 
     return ForkopNode(
       name: json['name'] as String? ?? 'Unnamed',
@@ -154,15 +154,15 @@ class ForkopNode {
   }
 
   Map<String, dynamic> toJson() => {
-    'name': name,
-    'type': type.name,
-    'server': server,
-    'port': port,
-    'latencyMs': latencyMs,
-    'isActive': isActive,
-    'group': group,
-    'udp': udp,
-    'now': now,
-    'all': all,
-  };
+        'name': name,
+        'type': type.name,
+        'server': server,
+        'port': port,
+        'latencyMs': latencyMs,
+        'isActive': isActive,
+        'group': group,
+        'udp': udp,
+        'now': now,
+        'all': all,
+      };
 }

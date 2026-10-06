@@ -356,14 +356,12 @@ fi
     // 2. Fallback to native router CLI execution via ubus
     if (!success && sysauth != null && sysauth.isNotEmpty) {
       try {
-        final safeTarget =
-            nodeName.replaceAll("'", r"\'").replaceAll('"', r'\"');
-        final safeGroup =
-            targetGroup.replaceAll("'", r"\'").replaceAll('"', r'\"');
+        final safeTarget = nodeName.replaceAll("'", r"'\''");
+        final safeGroup = targetGroup.replaceAll("'", r"'\''");
         final script = '''
-/usr/bin/forkop clash_api set_group_proxy "$safeGroup" "$safeTarget" 2>/dev/null || true
-/usr/bin/forkop clash_api set_group_proxy main-out "$safeTarget" 2>/dev/null || true
-uci set forkop.vpn_proxy.selected_node="$safeTarget" 2>/dev/null || true
+/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget' 2>/dev/null || true
+/usr/bin/forkop clash_api set_group_proxy main-out '$safeTarget' 2>/dev/null || true
+uci set forkop.vpn_proxy.selected_node='$safeTarget' 2>/dev/null || true
 uci commit forkop 2>/dev/null || true
 echo 0
 ''';
@@ -429,8 +427,16 @@ echo 0
     String targetPath = '/etc/mihomo/config.yaml',
   }) async {
     try {
+      final trimmedUrl = subscriptionUrl.trim();
+      if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+        Logger.error('Invalid subscription URL format: $subscriptionUrl');
+        return false;
+      }
+
+      final safeUrl = "'${trimmedUrl.replaceAll("'", r"'\''")}'";
+      final safeTarget = "'${targetPath.replaceAll("'", r"'\''")}'";
       final script = '''
-curl -k -s -L "$subscriptionUrl" -o "$targetPath.tmp" && mv "$targetPath.tmp" "$targetPath" && /etc/init.d/mihomo restart >/dev/null 2>&1
+curl -k -s -L $safeUrl -o $safeTarget.tmp && mv $safeTarget.tmp $safeTarget && /etc/init.d/mihomo restart >/dev/null 2>&1
 echo \$?
 ''';
       final res = await apiService.systemExec(
