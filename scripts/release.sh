@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# LuCI Mobile Release Script (CI-driven)
+# LuCI Mobile version/tag preparation script. Release builds are dispatched manually.
 # Usage: ./scripts/release.sh [major|minor|patch]
 
 set -e
@@ -109,4 +109,5 @@ print_status "Creating tag $TAG_VERSION..."
 git tag -a "$TAG_VERSION" -m "Release $TAG_VERSION"
 git push origin "$TAG_VERSION"
 
-print_status "Release $TAG_VERSION created and pushed! CI will handle the build and GitHub release." 
+print_status "Tag $TAG_VERSION pushed. Run 'Prepare Android release' manually in GitHub Actions with this tag."
+print_status "The workflow creates a draft prerelease after successful checks and Android builds; stable publication follows phone QA."

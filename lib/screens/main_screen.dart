@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:luci_mobile/screens/dashboard_screen.dart';
 import 'package:luci_mobile/screens/clients_screen.dart';
@@ -8,6 +10,7 @@ import 'package:luci_mobile/services/router_watchdog_service.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
+import 'package:luci_mobile/utils/url_parser.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
@@ -20,30 +23,103 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   int _selectedIndex = 0;
   String? _currentInterfaceToScroll;
+  bool _isForeground = true;
+
+  int _validTab(int index) => index >= 0 && index < 4 ? index : 0;
+
+  String? _routerEndpoint(String address, bool useHttps) {
+    var input = address.trim();
+    if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(input)) {
+      // A bare IPv6 literal has no port suffix, matching the API client's rule.
+      if (!input.startsWith('[') && ':'.allMatches(input).length > 1) {
+        input = '[$input]';
+      }
+      input = '${useHttps ? 'https' : 'http'}://$input';
+    } else {
+      input = input.replaceFirstMapped(
+        RegExp(r'^https?://', caseSensitive: false),
+        (match) => match[0]!.toLowerCase(),
+      );
+    }
+    final parsed = UrlParser.parse(input);
+    if (!parsed.isValid) return null;
+    var host = parsed.host.toLowerCase();
+    if (host.startsWith('[') && host.endsWith(']')) {
+      host = host.substring(1, host.length - 1);
+    }
+    final addressValue = InternetAddress.tryParse(host);
+    host = addressValue == null
+        ? 'dns/$host'
+        : '${addressValue.type == InternetAddressType.IPv6 ? 'ip6' : 'ip4'}/'
+              '${addressValue.rawAddress.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join()}';
+    return '${parsed.useHttps}:[$host]:${parsed.port}';
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    _isForeground =
+        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
     if (widget.initialTab != null) {
-      _selectedIndex = widget.initialTab!;
+      _selectedIndex = _validTab(widget.initialTab!);
     }
     _currentInterfaceToScroll = widget.interfaceToScroll;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final appState = ref.read(appStateProvider);
-      final ip = appState.activeIp;
-      final token = appState.sysauth;
-      if (ip != null && token != null) {
-        RouterWatchdogService.instance.startMonitoring(
-          routerIp: ip,
-          sysauth: token,
-          useHttps: appState.useHttps,
-        );
-      }
+      if (mounted) _syncWatchdog();
     });
+  }
+
+  void _syncWatchdog() {
+    if (!mounted) return;
+    final appState = ref.read(appStateProvider);
+    final ip = appState.activeIp;
+    final token = appState.sysauth;
+    final selectedRouter = appState.selectedRouter;
+    final authEndpoint = ip == null
+        ? null
+        : _routerEndpoint(ip, appState.useHttps);
+    final selectedEndpoint = selectedRouter == null
+        ? null
+        : _routerEndpoint(
+            selectedRouter.activeAddress,
+            selectedRouter.activeUseHttps,
+          );
+    if (!_isForeground ||
+        !appState.isAuthenticated ||
+        ip == null ||
+        ip.trim().isEmpty ||
+        token == null ||
+        token.isEmpty ||
+        (selectedRouter != null &&
+            (authEndpoint == null || selectedEndpoint != authEndpoint))) {
+      RouterWatchdogService.instance.stopMonitoring();
+      return;
+    }
+    RouterWatchdogService.instance.startMonitoring(
+      routerIp: ip,
+      sysauth: token,
+      useHttps: appState.useHttps,
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isForeground = state == AppLifecycleState.resumed;
+    _syncWatchdog();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    RouterWatchdogService.instance.stopMonitoring();
+    super.dispose();
   }
 
   @override
@@ -58,7 +134,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // Handle initial tab changes
     if (widget.initialTab != oldWidget.initialTab &&
         widget.initialTab != null) {
-      _selectedIndex = widget.initialTab!;
+      _selectedIndex = _validTab(widget.initialTab!);
     }
   }
 
@@ -71,14 +147,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   List<Widget> get _widgetOptions => [
-        const DashboardScreen(),
-        const ClientsScreen(),
-        InterfacesScreen(
-          scrollToInterface: _currentInterfaceToScroll,
-          onScrollComplete: _clearInterfaceToScroll,
-        ),
-        const MoreScreen(),
-      ];
+    const DashboardScreen(),
+    const ClientsScreen(),
+    InterfacesScreen(
+      scrollToInterface: _currentInterfaceToScroll,
+      onScrollComplete: _clearInterfaceToScroll,
+    ),
+    const MoreScreen(),
+  ];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -93,31 +169,35 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(appStateProvider, (_, _) => _syncWatchdog());
     // Listen for requestedTab in AppState
     final appState = ref.watch(appStateProvider);
-    if (!appState.isExpertMode) {
-      return SimpleDashboardScreen(
-        onSwitchToExpert: () => appState.setExpertMode(true),
-      );
-    }
-
-    if (appState.requestedTab != null &&
-        appState.requestedTab != _selectedIndex) {
+    if (appState.requestedTab != null) {
       // Store the values before the callback to avoid null reference issues
       final requestedTab = appState.requestedTab!;
       final requestedInterface = appState.requestedInterfaceToScroll;
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            appState.requestedTab != requestedTab ||
+            appState.requestedInterfaceToScroll != requestedInterface) {
+          return;
+        }
+        appState.requestedTab = null;
+        appState.requestedInterfaceToScroll = null;
         setState(() {
-          _selectedIndex = requestedTab;
+          _selectedIndex = _validTab(requestedTab);
           // Update interface to scroll if provided
           if (requestedInterface != null) {
             _currentInterfaceToScroll = requestedInterface;
           }
         });
-        appState.requestedTab = null;
-        appState.requestedInterfaceToScroll = null;
       });
+    }
+    if (!appState.isExpertMode) {
+      return SimpleDashboardScreen(
+        onSwitchToExpert: () => appState.setExpertMode(true),
+      );
     }
     return Scaffold(
       body: Center(

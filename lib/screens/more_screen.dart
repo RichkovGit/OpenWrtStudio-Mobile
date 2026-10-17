@@ -384,7 +384,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                  strokeWidth: 2, color: Colors.white),
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             ),
             SizedBox(width: 12),
             Text('Проверка обновлений на GitHub...'),
@@ -400,13 +402,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
     if (!context.mounted) return;
 
     if (release != null) {
-      OtaUpdateDialog.show(
+      await OtaUpdateDialog.show(
         context,
         releaseInfo: release,
         currentVersion: currentVer,
       );
     } else {
-      showDialog(
+      await showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Row(
@@ -417,7 +419,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
             ],
           ),
           content: Text(
-              'У вас установлена актуальная версия OpenWrt Studio Mobile v$currentVer.'),
+            'У вас установлена актуальная версия OpenWrt Studio Mobile v$currentVer.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -625,11 +628,12 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       icon: accessError != null
                           ? Icons.error_outline
                           : canReboot == false
-                              ? Icons.lock_outline
-                              : Icons.restart_alt,
+                          ? Icons.lock_outline
+                          : Icons.restart_alt,
                       iconColor: Theme.of(context).colorScheme.primary,
                       title: context.l10n.rebootRouter,
-                      subtitle: accessError ??
+                      subtitle:
+                          accessError ??
                           switch (canReboot) {
                             false => context.l10n.administratorAccessRequired,
                             null => context.l10n.checkingAdministratorAccess,
@@ -673,7 +677,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   title: 'GitHub: RichkovGit/OpenWrtStudio',
                   subtitle: 'Исходный код и релизы на GitHub',
                   onTap: () => _launchExternalUrl(
-                      context, AppConfig.githubRepositoryUrl),
+                    context,
+                    AppConfig.githubRepositoryUrl,
+                  ),
                 ),
                 _buildMoreTile(
                   context,
@@ -740,10 +746,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   title: context.l10n.logout,
                   subtitle: context.l10n.logoutDescription,
                   titleColor: Theme.of(context).colorScheme.error,
-                  subtitleColor: Theme.of(context)
-                      .colorScheme
-                      .error
-                      .withValues(alpha: 0.7),
+                  subtitleColor: Theme.of(
+                    context,
+                  ).colorScheme.error.withValues(alpha: 0.7),
                   onTap: () => _showLogoutDialog(context),
                 ),
               ],
@@ -802,8 +807,9 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
         subtitle: Text(
           subtitle,
           style: subtitleColor != null
-              ? LuciTextStyles.cardSubtitle(context)
-                  .copyWith(color: subtitleColor)
+              ? LuciTextStyles.cardSubtitle(
+                  context,
+                ).copyWith(color: subtitleColor)
               : LuciTextStyles.cardSubtitle(context),
           semanticsLabel: subtitle,
         ),

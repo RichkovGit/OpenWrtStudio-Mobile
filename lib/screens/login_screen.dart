@@ -204,7 +204,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'Роутер не обнаружен в локальной сети. Убедитесь, что подключены к Wi-Fi роутера.'),
+              'Роутер не обнаружен в локальной сети. Убедитесь, что подключены к Wi-Fi роутера.',
+            ),
             backgroundColor: Colors.orange,
             behavior: SnackBarBehavior.floating,
           ),
@@ -410,13 +411,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                               children: [
                                                 Text(
                                                   context
-                                                      .l10n.holdForReviewerMode,
+                                                      .l10n
+                                                      .holdForReviewerMode,
                                                   style: textTheme.bodySmall
                                                       ?.copyWith(
-                                                    color: colorScheme.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 13,
-                                                  ),
+                                                        color:
+                                                            colorScheme.primary,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 13,
+                                                      ),
                                                 ),
                                                 const SizedBox(height: 12),
                                                 Container(
@@ -425,26 +429,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   decoration: BoxDecoration(
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                      12,
-                                                    ),
+                                                          12,
+                                                        ),
                                                     color: colorScheme
                                                         .surfaceContainerHighest
                                                         .withValues(alpha: 0.4),
                                                     border: Border.all(
                                                       color: colorScheme.outline
                                                           .withValues(
-                                                        alpha: 0.15,
-                                                      ),
+                                                            alpha: 0.15,
+                                                          ),
                                                       width: 0.5,
                                                     ),
                                                   ),
                                                   child: ClipRRect(
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                      12,
-                                                    ),
-                                                    child:
-                                                        LinearProgressIndicator(
+                                                          12,
+                                                        ),
+                                                    child: LinearProgressIndicator(
                                                       value:
                                                           _progressAnimController
                                                               .value,
@@ -452,12 +455,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                           Colors.transparent,
                                                       valueColor:
                                                           AlwaysStoppedAnimation<
-                                                              Color>(
-                                                        colorScheme.primary
-                                                            .withValues(
-                                                          alpha: 0.9,
-                                                        ),
-                                                      ),
+                                                            Color
+                                                          >(
+                                                            colorScheme.primary
+                                                                .withValues(
+                                                                  alpha: 0.9,
+                                                                ),
+                                                          ),
                                                       minHeight: 6,
                                                     ),
                                                   ),
@@ -533,21 +537,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   Icons.router_outlined,
                                                 ),
                                                 helperText: context
-                                                    .l10n.routerAddressExample,
+                                                    .l10n
+                                                    .routerAddressExample,
                                               ),
                                               textInputAction:
                                                   TextInputAction.next,
                                               validator: (value) {
                                                 if (value == null ||
                                                     value.isEmpty) {
-                                                  return context.l10n
+                                                  return context
+                                                      .l10n
                                                       .routerAddressRequired;
                                                 }
                                                 final parsed = UrlParser.parse(
                                                   value,
                                                 );
                                                 if (!parsed.isValid) {
-                                                  return context.l10n
+                                                  return context
+                                                      .l10n
                                                       .invalidAddressFormat;
                                                 }
                                                 return null;
@@ -569,16 +576,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                     size: 16,
                                                   ),
                                                   label: Text(
-                                                    context.l10n
+                                                    context
+                                                        .l10n
                                                         .addFallbackAddress,
                                                     style: const TextStyle(
-                                                        fontSize: 12),
+                                                      fontSize: 12,
+                                                    ),
                                                   ),
                                                   style: TextButton.styleFrom(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 4,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                        ),
                                                   ),
                                                 ),
                                               const Spacer(),
@@ -592,13 +601,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                         height: 14,
                                                         child:
                                                             CircularProgressIndicator(
-                                                                strokeWidth: 2),
+                                                              strokeWidth: 2,
+                                                            ),
                                                       )
                                                     : const Icon(
                                                         Icons.travel_explore,
                                                         size: 16,
-                                                        color:
-                                                            Color(0xFF00D2FF),
+                                                        color: Color(
+                                                          0xFF00D2FF,
+                                                        ),
                                                       ),
                                                 label: Text(
                                                   _isDiscovering
@@ -611,10 +622,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   ),
                                                 ),
                                                 style: TextButton.styleFrom(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    horizontal: 6,
-                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                      ),
                                                 ),
                                               ),
                                             ],
@@ -622,7 +633,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                           if (_discoveryStatus != null)
                                             Padding(
                                               padding: const EdgeInsets.only(
-                                                  top: 4, bottom: 4),
+                                                top: 4,
+                                                bottom: 4,
+                                              ),
                                               child: Text(
                                                 _discoveryStatus!,
                                                 style: TextStyle(
@@ -637,13 +650,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                               controller: _alternateController,
                                               decoration: InputDecoration(
                                                 labelText: context
-                                                    .l10n.fallbackAddress,
+                                                    .l10n
+                                                    .fallbackAddress,
                                                 border:
                                                     const OutlineInputBorder(),
                                                 prefixIcon: const Icon(
                                                   Icons.swap_horiz,
                                                 ),
-                                                helperText: context.l10n
+                                                helperText: context
+                                                    .l10n
                                                     .fallbackCredentialsHelp,
                                                 helperMaxLines: 2,
                                               ),
@@ -658,7 +673,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   value,
                                                 );
                                                 if (!parsed.isValid) {
-                                                  return context.l10n
+                                                  return context
+                                                      .l10n
                                                       .invalidAddressFormat;
                                                 }
                                                 final primary = UrlParser.parse(
@@ -667,7 +683,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                 if (primary.isValid &&
                                                     parsed.hostWithPort ==
                                                         primary.hostWithPort) {
-                                                  return context.l10n
+                                                  return context
+                                                      .l10n
                                                       .mustDifferFromPrimaryAddress;
                                                 }
                                                 return null;
@@ -691,7 +708,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   Icons.person_outline,
                                                 ),
                                                 helperText: context
-                                                    .l10n.usernameDefaultHelp,
+                                                    .l10n
+                                                    .usernameDefaultHelp,
                                               ),
                                               textInputAction:
                                                   TextInputAction.next,
@@ -699,7 +717,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                 if (value == null ||
                                                     value.isEmpty) {
                                                   return context
-                                                      .l10n.usernameRequired;
+                                                      .l10n
+                                                      .usernameRequired;
                                                 }
                                                 return null;
                                               },
@@ -723,14 +742,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   Icons.lock_outline,
                                                 ),
                                                 helperText: context
-                                                    .l10n.routerPasswordHelp,
+                                                    .l10n
+                                                    .routerPasswordHelp,
                                                 suffixIcon: IconButton(
                                                   icon: Icon(
                                                     _passwordVisible
                                                         ? Icons
-                                                            .visibility_outlined
+                                                              .visibility_outlined
                                                         : Icons
-                                                            .visibility_off_outlined,
+                                                              .visibility_off_outlined,
                                                   ),
                                                   onPressed: () => setState(
                                                     () => _passwordVisible =
@@ -738,9 +758,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   ),
                                                   tooltip: _passwordVisible
                                                       ? context
-                                                          .l10n.hidePassword
+                                                            .l10n
+                                                            .hidePassword
                                                       : context
-                                                          .l10n.showPassword,
+                                                            .l10n
+                                                            .showPassword,
                                                 ),
                                               ),
                                               textInputAction:
@@ -758,24 +780,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                     ),
                                                     padding:
                                                         const EdgeInsets.only(
-                                                      top: 12.0,
-                                                    ),
+                                                          top: 12.0,
+                                                        ),
                                                     child: Container(
                                                       padding:
                                                           const EdgeInsets.all(
-                                                        10,
-                                                      ),
+                                                            10,
+                                                          ),
                                                       decoration: BoxDecoration(
                                                         color: colorScheme
                                                             .errorContainer
                                                             .withValues(
-                                                          alpha: 1,
-                                                        ),
+                                                              alpha: 1,
+                                                            ),
                                                         borderRadius:
-                                                            BorderRadius
-                                                                .circular(
-                                                          8,
-                                                        ),
+                                                            BorderRadius.circular(
+                                                              8,
+                                                            ),
                                                       ),
                                                       child: Row(
                                                         children: [
@@ -794,9 +815,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                               style: textTheme
                                                                   .bodyMedium
                                                                   ?.copyWith(
-                                                                color: colorScheme
-                                                                    .onErrorContainer,
-                                                              ),
+                                                                    color: colorScheme
+                                                                        .onErrorContainer,
+                                                                  ),
                                                             ),
                                                           ),
                                                         ],
@@ -812,8 +833,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                             ),
                                             tween: Tween<double>(
                                               begin: 1,
-                                              end:
-                                                  appState.isLoading ? 0.98 : 1,
+                                              end: appState.isLoading
+                                                  ? 0.98
+                                                  : 1,
                                             ),
                                             builder: (context, scale, child) {
                                               return Transform.scale(
@@ -828,10 +850,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                     ? null
                                                     : _connect,
                                                 style: ElevatedButton.styleFrom(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                    vertical: 18,
-                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 18,
+                                                      ),
                                                   textStyle: const TextStyle(
                                                     fontSize: 18,
                                                     fontWeight: FontWeight.bold,
@@ -839,8 +861,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                   shape: RoundedRectangleBorder(
                                                     borderRadius:
                                                         BorderRadius.circular(
-                                                      14,
-                                                    ),
+                                                          14,
+                                                        ),
                                                   ),
                                                   elevation: 4,
                                                   backgroundColor:
@@ -854,9 +876,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                         width: 26,
                                                         child:
                                                             CircularProgressIndicator(
-                                                          strokeWidth: 3,
-                                                          color: Colors.white,
-                                                        ),
+                                                              strokeWidth: 3,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
                                                       )
                                                     : Row(
                                                         mainAxisAlignment:
@@ -871,7 +894,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                           ),
                                                           Text(
                                                             context
-                                                                .l10n.connect,
+                                                                .l10n
+                                                                .connect,
                                                           ),
                                                         ],
                                                       ),

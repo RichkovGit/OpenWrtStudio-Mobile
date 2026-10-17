@@ -261,9 +261,9 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     item.category == ProtocolCategory.vpn
                                         ? Icons.vpn_lock
                                         : item.category ==
-                                                ProtocolCategory.proxy
-                                            ? Icons.shuffle
-                                            : Icons.device_hub,
+                                              ProtocolCategory.proxy
+                                        ? Icons.shuffle
+                                        : Icons.device_hub,
                                     color: item.isRunning
                                         ? Colors.green
                                         : colorScheme.onSurfaceVariant,
@@ -279,16 +279,17 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                         item.name,
                                         style: theme.textTheme.titleMedium
                                             ?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                       ),
                                       const SizedBox(height: 2),
                                       Text(
                                         item.category.displayName,
-                                        style:
-                                            theme.textTheme.bodySmall?.copyWith(
-                                          color: colorScheme.onSurfaceVariant,
-                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              color:
+                                                  colorScheme.onSurfaceVariant,
+                                            ),
                                       ),
                                     ],
                                   ),
@@ -380,8 +381,10 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     const SizedBox(width: 8),
                                     FilledButton.icon(
                                       onPressed: () => _switchProtocol(item),
-                                      icon: const Icon(Icons.swap_horiz_rounded,
-                                          size: 18),
+                                      icon: const Icon(
+                                        Icons.swap_horiz_rounded,
+                                        size: 18,
+                                      ),
                                       label: const Text('Переключить'),
                                     ),
                                   ],

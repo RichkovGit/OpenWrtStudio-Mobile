@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:luci_mobile/models/usb_models.dart';
+import 'package:luci_mobile/services/api_service.dart';
 import 'package:luci_mobile/services/commands_service.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 
@@ -8,6 +11,87 @@ class UsbConfigService {
 
   UsbConfigService({required this.apiService}) {
     commandsService = CommandsService(apiService: apiService);
+  }
+
+  static String _shellQuote(String value) =>
+      "'${value.replaceAll("'", r"'\''")}'";
+
+  static bool _validInterface(String value) =>
+      RegExp(r'^[a-zA-Z0-9_][a-zA-Z0-9_\-]*$').hasMatch(value);
+
+  static bool _validDevice(String value) =>
+      RegExp(r'^/dev/[a-zA-Z0-9_./\-]+$').hasMatch(value) &&
+      !value.split('/').contains('..');
+
+  static bool _validMountPoint(String value) =>
+      value.startsWith('/') &&
+      !_protectedMountPoint(value) &&
+      !value.split('/').contains('..') &&
+      !value.split('/').contains('.') &&
+      !RegExp(r'[\x00-\x1f\x7f]').hasMatch(value);
+
+  static bool _protectedMountPoint(
+    String value,
+  ) => const {'/', '/overlay', '/rom'}.contains(
+    '/${value.split('/').where((part) => part.isNotEmpty && part != '.').join('/')}',
+  );
+
+  Future<Map<String, dynamic>> _readConfig(
+    String routerIp,
+    String sysauth,
+    bool useHttps,
+    String config,
+  ) async {
+    final result = validateRpcResult(
+      await apiService.uciGetAll(routerIp, sysauth, useHttps, config: config),
+      object: 'uci',
+      method: 'get',
+    );
+    final data = result.length > 1 ? result[1] : null;
+    if (data is! Map || data['values'] is! Map) {
+      throw const FormatException('Invalid UCI configuration response');
+    }
+    return Map<String, dynamic>.from(data['values'] as Map);
+  }
+
+  Future<void> _saveSection(
+    String routerIp,
+    String sysauth,
+    bool useHttps, {
+    required String config,
+    required String type,
+    required Map<String, String> values,
+    String? section,
+    String? name,
+  }) async {
+    final result = section == null
+        ? await apiService.uciAdd(
+            routerIp,
+            sysauth,
+            useHttps,
+            config: config,
+            type: type,
+            name: name,
+            values: values,
+          )
+        : await apiService.uciSet(
+            routerIp,
+            sysauth,
+            useHttps,
+            config: config,
+            section: section,
+            values: values,
+          );
+    validateRpcResult(
+      result,
+      object: 'uci',
+      method: section == null ? 'add' : 'set',
+    );
+    validateRpcResult(
+      await apiService.uciCommit(routerIp, sysauth, useHttps, config: config),
+      object: 'uci',
+      method: 'commit',
+    );
   }
 
   Future<List<UsbDeviceItem>> getUsbDevices({
@@ -29,7 +113,8 @@ class UsbConfigService {
       final lines = res.stdout.split('\n');
       for (final line in lines) {
         final reg = RegExp(
-            r'Bus\s+(\d+)\s+Device\s+(\d+):\s+ID\s+([0-9a-fA-F]{4}):([0-9a-fA-F]{4})\s*(.*)');
+          r'Bus\s+(\d+)\s+Device\s+(\d+):\s+ID\s+([0-9a-fA-F]{4}):([0-9a-fA-F]{4})\s*(.*)',
+        );
         final match = reg.firstMatch(line);
         if (match != null) {
           final vid = match.group(3)!;
@@ -47,13 +132,15 @@ class UsbConfigService {
             type = 'Накопитель';
           }
 
-          list.add(UsbDeviceItem(
-            id: '$vid:$pid',
-            vendorId: vid,
-            productId: pid,
-            name: desc.isNotEmpty ? desc : 'USB Device ($vid:$pid)',
-            deviceType: type,
-          ));
+          list.add(
+            UsbDeviceItem(
+              id: '$vid:$pid',
+              vendorId: vid,
+              productId: pid,
+              name: desc.isNotEmpty ? desc : 'USB Device ($vid:$pid)',
+              deviceType: type,
+            ),
+          );
         }
       }
     }
@@ -88,13 +175,15 @@ class UsbConfigService {
               type = 'Накопитель';
             }
 
-            list.add(UsbDeviceItem(
-              id: '$vid:$pid',
-              vendorId: vid,
-              productId: pid,
-              name: name.isNotEmpty ? name : 'USB Device ($vid:$pid)',
-              deviceType: type,
-            ));
+            list.add(
+              UsbDeviceItem(
+                id: '$vid:$pid',
+                vendorId: vid,
+                productId: pid,
+                name: name.isNotEmpty ? name : 'USB Device ($vid:$pid)',
+                deviceType: type,
+              ),
+            );
           }
         }
       }
@@ -148,8 +237,8 @@ class UsbConfigService {
       final lines = dfRes.stdout.split('\n');
       for (final line in lines) {
         final m = RegExp(
-                r'^(/dev/sd[a-z][0-9]*)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)%\s+(.+)')
-            .firstMatch(line);
+          r'^(/dev/sd[a-z][0-9]*)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\d+)%\s+(.+)',
+        ).firstMatch(line);
         if (m != null) {
           final dev = m.group(1)!;
           final total = m.group(2)!;
@@ -159,15 +248,15 @@ class UsbConfigService {
           final mnt = m.group(6)!.trim();
 
           final existing = partitions[dev];
-          partitions[dev] =
-              (existing ?? UsbDiskPartition(deviceNode: dev)).copyWith(
-            totalSize: total,
-            usedSize: used,
-            freeSize: free,
-            usagePercentage: pct,
-            mountPoint: mnt,
-            isMounted: true,
-          );
+          partitions[dev] = (existing ?? UsbDiskPartition(deviceNode: dev))
+              .copyWith(
+                totalSize: total,
+                usedSize: used,
+                freeSize: free,
+                usagePercentage: pct,
+                mountPoint: mnt,
+                isMounted: true,
+              );
         }
       }
     }
@@ -182,49 +271,21 @@ class UsbConfigService {
   }) async {
     var profile = const UsbModemProfile();
 
-    final res = await commandsService.execute(
-      routerIp: routerIp,
-      sysauth: sysauth,
-      useHttps: useHttps,
-      command: 'uci show network.wwan 2>/dev/null',
-    );
-
-    if (res.isSuccess && res.stdout.trim().isNotEmpty) {
-      final lines = res.stdout.split('\n');
-      for (final line in lines) {
-        final kv = line.trim().split('=');
-        if (kv.length == 2) {
-          final key = kv[0].replaceAll('network.wwan.', '').trim();
-          final val = kv[1].replaceAll("'", '').replaceAll('"', '').trim();
-
-          switch (key) {
-            case 'proto':
-              profile = profile.copyWith(protocol: val);
-              break;
-            case 'device':
-              profile = profile.copyWith(deviceNode: val);
-              break;
-            case 'apn':
-              profile = profile.copyWith(apn: val);
-              break;
-            case 'pincode':
-              profile = profile.copyWith(pinCode: val);
-              break;
-            case 'auth':
-              profile = profile.copyWith(authType: val);
-              break;
-            case 'username':
-              profile = profile.copyWith(username: val);
-              break;
-            case 'password':
-              profile = profile.copyWith(password: val);
-              break;
-            case 'pdptype':
-              profile = profile.copyWith(pdpType: val);
-              break;
-          }
-        }
-      }
+    final network = await _readConfig(routerIp, sysauth, useHttps, 'network');
+    final values = network['wwan'];
+    if (values is Map && values['.type'] == 'interface') {
+      String? option(String key) =>
+          values[key] is String ? values[key] as String : null;
+      profile = profile.copyWith(
+        protocol: option('proto'),
+        deviceNode: option('device'),
+        apn: option('apn'),
+        pinCode: option('pincode'),
+        authType: option('auth'),
+        username: option('username'),
+        password: option('password'),
+        pdpType: option('pdptype'),
+      );
     }
 
     // Check status via ubus
@@ -236,12 +297,17 @@ class UsbConfigService {
     );
 
     if (uRes.isSuccess && uRes.stdout.trim().isNotEmpty) {
-      final isUp = uRes.stdout.contains('"up": true');
-      final ipMatch = RegExp(r'"address":\s*"([^"]+)"').firstMatch(uRes.stdout);
+      final data = jsonDecode(uRes.stdout);
+      final isUp = data is Map && data['up'] == true;
+      final addresses = data is Map ? data['ipv4-address'] : null;
+      final firstAddress =
+          addresses is List && addresses.isNotEmpty && addresses.first is Map
+          ? addresses.first['address']?.toString()
+          : null;
       profile = profile.copyWith(
         isUp: isUp,
         status: isUp ? 'Подключено (Онлайн)' : 'Интерфейс остановлен',
-        ipAddress: ipMatch != null ? ipMatch.group(1)! : '—',
+        ipAddress: firstAddress ?? '—',
       );
     } else {
       profile = profile.copyWith(status: 'Интерфейс не настроен в системе');
@@ -256,21 +322,56 @@ class UsbConfigService {
     required bool useHttps,
     required UsbModemProfile profile,
   }) async {
-    final cmd = 'uci set network.${profile.interfaceName}=interface && '
-        "uci set network.${profile.interfaceName}.proto='${profile.protocol}' && "
-        "uci set network.${profile.interfaceName}.device='${profile.deviceNode}' && "
-        "uci set network.${profile.interfaceName}.apn='${profile.apn}' && "
-        "uci set network.${profile.interfaceName}.pdptype='${profile.pdpType}' && "
-        "uci set network.${profile.interfaceName}.auth='${profile.authType}' && "
-        'uci commit network';
+    if (!_validInterface(profile.interfaceName) ||
+        !_validDevice(profile.deviceNode) ||
+        !const {
+          'qmi',
+          'mbim',
+          'ncm',
+          'rndis',
+          '3g',
+        }.contains(profile.protocol) ||
+        !const {'ipv4', 'ipv6', 'ipv4v6'}.contains(profile.pdpType) ||
+        !const {'none', 'pap', 'chap', 'both'}.contains(profile.authType) ||
+        profile.apn.trim().isEmpty ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(profile.apn) ||
+        (profile.pinCode.isNotEmpty &&
+            !RegExp(r'^\d{4,8}$').hasMatch(profile.pinCode))) {
+      return false;
+    }
 
-    final res = await commandsService.execute(
-      routerIp: routerIp,
-      sysauth: sysauth,
-      useHttps: useHttps,
-      command: cmd,
-    );
-    return res.isSuccess;
+    try {
+      final network = await _readConfig(routerIp, sysauth, useHttps, 'network');
+      final existing = network[profile.interfaceName];
+      if (existing != null &&
+          (existing is! Map || existing['.type'] != 'interface')) {
+        return false;
+      }
+      // RPC values are data, including quotes, equals signs and passwords.
+      // Updating only these options preserves custom routing and modem flags.
+      await _saveSection(
+        routerIp,
+        sysauth,
+        useHttps,
+        config: 'network',
+        type: 'interface',
+        section: existing == null ? null : profile.interfaceName,
+        name: existing == null ? profile.interfaceName : null,
+        values: {
+          'proto': profile.protocol,
+          'device': profile.deviceNode,
+          'apn': profile.apn.trim(),
+          'pdptype': profile.pdpType,
+          'auth': profile.authType,
+          'pincode': profile.pinCode,
+          'username': profile.username,
+          'password': profile.password,
+        },
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> restartModemInterface({
@@ -279,7 +380,8 @@ class UsbConfigService {
     required bool useHttps,
     String interfaceName = 'wwan',
   }) async {
-    final cleanIface = interfaceName.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
+    if (!_validInterface(interfaceName)) return false;
+    final cleanIface = _shellQuote(interfaceName);
     final res = await commandsService.execute(
       routerIp: routerIp,
       sysauth: sysauth,
@@ -298,60 +400,111 @@ class UsbConfigService {
     required String mountPoint,
     String? fileSystem,
   }) async {
-    final fs = (fileSystem ?? '').toLowerCase();
-    final escDev = "'${deviceNode.replaceAll("'", r"'\''")}'";
-    final escTarget = "'${mountPoint.replaceAll("'", r"'\''")}'";
-    String mountCmd;
-
-    if (fs.contains('exfat')) {
-      // exFAT support with UTF-8 and full permissions
-      mountCmd =
-          'mount -t exfat -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
-          'mount -o rw,noatime,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
-          'mount $escDev $escTarget';
-    } else if (fs.contains('vfat') || fs.contains('fat')) {
-      // Windows FAT32 with Russian/Cyrillic support (CP866 + UTF-8) and full read/write permissions
-      mountCmd =
-          'mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
-          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 $escDev $escTarget 2>/dev/null || '
-          'mount $escDev $escTarget';
-    } else if (fs.contains('ntfs')) {
-      // Windows NTFS with ntfs-3g or kernel ntfs3 driver, UTF-8 and full write permissions
-      mountCmd =
-          'ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
-          'mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
-          'mount -o rw,noatime,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
-          'mount $escDev $escTarget';
-    } else {
-      mountCmd =
-          'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 $escDev $escTarget 2>/dev/null || '
-          'mount -o rw,noatime,umask=000 $escDev $escTarget 2>/dev/null || '
-          'mount $escDev $escTarget';
+    if (!_validDevice(deviceNode) || !_validMountPoint(mountPoint)) {
+      return false;
     }
+    try {
+      final fs = (fileSystem ?? '').toLowerCase();
+      final escDev = _shellQuote(deviceNode);
+      final escTarget = _shellQuote(mountPoint);
 
-    final cmd =
-        'mkdir -p $escTarget && ($mountCmd) && (chmod 777 $escTarget 2>/dev/null || true) && '
-        'block detect > /etc/config/fstab 2>/dev/null && '
-        "uci set fstab.@mount[-1].options='rw,sync,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000' 2>/dev/null && "
-        'uci commit fstab 2>/dev/null';
-
-    final res = await commandsService.execute(
-      routerIp: routerIp,
-      sysauth: sysauth,
-      useHttps: useHttps,
-      command: cmd,
-    );
-
-    if (res.isSuccess) {
-      // Set up hotplug automounting script in background
-      ensureHotplugAutomountScript(
+      final preparation = await commandsService.execute(
         routerIp: routerIp,
         sysauth: sysauth,
         useHttps: useHttps,
+        command: '[ -e /etc/config/fstab ] || touch /etc/config/fstab',
       );
-    }
+      if (!preparation.isSuccess) return false;
+      final fstab = await _readConfig(routerIp, sysauth, useHttps, 'fstab');
+      final info = await commandsService.execute(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+        command:
+            'block info $escDev 2>/dev/null || blkid $escDev 2>/dev/null || true',
+      );
+      final uuid = RegExp(
+        r'\bUUID="([^"]+)"',
+      ).firstMatch(info.stdout)?.group(1);
+      String? existingSection;
+      for (final entry in fstab.entries) {
+        final values = entry.value;
+        if (values is! Map || values['.type'] != 'mount') continue;
+        final matchesDevice =
+            values['device'] == deviceNode ||
+            (uuid != null && uuid.isNotEmpty && values['uuid'] == uuid);
+        if (matchesDevice) {
+          // Never repurpose an extroot mount or guess among duplicate entries.
+          if (_protectedMountPoint(values['target']?.toString() ?? '') ||
+              existingSection != null) {
+            return false;
+          }
+          existingSection = entry.key;
+        } else if (values['target'] == mountPoint) {
+          return false;
+        }
+      }
+      String mountCmd;
 
-    return res.isSuccess;
+      if (fs.contains('exfat')) {
+        // exFAT support with UTF-8 and full permissions
+        mountCmd =
+            'mount -t exfat -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
+            'mount -o rw,noatime,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
+            'mount $escDev $escTarget';
+      } else if (fs.contains('vfat') || fs.contains('fat')) {
+        // Windows FAT32 with Russian/Cyrillic support (CP866 + UTF-8) and full read/write permissions
+        mountCmd =
+            'mount -t vfat -o rw,noatime,iocharset=utf8,utf8=1,codepage=866,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
+            'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 $escDev $escTarget 2>/dev/null || '
+            'mount $escDev $escTarget';
+      } else if (fs.contains('ntfs')) {
+        // Windows NTFS with ntfs-3g or kernel ntfs3 driver, UTF-8 and full write permissions
+        mountCmd =
+            'ntfs-3g -o rw,noatime,big_writes,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
+            'mount -t ntfs3 -o rw,noatime,iocharset=utf8,umask=000,dmask=0000,fmask=0000 $escDev $escTarget 2>/dev/null || '
+            'mount -o rw,noatime,iocharset=utf8,umask=000 $escDev $escTarget 2>/dev/null || '
+            'mount $escDev $escTarget';
+      } else {
+        mountCmd =
+            'mount -o rw,noatime,iocharset=utf8,utf8=1,umask=000 $escDev $escTarget 2>/dev/null || '
+            'mount -o rw,noatime,umask=000 $escDev $escTarget 2>/dev/null || '
+            'mount $escDev $escTarget';
+      }
+
+      final cmd = 'mkdir -p $escTarget && ($mountCmd)';
+
+      final res = await commandsService.execute(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+        command: cmd,
+      );
+
+      if (!res.isSuccess) return false;
+      await _saveSection(
+        routerIp,
+        sysauth,
+        useHttps,
+        config: 'fstab',
+        type: 'mount',
+        section: existingSection,
+        values: {
+          'target': mountPoint,
+          'enabled': '1',
+          if (existingSection == null) ...{
+            if (uuid != null && uuid.isNotEmpty)
+              'uuid': uuid
+            else
+              'device': deviceNode,
+            'options': 'rw,noatime',
+          },
+        },
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> unmountDisk({
@@ -377,36 +530,49 @@ class UsbConfigService {
     required String path,
     String shareName = 'USB_Storage',
   }) async {
-    final escPath = "'${path.replaceAll("'", r"'\''")}'";
-    final escShare = "'${shareName.replaceAll("'", r"'\''")}'";
-    final cmd = 'mkdir -p $escPath && chmod 777 $escPath 2>/dev/null || true && '
-        'EXISTING=\$(uci show samba4 2>/dev/null | grep -F ".path=" | grep -F $escPath | cut -d. -f2 | head -n1); '
-        'if [ -z "\$EXISTING" ]; then '
-        '  SECTION=\$(uci add samba4 sambashare); '
-        'else '
-        '  SECTION="samba4.\$EXISTING"; '
-        'fi; '
-        "uci set \${SECTION}.name=$escShare; "
-        "uci set \${SECTION}.path=$escPath; "
-        "uci set \${SECTION}.read_only='no'; "
-        "uci set \${SECTION}.guest_ok='yes'; "
-        "uci set \${SECTION}.force_root='1'; "
-        "uci set \${SECTION}.force_user='root'; "
-        "uci set \${SECTION}.force_group='root'; "
-        "uci set \${SECTION}.create_mask='0777'; "
-        "uci set \${SECTION}.dir_mask='0777'; "
-        "uci set \${SECTION}.force_create_mode='0777'; "
-        "uci set \${SECTION}.force_directory_mode='0777'; "
-        "uci set \${SECTION}.inherit_owner='yes'; "
-        'uci commit samba4 && /etc/init.d/samba4 enable 2>/dev/null && /etc/init.d/samba4 restart 2>/dev/null';
-
-    final res = await commandsService.execute(
-      routerIp: routerIp,
-      sysauth: sysauth,
-      useHttps: useHttps,
-      command: cmd,
-    );
-    return res.isSuccess;
+    if (!_validMountPoint(path) ||
+        shareName.trim().isEmpty ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(shareName)) {
+      return false;
+    }
+    try {
+      final shares = await _readConfig(routerIp, sysauth, useHttps, 'samba4');
+      final existing = shares.entries.where((entry) {
+        final values = entry.value;
+        return values is Map &&
+            values['.type'] == 'sambashare' &&
+            values['path'] == path;
+      });
+      // A previously configured share keeps its name, ACLs and other options.
+      if (existing.isEmpty) {
+        await _saveSection(
+          routerIp,
+          sysauth,
+          useHttps,
+          config: 'samba4',
+          type: 'sambashare',
+          values: {
+            'name': shareName.trim(),
+            'path': path,
+            'read_only': 'no',
+            'guest_ok': 'yes',
+            'create_mask': '0664',
+            'dir_mask': '0775',
+          },
+        );
+      }
+      final escPath = _shellQuote(path);
+      final res = await commandsService.execute(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+        command:
+            'mkdir -p $escPath && /etc/init.d/samba4 enable && /etc/init.d/samba4 restart',
+      );
+      return res.isSuccess;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<Map<String, bool>> checkPackagesStatus({
@@ -493,7 +659,8 @@ class UsbConfigService {
     required String sysauth,
     required bool useHttps,
   }) async {
-    const hotplugScript = 'mkdir -p /etc/hotplug.d/block && '
+    const hotplugScript =
+        'mkdir -p /etc/hotplug.d/block && '
         'cat << \'EOF\' > /etc/hotplug.d/block/20-automount\n'
         '#!/bin/sh\n'
         '# /etc/hotplug.d/block/20-automount - Auto mount/unmount USB drives with Cyrillic & RW permissions\n'
@@ -571,8 +738,8 @@ class UsbConfigService {
         'chmod +x /etc/hotplug.d/block/20-automount 2>/dev/null; '
         '[ ! -f /etc/config/fstab ] && touch /etc/config/fstab; '
         'if ! uci get fstab.@global[0] >/dev/null 2>&1; then uci add fstab global >/dev/null 2>&1; fi; '
-        'uci set fstab.@global[0].anon_mount=\'1\' 2>/dev/null; '
-        'uci set fstab.@global[0].auto_mount=\'1\' 2>/dev/null; '
+        'uci -q get fstab.@global[0].anon_mount >/dev/null || uci set fstab.@global[0].anon_mount=\'1\'; '
+        'uci -q get fstab.@global[0].auto_mount >/dev/null || uci set fstab.@global[0].auto_mount=\'1\'; '
         'uci commit fstab 2>/dev/null';
 
     final res = await commandsService.execute(

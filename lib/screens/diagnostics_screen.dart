@@ -11,16 +11,17 @@ class DiagnosticsScreen extends ConsumerStatefulWidget {
 }
 
 class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
-  final TextEditingController _targetCtrl =
-      TextEditingController(text: '1.1.1.1');
-  final TextEditingController _packetSizeCtrl =
-      TextEditingController(text: '56');
+  final TextEditingController _targetCtrl = TextEditingController(
+    text: '1.1.1.1',
+  );
+  final TextEditingController _packetSizeCtrl = TextEditingController(
+    text: '56',
+  );
   final ScrollController _pageScroll = ScrollController();
 
   List<String> _interfaces = ['По умолчанию (Авто)'];
   String _selectedInterface = 'По умолчанию (Авто)';
   String _selectedPingCountPreset = '5';
-  String _selectedTool = 'ping';
   String _output = '';
   bool _running = false;
 
@@ -71,12 +72,12 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
 
     if (!RegExp(r'^[a-zA-Z0-9\.\-:_]+$').hasMatch(target)) {
       setState(() {
-        _output = 'Ошибка: Недопустимый адрес цели (обнаружены спецсимволы или пробелы).\n';
+        _output =
+            'Ошибка: Недопустимый адрес цели (обнаружены спецсимволы или пробелы).\n';
       });
       return;
     }
 
-    _selectedTool = tool;
     setState(() {
       _running = true;
       _output = 'Запуск $tool для $target...\n';
@@ -87,12 +88,16 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     String cmd = '/bin/ping';
     List<String> args = [];
 
-    final cleanIface = _selectedInterface.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '');
+    final cleanIface = _selectedInterface.replaceAll(
+      RegExp(r'[^a-zA-Z0-9_\-\.]'),
+      '',
+    );
 
     if (tool == 'ping') {
       cmd = '/bin/ping';
       // Interface
-      if (_selectedInterface != 'По умолчанию (Авто)' && cleanIface.isNotEmpty) {
+      if (_selectedInterface != 'По умолчанию (Авто)' &&
+          cleanIface.isNotEmpty) {
         args.addAll(['-I', cleanIface]);
       }
       // Count
@@ -108,7 +113,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       args.add(target);
     } else if (tool == 'traceroute') {
       cmd = '/usr/bin/traceroute';
-      if (_selectedInterface != 'По умолчанию (Авто)' && cleanIface.isNotEmpty) {
+      if (_selectedInterface != 'По умолчанию (Авто)' &&
+          cleanIface.isNotEmpty) {
         args.addAll(['-i', cleanIface]);
       }
       args.addAll(['-q', '1', '-w', '1', target]);
@@ -118,10 +124,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
     }
 
     try {
-      final res = await appState.systemExec(
-        command: cmd,
-        params: args,
-      );
+      final res = await appState.systemExec(command: cmd, params: args);
 
       if (!mounted) return;
 
@@ -129,7 +132,7 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
       if (res is List && res.length > 1 && res[1] is Map) {
         out = (res[1]['stdout'] ?? '').toString();
         final err = (res[1]['stderr'] ?? '').toString();
-        if (err.isNotEmpty) out += '\n' + err;
+        if (err.isNotEmpty) out += '\n$err';
       }
 
       setState(() {
@@ -224,7 +227,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         isDense: true,
                         prefixIcon: const Icon(Icons.language, size: 20),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -235,13 +239,18 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         backgroundColor: Colors.redAccent,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       icon: const Icon(Icons.stop, size: 18),
-                      label: const Text('Стоп',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: const Text(
+                        'Стоп',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                       onPressed: _stopDiagnostic,
                     ),
                   ],
@@ -252,13 +261,17 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               // Interface, Packets count, Packet size
               Card(
                 elevation: 0,
-                color:
-                    colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Column(
                     children: [
                       Row(
@@ -303,7 +316,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                                       : (val) {
                                           if (val != null) {
                                             setState(
-                                                () => _selectedInterface = val);
+                                              () => _selectedInterface = val,
+                                            );
                                           }
                                         },
                                 ),
@@ -339,25 +353,38 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                                   ),
                                   items: const [
                                     DropdownMenuItem(
-                                        value: '5', child: Text('5')),
+                                      value: '5',
+                                      child: Text('5'),
+                                    ),
                                     DropdownMenuItem(
-                                        value: '10', child: Text('10')),
+                                      value: '10',
+                                      child: Text('10'),
+                                    ),
                                     DropdownMenuItem(
-                                        value: '20', child: Text('20')),
+                                      value: '20',
+                                      child: Text('20'),
+                                    ),
                                     DropdownMenuItem(
-                                        value: '50', child: Text('50')),
+                                      value: '50',
+                                      child: Text('50'),
+                                    ),
                                     DropdownMenuItem(
-                                        value: '100', child: Text('100')),
+                                      value: '100',
+                                      child: Text('100'),
+                                    ),
                                     DropdownMenuItem(
-                                        value: 'Бесконечно (∞)',
-                                        child: Text('Бесконечно (∞)')),
+                                      value: 'Бесконечно (∞)',
+                                      child: Text('Бесконечно (∞)'),
+                                    ),
                                   ],
                                   onChanged: _running
                                       ? null
                                       : (val) {
                                           if (val != null) {
-                                            setState(() =>
-                                                _selectedPingCountPreset = val);
+                                            setState(
+                                              () => _selectedPingCountPreset =
+                                                  val,
+                                            );
                                           }
                                         },
                                 ),
@@ -413,18 +440,22 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         backgroundColor: const Color(0xFF00D2FF),
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
                       icon: const Icon(Icons.network_ping, size: 16),
                       label: const FittedBox(
                         fit: BoxFit.scaleDown,
-                        child: Text('Ping',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                            maxLines: 1),
+                        child: Text(
+                          'Ping',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                        ),
                       ),
-                      onPressed:
-                          _running ? null : () => _executeDiagnostic('ping'),
+                      onPressed: _running
+                          ? null
+                          : () => _executeDiagnostic('ping'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -433,7 +464,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: colorScheme.onSurface,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
                       icon: const Icon(Icons.alt_route, size: 16),
@@ -452,7 +484,8 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                       style: OutlinedButton.styleFrom(
                         foregroundColor: colorScheme.onSurface,
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
                       icon: const Icon(Icons.dns, size: 16),
@@ -472,8 +505,11 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
               // Terminal output header
               Row(
                 children: [
-                  const Icon(Icons.terminal,
-                      size: 18, color: Color(0xFF00D2FF)),
+                  const Icon(
+                    Icons.terminal,
+                    size: 18,
+                    color: Color(0xFF00D2FF),
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'Вывод утилиты',
@@ -489,8 +525,10 @@ class _DiagnosticsScreenState extends ConsumerState<DiagnosticsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                       icon: const Icon(Icons.clear_all, size: 16),
-                      label: const Text('Очистить',
-                          style: TextStyle(fontSize: 12)),
+                      label: const Text(
+                        'Очистить',
+                        style: TextStyle(fontSize: 12),
+                      ),
                       onPressed: () {
                         setState(() {
                           _output = '';

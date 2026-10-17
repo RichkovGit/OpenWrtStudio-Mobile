@@ -106,8 +106,9 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final onlineCount =
-        _targets.where((t) => t.status == SentinelStatus.online).length;
+    final onlineCount = _targets
+        .where((t) => t.status == SentinelStatus.online)
+        .length;
     final totalCount = _targets.length;
     final allGood = onlineCount == totalCount;
 
@@ -178,10 +179,8 @@ class _SentinelScreenState extends ConsumerState<SentinelScreen> {
                                     allGood
                                         ? 'Туннелирование активно'
                                         : 'Обнаружены сбои связности',
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: theme.textTheme.titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                 ),
                                 const SizedBox(height: 4),

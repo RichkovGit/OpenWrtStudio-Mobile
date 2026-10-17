@@ -105,24 +105,29 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
               color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.system_update,
-                color: Color(0xFF00D2FF), size: 28),
+            child: const Icon(
+              Icons.system_update,
+              color: Color(0xFF00D2FF),
+              size: 28,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Доступно обновление!',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Доступно обновление!',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   'v${widget.currentVersion}  ➔  v${widget.releaseInfo.version}',
                   style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF00D2FF),
-                      fontWeight: FontWeight.w600),
+                    fontSize: 13,
+                    color: Color(0xFF00D2FF),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
@@ -138,8 +143,10 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
             if (widget.releaseInfo.formattedSize.isNotEmpty)
               Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.blueGrey.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
@@ -147,12 +154,16 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                 child: Text(
                   'Размер APK: ${widget.releaseInfo.formattedSize}',
                   style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w500),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             if (!_isDownloading && _errorMessage == null) ...[
-              const Text('Что нового:',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              const Text(
+                'Что нового:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 6),
               Container(
                 constraints: const BoxConstraints(maxHeight: 180),
@@ -162,8 +173,9 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                       ? const Color(0xFF13181D)
                       : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.08),
+                  ),
                 ),
                 child: SingleChildScrollView(
                   child: Text(
@@ -180,8 +192,9 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
               LinearProgressIndicator(
                 value: _progress > 0 ? _progress : null,
                 backgroundColor: Colors.grey.withValues(alpha: 0.2),
-                valueColor:
-                    const AlwaysStoppedAnimation<Color>(Color(0xFF00D2FF)),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  Color(0xFF00D2FF),
+                ),
                 borderRadius: BorderRadius.circular(4),
                 minHeight: 8,
               ),
@@ -190,7 +203,9 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                 child: Text(
                   _progressStatus,
                   style: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w500),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -207,14 +222,19 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.error_outline,
-                            color: Colors.redAccent, size: 20),
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             _errorMessage!,
                             style: const TextStyle(
-                                color: Colors.redAccent, fontSize: 12),
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
                       ],
@@ -230,8 +250,10 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                             side: const BorderSide(color: Color(0xFF00D2FF)),
                           ),
                           icon: const Icon(Icons.open_in_browser, size: 16),
-                          label: const Text('Скачать APK напрямую',
-                              style: TextStyle(fontSize: 11)),
+                          label: const Text(
+                            'Скачать APK напрямую',
+                            style: TextStyle(fontSize: 11),
+                          ),
                           onPressed: () => launchUrlString(
                             widget.releaseInfo.apkUrl,
                             mode: LaunchMode.externalApplication,
@@ -242,12 +264,15 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
                             style: OutlinedButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                               foregroundColor: Colors.orangeAccent,
-                              side:
-                                  const BorderSide(color: Colors.orangeAccent),
+                              side: const BorderSide(
+                                color: Colors.orangeAccent,
+                              ),
                             ),
                             icon: const Icon(Icons.settings, size: 16),
-                            label: const Text('Настройки Android',
-                                style: TextStyle(fontSize: 11)),
+                            label: const Text(
+                              'Настройки Android',
+                              style: TextStyle(fontSize: 11),
+                            ),
                             onPressed: () =>
                                 _otaService.openInstallPermissionSettings(),
                           ),
@@ -276,19 +301,24 @@ class _OtaUpdateDialogState extends State<OtaUpdateDialog> {
               'https://github.com/${OtaService.repo}/releases/tag/${widget.releaseInfo.tagName}',
               mode: LaunchMode.externalApplication,
             ),
-            child: const Text('GitHub',
-                style: TextStyle(color: Color(0xFF00D2FF))),
+            child: const Text(
+              'GitHub',
+              style: TextStyle(color: Color(0xFF00D2FF)),
+            ),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00D2FF),
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             icon: const Icon(Icons.download, size: 18),
-            label: const Text('Обновить (OTA)',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            label: const Text(
+              'Обновить (OTA)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             onPressed: _startDownload,
           ),
         ],

@@ -34,7 +34,8 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
       if (res is List && res.length > 1 && res[1] is Map) {
         final stdout = (res[1]['stdout'] ?? '').toString();
         list.addAll(
-            stdout.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty));
+          stdout.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty),
+        );
       }
       if (mounted) {
         setState(() {
@@ -49,13 +50,11 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
 
   Future<void> _runAction(String svc, String action) async {
     final appState = ref.read(appStateProvider);
-    await appState.systemExec(
-      command: '/etc/init.d/$svc',
-      params: [action],
-    );
+    await appState.systemExec(command: '/etc/init.d/$svc', params: [action]);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Служба $svc: выполнено $action')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Служба $svc: выполнено $action')));
     }
   }
 
@@ -66,7 +65,9 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
         title: const Text('Службы автозапуска'),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh), onPressed: _fetchServices),
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchServices,
+          ),
         ],
       ),
       body: SafeArea(
@@ -77,26 +78,34 @@ class _StartupServicesScreenState extends ConsumerState<StartupServicesScreen> {
             : ListView.separated(
                 padding: const EdgeInsets.only(bottom: 36),
                 itemCount: _services.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
+                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (ctx, i) {
                   final svc = _services[i];
                   return ListTile(
-                    leading: const Icon(Icons.miscellaneous_services,
-                        color: Color(0xFF00D2FF)),
-                    title: Text(svc,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                    leading: const Icon(
+                      Icons.miscellaneous_services,
+                      color: Color(0xFF00D2FF),
+                    ),
+                    title: Text(
+                      svc,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon:
-                              const Icon(Icons.play_arrow, color: Colors.green),
+                          icon: const Icon(
+                            Icons.play_arrow,
+                            color: Colors.green,
+                          ),
                           tooltip: 'Запустить',
                           onPressed: () => _runAction(svc, 'start'),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.restart_alt,
-                              color: Colors.orange),
+                          icon: const Icon(
+                            Icons.restart_alt,
+                            color: Colors.orange,
+                          ),
                           tooltip: 'Перезапустить',
                           onPressed: () => _runAction(svc, 'restart'),
                         ),

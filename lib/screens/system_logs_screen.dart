@@ -69,8 +69,9 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
                 ? null
                 : () {
                     Clipboard.setData(ClipboardData(text: _logContent));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Лог скопирован в буфер')));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Лог скопирован в буфер')),
+                    );
                   },
           ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchLogs),
@@ -98,8 +99,9 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
                       : null,
                   filled: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none),
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
                 onSubmitted: (val) {
                   setState(() => _filter = val.trim());
@@ -111,27 +113,27 @@ class _SystemLogsScreenState extends ConsumerState<SystemLogsScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _logContent.isEmpty
-                      ? const Center(child: Text('Журнал пуст'))
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 36),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
-                              borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: const Color(0xFF334155)),
-                            ),
-                            child: SelectableText(
-                              _logContent,
-                              style: const TextStyle(
-                                  fontFamily: 'monospace',
-                                  fontSize: 11,
-                                  color: Color(0xFFE2E8F0)),
-                            ),
+                  ? const Center(child: Text('Журнал пуст'))
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 36),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0F172A),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF334155)),
+                        ),
+                        child: SelectableText(
+                          _logContent,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            color: Color(0xFFE2E8F0),
                           ),
                         ),
+                      ),
+                    ),
             ),
           ],
         ),

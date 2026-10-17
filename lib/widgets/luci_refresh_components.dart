@@ -209,15 +209,17 @@ class LuciListPullToRefresh extends StatelessWidget {
                   SizedBox(height: LuciSpacing.md),
                   Text(
                     emptyMessage ?? context.l10n.noItemsToDisplay,
-                    style: LuciTextStyles.cardTitle(context)
-                        .copyWith(color: Theme.of(context).colorScheme.outline),
+                    style: LuciTextStyles.cardTitle(
+                      context,
+                    ).copyWith(color: Theme.of(context).colorScheme.outline),
                     textAlign: TextAlign.center,
                   ),
                   SizedBox(height: LuciSpacing.sm),
                   Text(
                     context.l10n.pullDownToRefresh,
-                    style: LuciTextStyles.cardSubtitle(context)
-                        .copyWith(color: Theme.of(context).colorScheme.outline),
+                    style: LuciTextStyles.cardSubtitle(
+                      context,
+                    ).copyWith(color: Theme.of(context).colorScheme.outline),
                   ),
                 ],
               ),

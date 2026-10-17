@@ -23,29 +23,30 @@ void main() {
     });
 
     test(
-        'UsbDiskPartition correctly evaluates storage capacity and mount status',
-        () {
-      const disk = UsbDiskPartition(
-        deviceNode: '/dev/sda1',
-        mountPoint: '/mnt/sda1',
-        fileSystem: 'ext4',
-        label: 'USB_BACKUP',
-        totalSize: '119.2G',
-        usedSize: '14.5G',
-        freeSize: '104.7G',
-        usagePercentage: 12.0,
-        isMounted: true,
-        sambaShared: true,
-      );
+      'UsbDiskPartition correctly evaluates storage capacity and mount status',
+      () {
+        const disk = UsbDiskPartition(
+          deviceNode: '/dev/sda1',
+          mountPoint: '/mnt/sda1',
+          fileSystem: 'ext4',
+          label: 'USB_BACKUP',
+          totalSize: '119.2G',
+          usedSize: '14.5G',
+          freeSize: '104.7G',
+          usagePercentage: 12.0,
+          isMounted: true,
+          sambaShared: true,
+        );
 
-      expect(disk.deviceNode, '/dev/sda1');
-      expect(disk.mountPoint, '/mnt/sda1');
-      expect(disk.fileSystem, 'ext4');
-      expect(disk.label, 'USB_BACKUP');
-      expect(disk.isMounted, isTrue);
-      expect(disk.sambaShared, isTrue);
-      expect(disk.usagePercentage, 12.0);
-    });
+        expect(disk.deviceNode, '/dev/sda1');
+        expect(disk.mountPoint, '/mnt/sda1');
+        expect(disk.fileSystem, 'ext4');
+        expect(disk.label, 'USB_BACKUP');
+        expect(disk.isMounted, isTrue);
+        expect(disk.sambaShared, isTrue);
+        expect(disk.usagePercentage, 12.0);
+      },
+    );
 
     test('UsbModemProfile copyWith works as expected', () {
       const profile = UsbModemProfile();

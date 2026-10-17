@@ -33,18 +33,22 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
 
       if (res is List && res.length > 1 && res[1] is Map) {
         final stdout = (res[1]['stdout'] ?? '').toString().trim();
-        final lines =
-            stdout.split('\n').map((l) => int.tryParse(l) ?? 0).toList();
+        final lines = stdout
+            .split('\n')
+            .map((l) => int.tryParse(l) ?? 0)
+            .toList();
         if (lines.isNotEmpty && lines[0] > 0) {
           _cpuTemp = lines[0] > 1000 ? lines[0] / 1000.0 : lines[0].toDouble();
         }
         if (lines.length > 1 && lines[1] > 0) {
-          _wifi0Temp =
-              lines[1] > 1000 ? lines[1] / 1000.0 : lines[1].toDouble();
+          _wifi0Temp = lines[1] > 1000
+              ? lines[1] / 1000.0
+              : lines[1].toDouble();
         }
         if (lines.length > 2 && lines[2] > 0) {
-          _wifi1Temp =
-              lines[2] > 1000 ? lines[2] / 1000.0 : lines[2].toDouble();
+          _wifi1Temp = lines[2] > 1000
+              ? lines[2] / 1000.0
+              : lines[2].toDouble();
         }
       }
       if (mounted) setState(() => _loading = false);
@@ -70,14 +74,26 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
                 children: [
-                  _buildSensorCard('Процессор CPU', 'MediaTek MT7981B',
-                      _cpuTemp, Icons.memory),
+                  _buildSensorCard(
+                    'Процессор CPU',
+                    'MediaTek MT7981B',
+                    _cpuTemp,
+                    Icons.memory,
+                  ),
                   const SizedBox(height: 12),
-                  _buildSensorCard('Wi-Fi 2.4 GHz', 'MediaTek MT7976C (phy0)',
-                      _wifi0Temp, Icons.wifi),
+                  _buildSensorCard(
+                    'Wi-Fi 2.4 GHz',
+                    'MediaTek MT7976C (phy0)',
+                    _wifi0Temp,
+                    Icons.wifi,
+                  ),
                   const SizedBox(height: 12),
-                  _buildSensorCard('Wi-Fi 5 GHz', 'MediaTek MT7976C (phy1)',
-                      _wifi1Temp, Icons.wifi_tethering),
+                  _buildSensorCard(
+                    'Wi-Fi 5 GHz',
+                    'MediaTek MT7976C (phy1)',
+                    _wifi1Temp,
+                    Icons.wifi_tethering,
+                  ),
                 ],
               ),
       ),
@@ -85,7 +101,11 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
   }
 
   Widget _buildSensorCard(
-      String title, String subtitle, double temp, IconData icon) {
+    String title,
+    String subtitle,
+    double temp,
+    IconData icon,
+  ) {
     Color tempColor = Colors.green;
     if (temp >= 70) tempColor = Colors.orange;
     if (temp >= 80) tempColor = Colors.red;
@@ -100,7 +120,9 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                  color: tempColor.withOpacity(0.15), shape: BoxShape.circle),
+                color: tempColor.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
+              ),
               child: Icon(icon, color: tempColor, size: 28),
             ),
             const SizedBox(width: 16),
@@ -108,18 +130,27 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16)),
-                  Text(subtitle,
-                      style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
                 ],
               ),
             ),
             Text(
               '${temp.toStringAsFixed(1)} °C',
               style: TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 20, color: tempColor),
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: tempColor,
+              ),
             ),
           ],
         ),

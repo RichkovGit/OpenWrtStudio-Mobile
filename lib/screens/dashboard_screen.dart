@@ -40,7 +40,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final appState = ref.read(appStateProvider);
     final router = appState.selectedRouter;
     final sysauth = appState.sysauth;
-    if (router == null || sysauth == null || appState.apiService == null) return;
+    if (router == null || sysauth == null || appState.apiService == null) {
+      return;
+    }
 
     _protocolService ??= ProtocolService(apiService: appState.apiService!);
     _isLoadingProtocols = true;
@@ -55,7 +57,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           _dashboardProtocols = items;
         });
       }
-    } catch (_) {} finally {
+    } catch (_) {
+    } finally {
       _isLoadingProtocols = false;
     }
   }
@@ -250,10 +253,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final channelLabel = _channelLabel(channel);
     final channelColors = _channelColors(channel);
 
-    final labelStyle = Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurface);
-    final valueStyle = Theme.of(context).textTheme.titleSmall
-        ?.copyWith(fontWeight: FontWeight.bold);
+    final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+    final valueStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
 
     return Card(
       elevation: 2,
@@ -311,10 +316,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           style: TextStyle(
                             color: channelColors.foreground,
                             fontWeight: FontWeight.bold,
-                            fontSize: Theme.of(context)
-                                .textTheme
-                                .bodySmall
-                                ?.fontSize,
+                            fontSize: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.fontSize,
                           ),
                         ),
                       ),
@@ -352,7 +356,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   children: [
                     const Text(
                       'Переключение протокола VPN',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -393,13 +400,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         title: Text(
                           p.name,
                           style: TextStyle(
-                            fontWeight: isRun ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isRun
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         subtitle: Text(
                           isRun
                               ? 'Активен (работает)'
-                              : (p.isInstalled ? 'Установлен' : 'Не установлен'),
+                              : (p.isInstalled
+                                    ? 'Установлен'
+                                    : 'Не установлен'),
                           style: TextStyle(
                             fontSize: 12,
                             color: isRun ? Colors.greenAccent : Colors.grey,
@@ -427,17 +438,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   if (router == null || sysauth == null) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Переключение на ${p.name}...'),
+                                      content: Text(
+                                        'Переключение на ${p.name}...',
+                                      ),
                                       duration: const Duration(seconds: 2),
                                     ),
                                   );
-                                  final ok = await _protocolService!.switchProtocol(
-                                    routerIp: router.activeAddress,
-                                    sysauth: sysauth,
-                                    useHttps: router.activeUseHttps,
-                                    targetServiceName: p.serviceName,
-                                    currentServiceName: currentRunning?.serviceName,
-                                  );
+                                  final ok = await _protocolService!
+                                      .switchProtocol(
+                                        routerIp: router.activeAddress,
+                                        sysauth: sysauth,
+                                        useHttps: router.activeUseHttps,
+                                        targetServiceName: p.serviceName,
+                                        currentServiceName:
+                                            currentRunning?.serviceName,
+                                      );
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
@@ -446,8 +461,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                               ? 'Переключено на ${p.name}'
                                               : 'Ошибка переключения',
                                         ),
-                                        backgroundColor:
-                                            ok ? Colors.green : Colors.red,
+                                        backgroundColor: ok
+                                            ? Colors.green
+                                            : Colors.red,
                                       ),
                                     );
                                     unawaited(_loadProtocolsQuietly());
@@ -468,7 +484,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         Navigator.pop(ctx);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const ForkopScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const ForkopScreen(),
+                          ),
                         ).then((_) => _loadProtocolsQuietly());
                       },
                       icon: const Icon(Icons.tune, size: 16),
@@ -536,9 +554,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     Text(
                       'VPN / Протоколы обхода',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontSize: 11,
-                          ),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -570,7 +588,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     SizedBox(width: 4),
                     Text(
                       'Сменить',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -649,8 +670,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     prefs.primaryThroughputInterface!,
                   ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.7),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -717,9 +739,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           lineTouchData: LineTouchData(
                             touchTooltipData: LineTouchTooltipData(
                               fitInsideVertically: true,
-                              getTooltipColor: (LineBarSpot spot) =>
-                                  Theme.of(context).colorScheme.surface
-                                      .withValues(alpha: 0.9),
+                              getTooltipColor: (LineBarSpot spot) => Theme.of(
+                                context,
+                              ).colorScheme.surface.withValues(alpha: 0.9),
                               tooltipBorderRadius: BorderRadius.circular(8),
                               tooltipPadding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -768,8 +790,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             Icon(
                               Icons.trending_up,
                               size: 48,
-                              color: Theme.of(context).colorScheme.onSurface
-                                  .withValues(alpha: 0.7),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.7),
                             ),
                             const SizedBox(height: 8),
                             Text(
@@ -810,8 +833,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         : speed;
     final speedText = Text(
       _formatSpeed(displaySpeed),
-      style: Theme.of(context).textTheme.titleMedium
-          ?.copyWith(fontWeight: FontWeight.bold),
+      style: Theme.of(
+        context,
+      ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
     );
 
     return Row(
@@ -930,10 +954,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required String label,
     required String value,
   }) {
-    final labelStyle = Theme.of(context).textTheme.bodySmall
-        ?.copyWith(color: Theme.of(context).colorScheme.onSurface);
-    final valueStyle = Theme.of(context).textTheme.titleSmall
-        ?.copyWith(fontWeight: FontWeight.bold);
+    final labelStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+      color: Theme.of(context).colorScheme.onSurface,
+    );
+    final valueStyle = Theme.of(
+      context,
+    ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1070,8 +1096,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Icons.wifi,
               color: isEnabled
                   ? primaryColor
-                  : Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.5),
+                  : Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.5),
               size: 20,
             ),
             const SizedBox(width: 8),
@@ -1098,14 +1125,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   Icon(
                     Icons.network_cell,
                     size: 14,
-                    color: Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 3),
-                  Text(
-                    '$signal dBm',
-                    style: textTheme.bodySmall,
-                  ),
+                  Text('$signal dBm', style: textTheme.bodySmall),
                 ],
               ),
             Row(
@@ -1117,10 +1142,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: Colors.grey.shade600,
                 ),
                 const SizedBox(width: 3),
-                Text(
-                  'кан. $channel',
-                  style: textTheme.bodySmall,
-                ),
+                Text('кан. $channel', style: textTheme.bodySmall),
               ],
             ),
           ],
@@ -1325,8 +1347,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        Theme.of(context).colorScheme.surface
-                            .withValues(alpha: 0),
+                        Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: 0),
                         Theme.of(context).colorScheme.surface,
                       ],
                     ),
@@ -1335,8 +1358,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 18,
-                    color: Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.45),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.45),
                   ),
                 ),
               ),
@@ -1354,8 +1378,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       begin: Alignment.centerRight,
                       end: Alignment.centerLeft,
                       colors: [
-                        Theme.of(context).colorScheme.surface
-                            .withValues(alpha: 0),
+                        Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: 0),
                         Theme.of(context).colorScheme.surface,
                       ],
                     ),
@@ -1364,8 +1389,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   child: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     size: 18,
-                    color: Theme.of(context).colorScheme.onSurface
-                        .withValues(alpha: 0.45),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withValues(alpha: 0.45),
                   ),
                 ),
               ),
@@ -1498,8 +1524,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   const SizedBox(height: 2),
                   Text(
                     name.toUpperCase(),
-                    style: Theme.of(context).textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
@@ -1603,8 +1630,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            Theme.of(context).colorScheme.surface
-                                .withValues(alpha: 0),
+                            Theme.of(
+                              context,
+                            ).colorScheme.surface.withValues(alpha: 0),
                             Theme.of(context).colorScheme.surface,
                           ],
                         ),
@@ -1613,8 +1641,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Icon(
                         Icons.arrow_forward_ios_rounded,
                         size: 18,
-                        color: Theme.of(context).colorScheme.onSurface
-                            .withValues(alpha: 0.45),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                     ),
                   ),
@@ -1632,8 +1661,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           begin: Alignment.centerRight,
                           end: Alignment.centerLeft,
                           colors: [
-                            Theme.of(context).colorScheme.surface
-                                .withValues(alpha: 0),
+                            Theme.of(
+                              context,
+                            ).colorScheme.surface.withValues(alpha: 0),
                             Theme.of(context).colorScheme.surface,
                           ],
                         ),
@@ -1642,8 +1672,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       child: Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 18,
-                        color: Theme.of(context).colorScheme.onSurface
-                            .withValues(alpha: 0.45),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                     ),
                   ),
@@ -1674,6 +1705,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       appBar: LuciAppBar(
         centerTitle: true,
+        actions: [
+          IconButton(
+            tooltip: Localizations.localeOf(context).languageCode == 'ru'
+                ? 'Простой режим'
+                : 'Simple mode',
+            icon: const Icon(Icons.bolt),
+            onPressed: () => appState.setExpertMode(false),
+          ),
+        ],
         title: null, // Always use titleWidget now
         titleWidget: routers.length > 1
             ? Center(
@@ -1696,9 +1736,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         final selectedId = await showModalBottomSheet<String>(
                           context: context,
                           isScrollControlled: false,
-                          backgroundColor: Theme.of(context)
-                              .colorScheme
-                              .surface,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
                           shape: const RoundedRectangleBorder(
                             borderRadius: BorderRadius.vertical(
                               top: Radius.circular(18),
@@ -1725,9 +1765,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                           bottom: 12,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .outlineVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.outlineVariant,
                                           borderRadius: BorderRadius.circular(
                                             2,
                                           ),
@@ -1777,12 +1817,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                         leading: Icon(
                                           Icons.router,
                                           color: isSelected
-                                              ? Theme.of(context)
-                                                    .colorScheme
-                                                    .primary
-                                              : Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.primary
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurfaceVariant,
                                         ),
                                         title: Tooltip(
                                           message: isStale
@@ -1804,25 +1844,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                                             .withValues(
                                                               alpha: 0.7,
                                                             )
-                                                      : Theme.of(context)
-                                                            .colorScheme
-                                                            .onSurface,
+                                                      : Theme.of(
+                                                          context,
+                                                        ).colorScheme.onSurface,
                                                 ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
                                         subtitle: Text(
                                           r.ipAddress,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
                                         ),
                                         trailing: isSelected
                                             ? Icon(
                                                 Icons.check_circle,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .primary,
+                                                color: Theme.of(
+                                                  context,
+                                                ).colorScheme.primary,
                                               )
                                             : null,
                                         selected: isSelected,
@@ -1869,17 +1909,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             Text(
                               headerText,
                               style:
-                                  Theme.of(context)
-                                      .appBarTheme
-                                      .titleTextStyle ??
-                                  Theme.of(context).textTheme.titleLarge
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: Theme.of(context)
-                                            .appBarTheme
-                                            .titleTextStyle
-                                            ?.color,
-                                      ),
+                                  Theme.of(
+                                    context,
+                                  ).appBarTheme.titleTextStyle ??
+                                  Theme.of(
+                                    context,
+                                  ).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(
+                                      context,
+                                    ).appBarTheme.titleTextStyle?.color,
+                                  ),
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.center,
                             ),
@@ -1887,9 +1927,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             Icon(
                               Icons.arrow_drop_down,
                               size: 20,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                           ],
                         ),

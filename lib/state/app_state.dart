@@ -108,20 +108,34 @@ class AppState extends ChangeNotifier {
   final Map<String, String> _cachedClientNames = {};
 
   // Persistent device history (matches PC OpenWrtStudio ClientManagerService device cache)
-  final Map<String, ({String hostname, String ip, String? band, ConnectionType type})> _persistentDeviceHistory = {};
+  final Map<
+    String,
+    ({String hostname, String ip, String? band, ConnectionType type})
+  >
+  _persistentDeviceHistory = {};
 
   /// Checks if a hostname is generic/fallback or missing, preventing it from overwriting friendly names
   static bool _isGenericHostname(String? name) {
-    if (name == null || name.isEmpty || name == 'Unknown' || name == '*' || name == 'N/A') {
+    if (name == null ||
+        name.isEmpty ||
+        name == 'Unknown' ||
+        name == '*' ||
+        name == 'N/A') {
       return true;
     }
     final trimmed = name.trim();
     // MAC suffix like "d8:28", "D8:28", ":d8:28"
-    if (RegExp(r'^:?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$').hasMatch(trimmed)) return true;
+    if (RegExp(r'^:?[0-9a-fA-F]{2}:[0-9a-fA-F]{2}$').hasMatch(trimmed)) {
+      return true;
+    }
     // Full MAC address
-    if (RegExp(r'^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$').hasMatch(trimmed)) return true;
+    if (RegExp(r'^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$').hasMatch(trimmed)) {
+      return true;
+    }
     // Generic auto-labels
-    if (trimmed.startsWith('Wi-Fi') || trimmed.startsWith('Устройство') || trimmed.startsWith('Device')) {
+    if (trimmed.startsWith('Wi-Fi') ||
+        trimmed.startsWith('Устройство') ||
+        trimmed.startsWith('Device')) {
       return true;
     }
     return false;
@@ -136,7 +150,8 @@ class AppState extends ChangeNotifier {
   model.Router? get activeRouter => selectedRouter;
   bool get isConnected => isAuthenticated;
   bool get useHttps => _authService?.useHttps ?? false;
-  String? get activeIp => _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
+  String? get activeIp =>
+      _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
   Future<void> refreshDashboard() => fetchDashboardData();
 
   VoidCallback? onRouterBackOnline;
@@ -148,12 +163,11 @@ class AppState extends ChangeNotifier {
     _isExpertMode = val;
     notifyListeners();
   }
+
   void toggleExpertMode() {
     _isExpertMode = !_isExpertMode;
     notifyListeners();
   }
-
-
 
   Future<dynamic> systemExec({
     required String command,
@@ -162,7 +176,8 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return null;
-    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
+    final api =
+        _apiService ?? ServiceContainer.instance.factory.createApiService();
     return await api.systemExec(
       ip,
       token,
@@ -177,14 +192,18 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
-    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
+    final api =
+        _apiService ?? ServiceContainer.instance.factory.createApiService();
     final banTimeMs = banTimeSeconds * 1000;
     try {
-      final cmd = 'for iface in \$(ubus list "hostapd.*" 2>/dev/null); do '
-                  'ubus call \$iface del_client \'{"addr":"$mac","deauth":true,"ban_time":$banTimeMs}\' 2>/dev/null; done; '
-                  'ip neigh del "\$(ip neigh show | grep -i "$mac" | awk "{print \\\$1}" | head -n1)" dev br-lan 2>/dev/null';
+      final cmd =
+          'for iface in \$(ubus list "hostapd.*" 2>/dev/null); do '
+          'ubus call \$iface del_client \'{"addr":"$mac","deauth":true,"ban_time":$banTimeMs}\' 2>/dev/null; done; '
+          'ip neigh del "\$(ip neigh show | grep -i "$mac" | awk "{print \\\$1}" | head -n1)" dev br-lan 2>/dev/null';
       await api.systemExec(
-        ip, token, useHttps,
+        ip,
+        token,
+        useHttps,
         command: '/bin/sh',
         params: ['-c', cmd],
       );
@@ -199,54 +218,59 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
-    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
+    final api =
+        _apiService ?? ServiceContainer.instance.factory.createApiService();
     final cleanMac = mac.replaceAll(':', '_');
     try {
       String cmd;
       if (block) {
-        cmd = 'while true; do '
-              'sec=\$(uci show firewall | grep -i "Block_$cleanMac" | head -n1 | cut -d\'.\' -f2 | cut -d\'=\' -f1); '
-              '[ -z "\$sec" ] && break; '
-              'uci delete firewall.\$sec 2>/dev/null; done; '
-              'uci add firewall rule; '
-              'uci set firewall.@rule[-1].name="Block_${cleanMac}_dhcp"; '
-              'uci set firewall.@rule[-1].src="lan"; '
-              'uci set firewall.@rule[-1].src_mac="$mac"; '
-              'uci set firewall.@rule[-1].proto="udp"; '
-              'uci set firewall.@rule[-1].dest_port="67 68"; '
-              'uci set firewall.@rule[-1].target="ACCEPT"; '
-              'uci add firewall rule; '
-              'uci set firewall.@rule[-1].name="Block_${cleanMac}_luci"; '
-              'uci set firewall.@rule[-1].src="lan"; '
-              'uci set firewall.@rule[-1].src_mac="$mac"; '
-              'uci set firewall.@rule[-1].proto="tcp"; '
-              'uci set firewall.@rule[-1].dest_port="80 443"; '
-              'uci set firewall.@rule[-1].target="ACCEPT"; '
-              'uci add firewall rule; '
-              'uci set firewall.@rule[-1].name="Block_${cleanMac}_input"; '
-              'uci set firewall.@rule[-1].src="lan"; '
-              'uci set firewall.@rule[-1].src_mac="$mac"; '
-              'uci set firewall.@rule[-1].target="DROP"; '
-              'uci add firewall rule; '
-              'uci set firewall.@rule[-1].name="Block_${cleanMac}_wan"; '
-              'uci set firewall.@rule[-1].src="lan"; '
-              'uci set firewall.@rule[-1].dest="wan"; '
-              'uci set firewall.@rule[-1].src_mac="$mac"; '
-              'uci set firewall.@rule[-1].target="DROP"; '
-              'uci commit firewall; '
-              '/etc/init.d/firewall reload; '
-              'ubus call hostapd.phy0-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null; '
-              'ubus call hostapd.phy1-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null';
+        cmd =
+            'while true; do '
+            'sec=\$(uci show firewall | grep -i "Block_$cleanMac" | head -n1 | cut -d\'.\' -f2 | cut -d\'=\' -f1); '
+            '[ -z "\$sec" ] && break; '
+            'uci delete firewall.\$sec 2>/dev/null; done; '
+            'uci add firewall rule; '
+            'uci set firewall.@rule[-1].name="Block_${cleanMac}_dhcp"; '
+            'uci set firewall.@rule[-1].src="lan"; '
+            'uci set firewall.@rule[-1].src_mac="$mac"; '
+            'uci set firewall.@rule[-1].proto="udp"; '
+            'uci set firewall.@rule[-1].dest_port="67 68"; '
+            'uci set firewall.@rule[-1].target="ACCEPT"; '
+            'uci add firewall rule; '
+            'uci set firewall.@rule[-1].name="Block_${cleanMac}_luci"; '
+            'uci set firewall.@rule[-1].src="lan"; '
+            'uci set firewall.@rule[-1].src_mac="$mac"; '
+            'uci set firewall.@rule[-1].proto="tcp"; '
+            'uci set firewall.@rule[-1].dest_port="80 443"; '
+            'uci set firewall.@rule[-1].target="ACCEPT"; '
+            'uci add firewall rule; '
+            'uci set firewall.@rule[-1].name="Block_${cleanMac}_input"; '
+            'uci set firewall.@rule[-1].src="lan"; '
+            'uci set firewall.@rule[-1].src_mac="$mac"; '
+            'uci set firewall.@rule[-1].target="DROP"; '
+            'uci add firewall rule; '
+            'uci set firewall.@rule[-1].name="Block_${cleanMac}_wan"; '
+            'uci set firewall.@rule[-1].src="lan"; '
+            'uci set firewall.@rule[-1].dest="wan"; '
+            'uci set firewall.@rule[-1].src_mac="$mac"; '
+            'uci set firewall.@rule[-1].target="DROP"; '
+            'uci commit firewall; '
+            '/etc/init.d/firewall reload; '
+            'ubus call hostapd.phy0-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null; '
+            'ubus call hostapd.phy1-ap0 del_client \'{"addr":"$mac","deauth":true}\' 2>/dev/null';
       } else {
-        cmd = 'while true; do '
-              'sec=\$(uci show firewall | grep -i "Block_$cleanMac" | head -n1 | cut -d\'.\' -f2 | cut -d\'=\' -f1); '
-              '[ -z "\$sec" ] && break; '
-              'uci delete firewall.\$sec 2>/dev/null; done; '
-              'uci commit firewall; '
-              '/etc/init.d/firewall reload';
+        cmd =
+            'while true; do '
+            'sec=\$(uci show firewall | grep -i "Block_$cleanMac" | head -n1 | cut -d\'.\' -f2 | cut -d\'=\' -f1); '
+            '[ -z "\$sec" ] && break; '
+            'uci delete firewall.\$sec 2>/dev/null; done; '
+            'uci commit firewall; '
+            '/etc/init.d/firewall reload';
       }
       await api.systemExec(
-        ip, token, useHttps,
+        ip,
+        token,
+        useHttps,
         command: '/bin/sh',
         params: ['-c', cmd],
       );
@@ -261,19 +285,25 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
-    final api = _apiService ?? ServiceContainer.instance.factory.createApiService();
-    final cleanName = name.trim().isEmpty ? 'StaticDevice' : name.trim().replaceAll(' ', '_');
+    final api =
+        _apiService ?? ServiceContainer.instance.factory.createApiService();
+    final cleanName = name.trim().isEmpty
+        ? 'StaticDevice'
+        : name.trim().replaceAll(' ', '_');
     try {
-      final cmd = 'for s in \$(uci show dhcp | grep -i "$mac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '
-                  'uci delete dhcp.\$s 2>/dev/null; done; '
-                  'uci add dhcp host; '
-                  'uci set dhcp.@host[-1].name="$cleanName"; '
-                  'uci set dhcp.@host[-1].mac="$mac"; '
-                  'uci set dhcp.@host[-1].ip="$ipAddr"; '
-                  'uci commit dhcp; '
-                  '/etc/init.d/dnsmasq reload';
+      final cmd =
+          'for s in \$(uci show dhcp | grep -i "$mac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '
+          'uci delete dhcp.\$s 2>/dev/null; done; '
+          'uci add dhcp host; '
+          'uci set dhcp.@host[-1].name="$cleanName"; '
+          'uci set dhcp.@host[-1].mac="$mac"; '
+          'uci set dhcp.@host[-1].ip="$ipAddr"; '
+          'uci commit dhcp; '
+          '/etc/init.d/dnsmasq reload';
       await api.systemExec(
-        ip, token, useHttps,
+        ip,
+        token,
+        useHttps,
         command: '/bin/sh',
         params: ['-c', cmd],
       );
@@ -452,7 +482,7 @@ class AppState extends ChangeNotifier {
     _accentColor = color;
     await _secureStorageService.writeValue(
       _accentColorKey,
-      color.value.toRadixString(16),
+      color.toARGB32().toRadixString(16),
     );
     notifyListeners();
   }
@@ -3074,7 +3104,9 @@ class AppState extends ChangeNotifier {
   /// as wireless if their MAC appears in any router's associated stations list.
   Future<List<Client>> fetchAggregatedClients() async {
     try {
-      final activeIp = _authService?.ipAddress ?? _routerService?.selectedRouter?.activeAddress;
+      final activeIp =
+          _authService?.ipAddress ??
+          _routerService?.selectedRouter?.activeAddress;
       final activeHttps = _authService?.useHttps ?? false;
       final token = _authService?.sysauth ?? sysauth;
 
@@ -3083,13 +3115,21 @@ class AppState extends ChangeNotifier {
 
       if (activeIp != null && token != null) {
         try {
-          wirelessDetails = await _fetchWirelessDetails(activeIp, token, activeHttps);
+          wirelessDetails = await _fetchWirelessDetails(
+            activeIp,
+            token,
+            activeHttps,
+          );
         } catch (_) {}
         try {
           arpTable = await _fetchArpTable(activeIp, token, activeHttps);
         } catch (_) {}
         try {
-          final staticNames = await _fetchStaticHostnames(activeIp, token, activeHttps);
+          final staticNames = await _fetchStaticHostnames(
+            activeIp,
+            token,
+            activeHttps,
+          );
           for (final entry in staticNames.entries) {
             if (!_isGenericHostname(entry.value)) {
               _cachedClientNames[entry.key] = entry.value;
@@ -3143,23 +3183,30 @@ class AppState extends ChangeNotifier {
       for (final lease in leases) {
         var client = Client.fromLease(lease);
         final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
-        if (macNorm == '00:00:00:00:00:00' || client.ipAddress == '1.1.1.1') continue;
+        if (macNorm == '00:00:00:00:00:00' || client.ipAddress == '1.1.1.1') {
+          continue;
+        }
 
         if (!_isGenericHostname(client.hostname)) {
           _cachedClientNames[macNorm] = client.hostname;
         } else if (_cachedClientNames.containsKey(macNorm)) {
           client = client.copyWith(hostname: _cachedClientNames[macNorm]);
         } else {
-          client = client.copyWith(hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}');
+          client = client.copyWith(
+            hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}',
+          );
         }
 
         final isWireless = normalizedWireless.contains(macNorm);
-        final isReachable = isWireless || (arpTable[macNorm]?.isReachable == true);
+        final isReachable =
+            isWireless || (arpTable[macNorm]?.isReachable == true);
         final band = wirelessDetails[macNorm]?.band;
         final sig = wirelessDetails[macNorm]?.signal;
 
         final enriched = client.copyWith(
-          connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
+          connectionType: isWireless
+              ? ConnectionType.wireless
+              : ConnectionType.wired,
           isOnline: isReachable,
           wifiBand: band,
           signal: sig,
@@ -3184,7 +3231,8 @@ class AppState extends ChangeNotifier {
       for (final mac in normalizedWireless) {
         if (!clients.containsKey(mac) && mac != '00:00:00:00:00:00') {
           final cachedName = _cachedClientNames[mac];
-          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+          final hostname =
+              (cachedName != null && !_isGenericHostname(cachedName))
               ? cachedName
               : 'Wi-Fi Клиент ${mac.substring(mac.length - 5)}';
           final ip = arpTable[mac]?.ip ?? 'N/A';
@@ -3209,9 +3257,12 @@ class AppState extends ChangeNotifier {
       // Add active wired devices from ARP table not in DHCP leases
       for (final entry in arpTable.entries) {
         final mac = entry.key;
-        if (!clients.containsKey(mac) && entry.value.isReachable && mac != '00:00:00:00:00:00') {
+        if (!clients.containsKey(mac) &&
+            entry.value.isReachable &&
+            mac != '00:00:00:00:00:00') {
           final cachedName = _cachedClientNames[mac];
-          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+          final hostname =
+              (cachedName != null && !_isGenericHostname(cachedName))
               ? cachedName
               : 'Устройство ${mac.substring(mac.length - 5)}';
           clients[mac] = Client(
@@ -3307,7 +3358,14 @@ class AppState extends ChangeNotifier {
     final result = <String, ({String band, int? signal})>{};
 
     // 1. Query hostapd get_clients
-    for (final iface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1', 'ra0', 'rax0']) {
+    for (final iface in [
+      'phy0-ap0',
+      'phy1-ap0',
+      'wlan0',
+      'wlan1',
+      'ra0',
+      'rax0',
+    ]) {
       try {
         final res = await _apiService!.call(
           ip,
@@ -3325,7 +3383,10 @@ class AppState extends ChangeNotifier {
             final clients = data['clients'];
             if (clients is Map) {
               for (final entry in clients.entries) {
-                final mac = entry.key.toString().toUpperCase().replaceAll('-', ':');
+                final mac = entry.key.toString().toUpperCase().replaceAll(
+                  '-',
+                  ':',
+                );
                 final clientData = entry.value;
                 int? sig;
                 if (clientData is Map && clientData['signal'] is int) {
@@ -3356,7 +3417,10 @@ class AppState extends ChangeNotifier {
             final list = data['results'] as List;
             for (final item in list) {
               if (item is Map && item['mac'] != null) {
-                final mac = item['mac'].toString().toUpperCase().replaceAll('-', ':');
+                final mac = item['mac'].toString().toUpperCase().replaceAll(
+                  '-',
+                  ':',
+                );
                 final sig = item['signal'] as int?;
                 final band = iface.contains('1') ? '5 GHz' : '2.4 GHz';
                 result[mac] = (
@@ -3380,7 +3444,12 @@ class AppState extends ChangeNotifier {
   ) async {
     final result = <String, String>{};
     try {
-      final res = await _apiService!.uciGetAll(ip, token, useHttps, config: 'dhcp');
+      final res = await _apiService!.uciGetAll(
+        ip,
+        token,
+        useHttps,
+        config: 'dhcp',
+      );
       final sections = _resolveUciSections(res, 'dhcp');
       if (sections != null) {
         for (final sec in sections.values) {
@@ -3389,7 +3458,10 @@ class AppState extends ChangeNotifier {
             if (type == 'host') {
               final name = sec['name']?.toString();
               final mac = sec['mac']?.toString();
-              if (name != null && name.isNotEmpty && mac != null && mac.isNotEmpty) {
+              if (name != null &&
+                  name.isNotEmpty &&
+                  mac != null &&
+                  mac.isNotEmpty) {
                 final macNorm = mac.toUpperCase().replaceAll('-', ':');
                 result[macNorm] = name;
               }
@@ -3553,7 +3625,9 @@ class AppState extends ChangeNotifier {
       for (final l in leases) {
         var c = Client.fromLease(l);
         final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
-        if (macNorm == '00:00:00:00:00:00' || c.ipAddress == '1.1.1.1') continue;
+        if (macNorm == '00:00:00:00:00:00' || c.ipAddress == '1.1.1.1') {
+          continue;
+        }
 
         // Restore / cache hostname
         if (!_isGenericHostname(c.hostname)) {
@@ -3561,16 +3635,21 @@ class AppState extends ChangeNotifier {
         } else if (_cachedClientNames.containsKey(macNorm)) {
           c = c.copyWith(hostname: _cachedClientNames[macNorm]);
         } else {
-          c = c.copyWith(hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}');
+          c = c.copyWith(
+            hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}',
+          );
         }
 
         final isWireless = normalizedWireless.contains(macNorm);
-        final isReachable = isWireless || (arpTable[macNorm]?.isReachable == true);
+        final isReachable =
+            isWireless || (arpTable[macNorm]?.isReachable == true);
         final band = wirelessDetails[macNorm]?.band;
         final sig = wirelessDetails[macNorm]?.signal;
 
         final enriched = c.copyWith(
-          connectionType: isWireless ? ConnectionType.wireless : ConnectionType.wired,
+          connectionType: isWireless
+              ? ConnectionType.wireless
+              : ConnectionType.wired,
           isOnline: isReachable,
           wifiBand: band,
           signal: sig,
@@ -3590,7 +3669,8 @@ class AppState extends ChangeNotifier {
       for (final mac in normalizedWireless) {
         if (!clientMap.containsKey(mac) && mac != '00:00:00:00:00:00') {
           final cachedName = _cachedClientNames[mac];
-          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+          final hostname =
+              (cachedName != null && !_isGenericHostname(cachedName))
               ? cachedName
               : 'Wi-Fi Клиент ${mac.substring(mac.length - 5)}';
           final ip = arpTable[mac]?.ip ?? 'N/A';
@@ -3615,9 +3695,12 @@ class AppState extends ChangeNotifier {
       // Add active wired devices from ARP table not in DHCP leases
       for (final entry in arpTable.entries) {
         final mac = entry.key;
-        if (!clientMap.containsKey(mac) && entry.value.isReachable && mac != '00:00:00:00:00:00') {
+        if (!clientMap.containsKey(mac) &&
+            entry.value.isReachable &&
+            mac != '00:00:00:00:00:00') {
           final cachedName = _cachedClientNames[mac];
-          final hostname = (cachedName != null && !_isGenericHostname(cachedName))
+          final hostname =
+              (cachedName != null && !_isGenericHostname(cachedName))
               ? cachedName
               : 'Устройство ${mac.substring(mac.length - 5)}';
           clientMap[mac] = Client(
@@ -3666,7 +3749,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _enrichClientsWithFirewallBlocks(Map<String, Client> clientMap) async {
+  Future<void> _enrichClientsWithFirewallBlocks(
+    Map<String, Client> clientMap,
+  ) async {
     try {
       final ip = activeIp;
       final token = _authService?.sysauth ?? sysauth;
@@ -3683,10 +3768,17 @@ class AppState extends ChangeNotifier {
         for (final entry in firewallSections.entries) {
           final sec = entry.value as Map<String, dynamic>?;
           final name = sec?['name']?.toString() ?? '';
-          final srcMac = sec?['src_mac']?.toString().toUpperCase().replaceAll('-', ':');
-          if (name.toUpperCase().startsWith('BLOCK_') && srcMac != null && srcMac.isNotEmpty) {
+          final srcMac = sec?['src_mac']?.toString().toUpperCase().replaceAll(
+            '-',
+            ':',
+          );
+          if (name.toUpperCase().startsWith('BLOCK_') &&
+              srcMac != null &&
+              srcMac.isNotEmpty) {
             final upper = name.toUpperCase();
-            if (upper.endsWith('_WAN') || upper.endsWith('_INPUT') || !name.contains('_')) {
+            if (upper.endsWith('_WAN') ||
+                upper.endsWith('_INPUT') ||
+                !name.contains('_')) {
               blockedMacs.add(srcMac);
             }
           }
@@ -3774,8 +3866,9 @@ class AppState extends ChangeNotifier {
         }
       }
 
-      final cmpType = typeOrder(a.connectionType)
-          .compareTo(typeOrder(b.connectionType));
+      final cmpType = typeOrder(
+        a.connectionType,
+      ).compareTo(typeOrder(b.connectionType));
       if (cmpType != 0) return cmpType;
       return a.hostname.toLowerCase().compareTo(b.hostname.toLowerCase());
     });
@@ -3801,7 +3894,8 @@ class AppState extends ChangeNotifier {
       final tasks = routers.map((r) async {
         try {
           if (_apiService is RealApiService) {
-            final isCurrent = r.id == selectedRouter?.id || r.activeAddress == activeIp;
+            final isCurrent =
+                r.id == selectedRouter?.id || r.activeAddress == activeIp;
             String? token = isCurrent && _authService?.sysauth != null
                 ? _authService!.sysauth!
                 : null;
@@ -3882,7 +3976,8 @@ class AppState extends ChangeNotifier {
       final tasks = routers.map((r) async {
         try {
           if (_apiService is RealApiService) {
-            final isCurrent = r.id == selectedRouter?.id || r.activeAddress == activeIp;
+            final isCurrent =
+                r.id == selectedRouter?.id || r.activeAddress == activeIp;
             String? token = isCurrent && _authService?.sysauth != null
                 ? _authService!.sysauth!
                 : null;

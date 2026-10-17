@@ -32,22 +32,19 @@ class _FailingRestartApiService extends MockApiService {
     }
     final values = switch (config) {
       'wireless' => {
-          'radio0': {
-            '.type': 'wifi-device',
-            if (radioDisabled) 'disabled': '1'
-          },
-        },
+        'radio0': {'.type': 'wifi-device', if (radioDisabled) 'disabled': '1'},
+      },
       'network' => {
-          'lan': {'.type': 'interface'},
-        },
+        'lan': {'.type': 'interface'},
+      },
       'firewall' => {
-          'lan_zone': {'.type': 'zone', 'name': 'lan'},
-          'wan_zone': {
-            '.type': 'zone',
-            'name': 'wan',
-            'network': ['wan'],
-          },
+        'lan_zone': {'.type': 'zone', 'name': 'lan'},
+        'wan_zone': {
+          '.type': 'zone',
+          'name': 'wan',
+          'network': ['wan'],
         },
+      },
       _ => <String, dynamic>{},
     };
     return [

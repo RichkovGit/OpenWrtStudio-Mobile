@@ -714,7 +714,8 @@ class MockApiService implements IApiService {
       'shared': 1048576 + _random.nextInt(524288), // 1-1.5MB
       'buffered': 10485760 + _random.nextInt(2097152), // 10-12MB
       'cached': 20971520 + _random.nextInt(5242880), // 20-25MB
-      'available': freeMemory +
+      'available':
+          freeMemory +
           20971520 +
           _random.nextInt(10485760), // Free + some cache
     };
@@ -734,19 +735,22 @@ class MockApiService implements IApiService {
           : 1.0; // Random bursts
 
       // Base rates: 50-500 KB/s for download, 10-100 KB/s for upload
-      final rxIncrement = ((50000 + _random.nextInt(450000)) *
-              timeBasedMultiplier *
-              burstMultiplier)
-          .round();
-      final txIncrement = ((10000 + _random.nextInt(90000)) *
-              timeBasedMultiplier *
-              burstMultiplier *
-              0.3)
-          .round();
+      final rxIncrement =
+          ((50000 + _random.nextInt(450000)) *
+                  timeBasedMultiplier *
+                  burstMultiplier)
+              .round();
+      final txIncrement =
+          ((10000 + _random.nextInt(90000)) *
+                  timeBasedMultiplier *
+                  burstMultiplier *
+                  0.3)
+              .round();
 
       _baseRxBytes += rxIncrement;
       _baseTxBytes += txIncrement;
-      _baseRxPackets += (rxIncrement / 1500).round() +
+      _baseRxPackets +=
+          (rxIncrement / 1500).round() +
           _random.nextInt(50); // ~1500 bytes per packet
       _baseTxPackets += (txIncrement / 1500).round() + _random.nextInt(20);
 
@@ -764,18 +768,21 @@ class MockApiService implements IApiService {
       // For br-lan (LAN interface), simulate local network activity
       final timeBasedMultiplier =
           1.0 + 0.3 * sin(seconds * 2 * pi / 180); // 3-minute cycles
-      final localActivity =
-          _random.nextBool() ? (1.0 + _random.nextDouble()) : 0.5;
+      final localActivity = _random.nextBool()
+          ? (1.0 + _random.nextDouble())
+          : 0.5;
 
       // LAN typically has lower but more consistent throughput
-      final rxIncrement = ((20000 + _random.nextInt(100000)) *
-              timeBasedMultiplier *
-              localActivity)
-          .round();
-      final txIncrement = ((15000 + _random.nextInt(80000)) *
-              timeBasedMultiplier *
-              localActivity)
-          .round();
+      final rxIncrement =
+          ((20000 + _random.nextInt(100000)) *
+                  timeBasedMultiplier *
+                  localActivity)
+              .round();
+      final txIncrement =
+          ((15000 + _random.nextInt(80000)) *
+                  timeBasedMultiplier *
+                  localActivity)
+              .round();
 
       _baseLanRxBytes += rxIncrement;
       _baseLanTxBytes += txIncrement;
@@ -906,8 +913,11 @@ class MockApiService implements IApiService {
     BuildContext? context,
   }) async {
     await Future.delayed(const Duration(milliseconds: 500));
-    // Return success response for mock system exec operation
-    return [0, 'success'];
+    // Match rpcd file.exec's transport and process-result envelope.
+    return [
+      0,
+      {'code': 0, 'stdout': '', 'stderr': ''},
+    ];
   }
 
   @override

@@ -20,8 +20,8 @@ String _certificateFingerprint(X509Certificate cert) =>
 /// pin writes and reads always agree.
 String _normalizePinHost(String host) =>
     host.startsWith('[') && host.endsWith(']')
-        ? host.substring(1, host.length - 1)
-        : host;
+    ? host.substring(1, host.length - 1)
+    : host;
 
 /// Extracts the host portion of a stored pin key.
 ///
@@ -416,15 +416,14 @@ class HttpClientManager {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(dialogContext)
-                        .colorScheme
-                        .surfaceContainerHighest,
+                    color: Theme.of(
+                      dialogContext,
+                    ).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(dialogContext)
-                          .colorScheme
-                          .outline
-                          .withValues(alpha: 0.2),
+                      color: Theme.of(
+                        dialogContext,
+                      ).colorScheme.outline.withValues(alpha: 0.2),
                     ),
                   ),
                   child: Column(
@@ -432,9 +431,7 @@ class HttpClientManager {
                     children: [
                       Text(
                         dialogContext.l10n.certificateDetails,
-                        style: Theme.of(dialogContext)
-                            .textTheme
-                            .titleSmall
+                        style: Theme.of(dialogContext).textTheme.titleSmall
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
@@ -449,14 +446,14 @@ class HttpClientManager {
                       _buildCertDetail(
                         dialogContext.l10n.certificateValidFrom,
                         presentedCert!.startValidity.toLocal().toString().split(
-                              '.',
-                            )[0],
+                          '.',
+                        )[0],
                       ),
                       _buildCertDetail(
                         dialogContext.l10n.certificateValidUntil,
                         presentedCert!.endValidity.toLocal().toString().split(
-                              '.',
-                            )[0],
+                          '.',
+                        )[0],
                       ),
                       _buildCertDetail('SHA-256', fingerprint),
                     ],
@@ -466,16 +463,14 @@ class HttpClientManager {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(dialogContext)
-                        .colorScheme
-                        .errorContainer
-                        .withValues(alpha: 0.3),
+                    color: Theme.of(
+                      dialogContext,
+                    ).colorScheme.errorContainer.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Theme.of(dialogContext)
-                          .colorScheme
-                          .error
-                          .withValues(alpha: 0.3),
+                      color: Theme.of(
+                        dialogContext,
+                      ).colorScheme.error.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -489,12 +484,11 @@ class HttpClientManager {
                       Expanded(
                         child: Text(
                           dialogContext.l10n.certificateSafetyWarning,
-                          style: Theme.of(dialogContext)
-                              .textTheme
-                              .bodySmall
+                          style: Theme.of(dialogContext).textTheme.bodySmall
                               ?.copyWith(
-                                color:
-                                    Theme.of(dialogContext).colorScheme.error,
+                                color: Theme.of(
+                                  dialogContext,
+                                ).colorScheme.error,
                               ),
                         ),
                       ),

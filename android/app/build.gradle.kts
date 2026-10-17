@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import java.nio.file.Files
 
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
@@ -98,4 +99,19 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+// Windows can preserve the DOS read-only flag when copying asset directories.
+// Clear it only on generated asset folders before AGP cleans its previous copy.
+if (System.getProperty("os.name").startsWith("Windows")) {
+    val generatedAssets = layout.buildDirectory.dir("intermediates/assets")
+    tasks.configureEach {
+        if (name.startsWith("cleanMerge") && name.endsWith("Assets")) {
+            doFirst {
+                generatedAssets.get().asFile.walkTopDown()
+                    .filter { it.isDirectory }
+                    .forEach { Files.setAttribute(it.toPath(), "dos:readonly", false) }
+            }
+        }
+    }
 }

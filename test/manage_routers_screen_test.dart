@@ -9,6 +9,39 @@ import 'package:luci_mobile/services/mock_auth_service.dart';
 import 'package:luci_mobile/state/app_state.dart';
 
 void main() {
+  testWidgets(
+    'switching a router requests the dashboard before disposing its route',
+    (tester) async {
+      final state = _SwitchingAppState();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appStateProvider.overrideWith((ref) => state)],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ManageRoutersScreen(),
+                    ),
+                  ),
+                  child: const Text('Open routers'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open routers'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('192.168.1.2'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ManageRoutersScreen), findsNothing);
+      expect(state.requestedTab, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('fallback removal requires confirmation', (tester) async {
     final state = _TestAppState(
       model.Router(
@@ -42,12 +75,44 @@ void main() {
   });
 }
 
+class _SwitchingAppState extends AppState {
+  _SwitchingAppState()
+    : super.forTesting(
+        apiService: MockApiService(),
+        authService: MockAuthService(),
+      );
+  final first = model.Router(
+    id: 'first',
+    ipAddress: '192.168.1.1',
+    username: 'root',
+    password: '',
+    useHttps: false,
+  );
+  final second = model.Router(
+    id: 'second',
+    ipAddress: '192.168.1.2',
+    username: 'root',
+    password: '',
+    useHttps: false,
+  );
+  model.Router? _selected;
+  @override
+  List<model.Router> get routers => [first, second];
+  @override
+  model.Router? get selectedRouter => _selected ?? first;
+  @override
+  Future<void> selectRouter(String id, {BuildContext? context}) async {
+    _selected = second;
+    notifyListeners();
+  }
+}
+
 class _TestAppState extends AppState {
   _TestAppState(this.router)
-      : super.forTesting(
-          apiService: MockApiService(),
-          authService: MockAuthService(),
-        );
+    : super.forTesting(
+        apiService: MockApiService(),
+        authService: MockAuthService(),
+      );
 
   final model.Router router;
   model.Router? updatedRouter;

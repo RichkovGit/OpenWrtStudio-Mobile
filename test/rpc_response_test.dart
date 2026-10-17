@@ -168,6 +168,143 @@ void main() {
       throwsA(isA<RpcException>()),
     );
   });
+
+  test('hostapd remains available when iwinfo is missing', () async {
+    final api = _FallbackApi(
+      iwinfo: [4],
+      hostapd: {
+        'wlan0': [
+          0,
+          {
+            'clients': {'AA:BB:CC:DD:EE:FF': {}},
+          },
+        ],
+      },
+    );
+    expect(
+      await api.fetchAssociatedStationsWithContext(
+        ipAddress: 'router',
+        sysauth: 'token',
+        useHttps: false,
+        interface: 'wlan0',
+      ),
+      ['AA:BB:CC:DD:EE:FF'],
+    );
+  });
+
+  test('valid empty iwinfo survives an unavailable hostapd fallback', () async {
+    final api = _FallbackApi(
+      iwinfo: [
+        0,
+        {'results': []},
+      ],
+    );
+    expect(
+      await api.fetchAssociatedStationsWithContext(
+        ipAddress: 'router',
+        sysauth: 'token',
+        useHttps: false,
+        interface: 'wlan0',
+      ),
+      isEmpty,
+    );
+  });
+
+  test(
+    'discovery fallback can recover wireless clients without luci-rpc',
+    () async {
+      final api = _FallbackApi(
+        discovery: [4],
+        iwinfo: [4],
+        hostapd: {
+          'phy0-ap0': [
+            0,
+            {
+              'clients': {'AA:BB:CC:DD:EE:FF': {}},
+            },
+          ],
+        },
+      );
+      expect(
+        await api.fetchAllAssociatedWirelessMacsWithContext(
+          ipAddress: 'router',
+          sysauth: 'token',
+          useHttps: false,
+        ),
+        {
+          'phy0-ap0': {'AA:BB:CC:DD:EE:FF'},
+        },
+      );
+    },
+  );
+
+  test(
+    'a missing MAC fails instead of inventing an empty association list',
+    () async {
+      final api = _FallbackApi(
+        iwinfo: [
+          0,
+          {
+            'results': [{}],
+          },
+        ],
+      );
+      await expectLater(
+        api.fetchAssociatedStationsWithContext(
+          ipAddress: 'router',
+          sysauth: 'token',
+          useHttps: false,
+          interface: 'wlan0',
+        ),
+        throwsA(isA<RpcException>()),
+      );
+    },
+  );
+
+  test(
+    'a wired-only router does not probe guessed wireless interfaces',
+    () async {
+      final api = _FallbackApi();
+      expect(
+        await api.fetchAllAssociatedWirelessMacsWithContext(
+          ipAddress: 'router',
+          sysauth: 'token',
+          useHttps: false,
+        ),
+        isEmpty,
+      );
+      expect(api.calls, ['luci-rpc.getWirelessDevices']);
+    },
+  );
+}
+
+class _FallbackApi extends RealApiService {
+  _FallbackApi({
+    this.discovery = const [0, {}],
+    this.iwinfo = const [4],
+    this.hostapd = const {},
+  });
+
+  final dynamic discovery;
+  final dynamic iwinfo;
+  final Map<String, dynamic> hostapd;
+  final calls = <String>[];
+
+  @override
+  Future<dynamic> callWithContext(
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required String object,
+    required String method,
+    Map<String, dynamic>? params,
+    BuildContext? context,
+  }) async {
+    calls.add('$object.$method');
+    if (object == 'luci-rpc') return discovery;
+    if (object == 'iwinfo') return iwinfo;
+    return hostapd[object.replaceFirst('hostapd.', '')] ?? [4];
+  }
 }
 
 class _StationApi extends RealApiService {

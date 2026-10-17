@@ -1,193 +1,177 @@
-name: Release
+name: Prepare Android release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag, for example v2.5.23'
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: true
+  group: android-release-${{ inputs.tag }}
+  cancel-in-progress: false
 
 jobs:
-  generate-release-notes:
-    name: Generate Release Notes
+  prepare-android:
+    name: Check, build and create draft
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Checkout Repository
+      - name: Check out the requested tag
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
+          ref: refs/tags/${{ inputs.tag }}
           persist-credentials: false
 
-      - name: Create Release with Notes
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
-        with:
-          tag: ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          generateReleaseNotes: true
-          makeLatest: true
+      - name: Verify tag and prevent overwriting a release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-mobile)?$ ]]; then
+            echo "::error::Use an existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-mobile tag."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
 
-  build-android:
-    name: Build Android
-    runs-on: ubuntu-latest
-    needs: generate-release-notes
-    permissions:
-      contents: write
+          manifest = Path("pubspec.yaml").read_text(encoding="utf-8")
+          match = re.search(r"^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$", manifest, re.M)
+          tag_version = os.environ["RELEASE_TAG"][1:].removesuffix("-mobile")
+          if match is None or match.group(1) != tag_version:
+              raise SystemExit("Release tag must match the version in pubspec.yaml.")
+          if not Path("RELEASE_NOTES.md").is_file():
+              raise SystemExit("RELEASE_NOTES.md is required.")
+          PY
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::A release already exists for this tag. This workflow never updates releases."
+            exit 1
+          fi
 
-    steps:
-        #1 Checkout Repository
-      - name: Checkout Repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-
-        #2 Setup Java
-      - name: Set Up Java
+      - name: Set up Java
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Gradle and caching
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@6cfc8b8e8bb586cc164bef1c478c1eea3a4d6a19 # v3
-        with:
-          cache-read-only: false
 
-        #3 Setup Flutter
-      - name: Set Up Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
-          flutter-version: '3.47.1'
+          flutter-version: '3.47.7'
           channel: 'stable'
           cache: true
 
-        #4 Install Dependencies
-      - name: Install Dependencies
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Disable jni GNU build-id
-        run: sed -i -e 's/-Wl,/-Wl,--build-id=none,/' ${PUB_CACHE}/hosted/*/jni-*/src/CMakeLists.txt
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
 
-        #5 Setup Keystore
-      - name: Create Keystore
+      - name: Analyze source
+        run: flutter analyze --fatal-infos
+
+      - name: Run regression tests
+        run: flutter test
+
+      - name: Retain existing jni GNU build-id workaround when applicable
+        shell: bash
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/luci_mobile_keystore.jks
-          echo "${{ secrets.ANDROID_KEY_PROPERTIES_BASE64 }}" | base64 --decode > key.properties
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          cache = Path(os.environ.get("PUB_CACHE") or Path.home() / ".pub-cache")
+          for path in cache.glob("hosted/*/jni-*/src/CMakeLists.txt"):
+              source = path.read_text(encoding="utf-8")
+              if "-Wl,--build-id=none," not in source:
+                  path.write_text(source.replace("-Wl,", "-Wl,--build-id=none,"), encoding="utf-8")
+          PY
+
+      - name: Restore existing release signing configuration
+        shell: bash
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEY_PROPERTIES_BASE64: ${{ secrets.ANDROID_KEY_PROPERTIES_BASE64 }}
-        working-directory: android
+        run: |
+          set -euo pipefail
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_KEY_PROPERTIES_BASE64" ]]; then
+            echo "::error::Both existing Android signing secrets are required; no debug-signed release will be prepared."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/luci_mobile_keystore.jks
+          printf '%s' "$ANDROID_KEY_PROPERTIES_BASE64" | base64 --decode > android/key.properties
+          python3 - <<'PY'
+          from pathlib import Path
 
-      - name: Build APKs (split per ABI)
+          properties = {}
+          for line in Path("android/key.properties").read_text(encoding="utf-8").splitlines():
+              if "=" in line and not line.lstrip().startswith(("#", "!")):
+                  key, value = line.split("=", 1)
+                  properties[key.strip()] = value.strip()
+          if any(not properties.get(key) for key in ("storeFile", "storePassword", "keyAlias", "keyPassword")):
+              raise SystemExit("Release signing properties must specify the existing keystore, passwords and alias.")
+          raw = properties["storeFile"]
+          restored = Path("android/app/luci_mobile_keystore.jks").resolve()
+          candidates = [Path("android/app") / raw, Path("android") / raw]
+          selected = next((path.resolve() for path in candidates if path.is_file()), None)
+          if selected != restored:
+              raise SystemExit("storeFile must resolve to the restored android/app/luci_mobile_keystore.jks.")
+          PY
+
+      - name: Build APKs for supported ABIs
         run: flutter build apk --split-per-abi --release
 
-      - name: Build appBundle
+      - name: Build Android App Bundle
         run: flutter build appbundle --release
 
-      - name: Upload Artifacts
+      - name: Collect complete artifacts and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          for name in app-arm64-v8a-release.apk app-armeabi-v7a-release.apk app-x86_64-release.apk; do
+            test -s "build/app/outputs/flutter-apk/$name"
+            cp "build/app/outputs/flutter-apk/$name" release/
+          done
+          test -s build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab release/
+          (cd release && sha256sum *.apk *.aab > SHA256SUMS.txt)
+
+      - name: Save build artifacts for review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: Android-Release
-          path: |
-            build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
-            build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk
-            build/app/outputs/flutter-apk/app-x86_64-release.apk
-            build/app/outputs/bundle/release/app-release.aab
+          name: Android-${{ inputs.tag }}
+          path: release/
+          if-no-files-found: error
 
-      - name: Update Release with Artifacts
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
-        with:
-          artifacts: "build/app/outputs/flutter-apk/app-arm64-v8a-release.apk,build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk,build/app/outputs/flutter-apk/app-x86_64-release.apk,build/app/outputs/bundle/release/app-release.aab"
-          tag: ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          allowUpdates: true
-          makeLatest: true
-          omitBody: true
-          omitBodyDuringUpdate: true
-          omitNameDuringUpdate: true
-
-  build-ios:
-    name: Build iOS
-    runs-on: macos-26
-    needs: generate-release-notes
-    permissions:
-      contents: write
-
-    steps:
-        #1 Checkout Repository
-      - name: Checkout Repository
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-        with:
-          persist-credentials: false
-
-        #2 Setup Flutter
-      - name: Set Up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
-        with:
-          flutter-version: '3.47.1'
-          channel: 'stable'
-          cache: true
-
-        #3 Install Dependencies
-      - name: Install Dependencies
-        run: flutter pub get
-
-        #4 Setup Xcode
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
-        with:
-          xcode-version: 'latest-stable'
-
-        #5 Cache CocoaPods
-      - name: Cache CocoaPods
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-pods-
-
-      - name: Install CocoaPods
+      - name: Create draft prerelease after all checks and builds
+        shell: bash
         run: |
-          cd ios
-          pod install --verbose
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" release/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "OpenWrt Studio Mobile ${RELEASE_TAG#v}" \
+            --notes-file RELEASE_NOTES.md \
+            --draft \
+            --prerelease \
+            --latest=false
 
-        #6 Build iOS App
-      - name: Build iOS App
-        run: |
-          flutter build ios --release --no-codesign
-
-        #7 Create IPA from App Bundle
-      - name: Create IPA
-        run: |
-          mkdir -p build/ios/ipa
-          cd build/ios/Release-iphoneos
-          mkdir Payload
-          cp -r Runner.app Payload/
-          zip -r ../ipa/luci-mobile.ipa Payload
-          cd ../ipa
-
-        #8 Upload Artifacts
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: iOS-Release
-          path: |
-            build/ios/ipa/*.ipa
-
-        #9 Update Release
-      - name: Update Release with IPA
-        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
-        with:
-          artifacts: "build/ios/ipa/luci-mobile.ipa"
-          tag: ${{ github.ref_name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          allowUpdates: true
-          makeLatest: true
-          omitBody: true
-          omitBodyDuringUpdate: true
-          omitNameDuringUpdate: true
+      - name: Remove temporary signing files
+        if: always()
+        shell: bash
+        run: rm -f android/app/luci_mobile_keystore.jks android/key.properties

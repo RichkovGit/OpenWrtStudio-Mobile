@@ -47,184 +47,206 @@ class OtaInstallResult {
 }
 
 class OtaService {
-  static const MethodChannel _channel =
-      MethodChannel('com.openwrt.studio/notifications');
-  static const String repo = 'RichkovGit/OpenWrtStudio-Mobile';
-  static const String currentAppVersion = '2.5.16';
-
-  final Dio _dio = Dio(
-    BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 30),
-      headers: {
-        'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'OpenWrtStudio-Mobile-OTA',
-      },
-    ),
+  static const MethodChannel _defaultChannel = MethodChannel(
+    'com.openwrt.studio/notifications',
   );
+  static const String repo = 'RichkovGit/OpenWrtStudio-Mobile';
 
-  /// Checks GitHub Releases for updates
+  final Dio _dio;
+  final MethodChannel _channel;
+  final Future<String> Function()? _currentVersionProvider;
+  final Future<String?> Function()? _deviceAbiProvider;
+
+  OtaService({
+    Dio? dio,
+    MethodChannel? channel,
+    Future<String> Function()? currentVersionProvider,
+    Future<String?> Function()? deviceAbiProvider,
+  }) : _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 10),
+               receiveTimeout: const Duration(seconds: 30),
+               headers: {
+                 'Accept': 'application/vnd.github.v3+json',
+                 'User-Agent': 'OpenWrtStudio-Mobile-OTA',
+               },
+             ),
+           ),
+       _channel = channel ?? _defaultChannel,
+       _currentVersionProvider = currentVersionProvider,
+       _deviceAbiProvider = deviceAbiProvider;
+
+  /// Returns the newest stable release that can actually run on this device.
   Future<OtaReleaseInfo?> checkForUpdate() async {
     try {
-      final response =
-          await _dio.get('https://api.github.com/repos/$repo/releases');
+      final current = _parseVersion(await getCurrentVersion());
+      if (current == null) return null;
+      final response = await _dio.get(
+        'https://api.github.com/repos/$repo/releases',
+      );
       if (response.statusCode != 200 || response.data is! List) return null;
 
-      final releases = response.data as List;
-      if (releases.isEmpty) return null;
-
-      // Filter for mobile release tags
-      final latest = releases.firstWhere(
-        (r) => (r['tag_name'] ?? '').toString().contains('mobile'),
-        orElse: () => releases.first,
-      );
-
-      final tagName = (latest['tag_name'] ?? '').toString();
-      final body = (latest['body'] ?? '').toString();
-      final publishedAtStr = latest['published_at']?.toString() ?? '';
-      final publishedAt = DateTime.tryParse(publishedAtStr) ?? DateTime.now();
-      final isPrerelease = latest['prerelease'] == true;
-
-      // Extract version: e.g. "v2.5.6-mobile" -> "2.5.6"
-      final cleanVersion = _cleanVersion(tagName);
-
-      // Compare with current version
-      final currentVer = await getCurrentVersion();
-      if (!_isNewerVersion(cleanVersion, currentVer)) {
-        return null; // Current is up to date
-      }
-
-      // Determine optimal APK asset based on ABI
-      String targetAbi = 'arm64';
+      String? abi;
       try {
-        final abi = await _channel.invokeMethod<String>('getDeviceAbi');
-        if (abi != null) targetAbi = abi.toLowerCase();
-      } catch (_) {}
-
-      final assets = (latest['assets'] as List? ?? []);
-      Map<String, dynamic>? selectedAsset;
-
-      // Find best match
-      if (targetAbi.contains('arm64') || targetAbi.contains('aarch64')) {
-        selectedAsset = assets.firstWhere(
-          (a) => (a['name'] ?? '').toString().contains('arm64'),
-          orElse: () => null,
+        abi = _normalizeAbi(
+          _deviceAbiProvider != null
+              ? await _deviceAbiProvider()
+              : await _channel.invokeMethod<String>('getDeviceAbi'),
         );
-      } else if (targetAbi.contains('arm') || targetAbi.contains('v7')) {
-        selectedAsset = assets.firstWhere(
-          (a) => (a['name'] ?? '').toString().contains('armeabi'),
-          orElse: () => null,
-        );
+      } catch (_) {
+        /* Only a universal APK is safe when the ABI is unknown. */
       }
 
-      // Fallback to any APK
-      selectedAsset ??= assets.firstWhere(
-        (a) => (a['name'] ?? '').toString().endsWith('.apk'),
-        orElse: () => null,
-      );
-
-      if (selectedAsset == null) return null;
-
-      final downloadUrl =
-          selectedAsset['browser_download_url']?.toString() ?? '';
-      final sizeBytes = (selectedAsset['size'] as num?)?.toInt() ?? 0;
-
-      return OtaReleaseInfo(
-        tagName: tagName,
-        version: cleanVersion,
-        body: body,
-        apkUrl: downloadUrl,
-        apkSizeBytes: sizeBytes,
-        publishedAt: publishedAt,
-        isPrerelease: isPrerelease,
-      );
-    } catch (e, stack) {
+      final candidates = <({Map release, List<int> version})>[];
+      for (final release in (response.data as List).whereType<Map>()) {
+        if (release['draft'] == true || release['prerelease'] == true) continue;
+        final version = _parseVersion(release['tag_name']);
+        if (version != null && _compareVersions(version, current) > 0) {
+          candidates.add((release: release, version: version));
+        }
+      }
+      candidates.sort((a, b) => _compareVersions(b.version, a.version));
+      for (final candidate in candidates) {
+        final release = candidate.release;
+        final rawAssets = release['assets'];
+        if (rawAssets is! List) continue;
+        final assets = rawAssets.whereType<Map>().where((asset) {
+          final name = asset['name'];
+          final url = asset['browser_download_url'];
+          return name is String &&
+              name.toLowerCase().endsWith('.apk') &&
+              url is String &&
+              _isTrustedApkUrl(url);
+        }).toList();
+        Map? selected;
+        for (final asset in assets) {
+          if (abi != null && _assetAbi(asset['name'] as String) == abi) {
+            selected = asset;
+            break;
+          }
+        }
+        selected ??= assets.cast<Map?>().firstWhere(
+          (asset) => _isUniversalApk(asset!['name'] as String),
+          orElse: () => null,
+        );
+        if (selected == null) continue;
+        return OtaReleaseInfo(
+          tagName: release['tag_name'] as String,
+          version: candidate.version.join('.'),
+          body: release['body']?.toString() ?? '',
+          apkUrl: selected['browser_download_url'] as String,
+          apkSizeBytes: selected['size'] is num
+              ? (selected['size'] as num).toInt()
+              : 0,
+          publishedAt:
+              DateTime.tryParse(release['published_at']?.toString() ?? '') ??
+              DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        );
+      }
+      return null;
+    } catch (e) {
       Logger.error('OTA checkForUpdate error: $e');
       return null;
     }
   }
 
-  /// Downloads APK and initiates Android installation
+  /// Downloads into a private, unique staging directory before opening Android's installer.
   Future<OtaInstallResult> downloadAndInstall({
     required String downloadUrl,
     required String version,
     required void Function(double progress, int received, int total) onProgress,
     CancelToken? cancelToken,
   }) async {
+    Directory? stagingDirectory;
+    var keepDownload = false;
     try {
-      if (!downloadUrl.startsWith('https://')) {
+      final parsedVersion = _parseVersion(version);
+      if (!_isTrustedApkUrl(downloadUrl) || parsedVersion == null) {
         return const OtaInstallResult(
           OtaInstallStatus.downloadError,
-          'Небезопасный URL для загрузки обновления (требуется HTTPS)',
+          'Обновления должны быть APK из официального репозитория с корректным номером версии',
         );
       }
-
-      String? dirPath;
-      try {
-        dirPath = await _channel.invokeMethod<String>('getDownloadDir');
-      } catch (_) {}
-
-      if (dirPath != null && dirPath.isNotEmpty) {
-        final dir = Directory(dirPath);
-        if (!await dir.exists()) {
-          await dir.create(recursive: true);
-        }
+      final dirPath = await _channel.invokeMethod<String>('getDownloadDir');
+      if (dirPath == null || dirPath.isEmpty) {
+        return const OtaInstallResult(
+          OtaInstallStatus.downloadError,
+          'Не удалось получить папку загрузки приложения',
+        );
       }
-
-      dirPath ??= '/sdcard/Download';
-      final savePath = '$dirPath/OpenWrtStudio_Mobile_v$version.apk';
-
-      // Delete existing stale download
-      final f = File(savePath);
-      if (await f.exists()) {
-        try {
-          await f.delete();
-        } catch (_) {}
-      }
-
-      await _dio.download(
+      final parentDirectory = Directory(dirPath);
+      await parentDirectory.create(recursive: true);
+      stagingDirectory = await parentDirectory.createTemp('download-');
+      final file = File(
+        '${stagingDirectory.path}/OpenWrtStudio_Mobile_v${parsedVersion.join('.')}.apk',
+      );
+      final response = await _dio.download(
         downloadUrl,
-        savePath,
+        file.path,
         cancelToken: cancelToken,
+        deleteOnError: true,
         onReceiveProgress: (received, total) {
-          if (total > 0) {
-            final progress = (received / total).clamp(0.0, 1.0);
-            onProgress(progress, received, total);
-          }
+          onProgress(
+            total > 0 ? (received / total).clamp(0.0, 1.0) : 0.0,
+            received,
+            total,
+          );
         },
       );
-
-      // Verify file exists and has content
-      if (!await f.exists() || await f.length() == 0) {
+      if (cancelToken?.isCancelled == true) {
         return const OtaInstallResult(
           OtaInstallStatus.downloadError,
-          'Загруженный файл пуст или поврежден',
+          'Загрузка отменена',
         );
       }
-
-      // Call native install
+      final length = await file.length();
+      final expectedLength = int.tryParse(
+        response.headers.value(Headers.contentLengthHeader) ?? '',
+      );
+      if (length < 4 || (expectedLength != null && expectedLength != length)) {
+        return const OtaInstallResult(
+          OtaInstallStatus.downloadError,
+          'Загруженный файл пуст или загружен не полностью',
+        );
+      }
+      final signature = await file
+          .openRead(0, 4)
+          .fold<List<int>>([], (bytes, chunk) => bytes..addAll(chunk));
+      if (signature.length != 4 ||
+          signature[0] != 0x50 ||
+          signature[1] != 0x4b ||
+          signature[2] != 0x03 ||
+          signature[3] != 0x04) {
+        return const OtaInstallResult(
+          OtaInstallStatus.downloadError,
+          'Сервер вернул файл, не соответствующий формату APK',
+        );
+      }
       try {
-        final res = await _channel.invokeMethod<bool>('installApk', {
-          'filePath': savePath,
+        final result = await _channel.invokeMethod<bool>('installApk', {
+          'filePath': file.path,
         });
-        if (res == true) {
+        if (result == true) {
+          // Android opens the file asynchronously after the method channel returns.
+          keepDownload = true;
           return const OtaInstallResult(OtaInstallStatus.success);
-        } else {
-          return const OtaInstallResult(
-            OtaInstallStatus.installError,
-            'Установщик вернул ошибку запуска',
-          );
         }
-      } on PlatformException catch (pe) {
-        if (pe.code == 'PERMISSION_DENIED') {
+        return const OtaInstallResult(
+          OtaInstallStatus.installError,
+          'Установщик вернул ошибку запуска',
+        );
+      } on PlatformException catch (e) {
+        if (e.code == 'PERMISSION_DENIED') {
           return const OtaInstallResult(
             OtaInstallStatus.permissionRequired,
-            'Требуется разрешение на установку приложений из неизвестных источников. Откройте настройки и повторите установку.',
+            'Разрешите установку приложений из неизвестных источников и повторите установку.',
           );
         }
         return OtaInstallResult(
           OtaInstallStatus.installError,
-          pe.message ?? 'Ошибка вызова установщика',
+          e.message ?? 'Ошибка вызова установщика',
         );
       }
     } catch (e) {
@@ -233,6 +255,12 @@ class OtaService {
         OtaInstallStatus.downloadError,
         'Ошибка загрузки файла: $e',
       );
+    } finally {
+      if (!keepDownload && stagingDirectory != null) {
+        try {
+          await stagingDirectory.delete(recursive: true);
+        } catch (_) {}
+      }
     }
   }
 
@@ -244,46 +272,89 @@ class OtaService {
 
   Future<String> getCurrentVersion() async {
     try {
-      final info = await PackageInfo.fromPlatform();
-      return info.version.isNotEmpty ? info.version : currentAppVersion;
+      final version = _currentVersionProvider != null
+          ? await _currentVersionProvider()
+          : (await PackageInfo.fromPlatform()).version;
+      return _parseVersion(version) == null ? '' : version;
     } catch (_) {
-      return currentAppVersion;
+      // An unknown installed version must never be treated as an older release.
+      return '';
     }
   }
 
-  static String _cleanVersion(String tag) {
-    var s = tag.replaceFirst(RegExp(r'^v', caseSensitive: false), '');
-    s = s.replaceAll(RegExp(r'[-_]mobile', caseSensitive: false), '');
-    // Strip build number e.g. +1
-    if (s.contains('+')) {
-      s = s.split('+').first;
+  static List<int>? _parseVersion(Object? value) {
+    if (value is! String) return null;
+    final match = RegExp(
+      r'^v?(\d+)\.(\d+)\.(\d+)(?:[-_]mobile)?(?:\+\d+)?$',
+      caseSensitive: false,
+    ).firstMatch(value.trim());
+    if (match == null) return null;
+    final parts = <int>[];
+    for (var i = 1; i <= 3; i++) {
+      final part = int.tryParse(match.group(i)!);
+      if (part == null) return null;
+      parts.add(part);
     }
-    // Strip trailing suffix
-    if (s.contains('-')) {
-      s = s.split('-').first;
-    }
-    return s.trim();
+    return parts;
   }
 
-  static bool _isNewerVersion(String latest, String current) {
-    try {
-      final cleanLatest = _cleanVersion(latest);
-      final cleanCurrent = _cleanVersion(current);
+  static int _compareVersions(List<int> a, List<int> b) {
+    for (var i = 0; i < 3; i++) {
+      final comparison = a[i].compareTo(b[i]);
+      if (comparison != 0) return comparison;
+    }
+    return 0;
+  }
 
-      final lParts =
-          cleanLatest.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-      final cParts =
-          cleanCurrent.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+  static String? _normalizeAbi(String? abi) => switch (abi?.toLowerCase()) {
+    'arm64-v8a' || 'arm64' || 'aarch64' => 'arm64-v8a',
+    'armeabi-v7a' || 'armeabi' || 'armv7' || 'armv7l' => 'armeabi-v7a',
+    'x86_64' || 'amd64' => 'x86_64',
+    'x86' || 'i686' => 'x86',
+    _ => null,
+  };
 
-      for (var i = 0; i < 3; i++) {
-        final l = i < lParts.length ? lParts[i] : 0;
-        final c = i < cParts.length ? cParts[i] : 0;
-        if (l > c) return true;
-        if (l < c) return false;
+  static String? _assetAbi(String name) {
+    final lower = name.toLowerCase();
+    for (final entry in {
+      'arm64-v8a': r'arm64-v8a|arm64|aarch64',
+      'armeabi-v7a': r'armeabi-v7a|armeabi|armv7',
+      'x86_64': r'x86_64|amd64',
+      'x86': r'x86',
+    }.entries) {
+      if (RegExp('(^|[-_.])(?:${entry.value})([-_.]|\$)').hasMatch(lower)) {
+        return entry.key;
       }
-      return false;
-    } catch (_) {
-      return latest != current;
     }
+    return null;
+  }
+
+  static bool _isUniversalApk(String name) {
+    final lower = name.toLowerCase();
+    return lower == 'app-release.apk' ||
+        (_assetAbi(lower) == null &&
+            RegExp(r'(^|[-_.])universal([-_.]|$)').hasMatch(lower));
+  }
+
+  static bool _isTrustedApkUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null ||
+        uri.scheme != 'https' ||
+        uri.host.toLowerCase() != 'github.com' ||
+        uri.port != 443 ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      return false;
+    }
+    final segments = uri.pathSegments;
+    return segments.length == 6 &&
+        segments[0].toLowerCase() == 'richkovgit' &&
+        segments[1].toLowerCase() == 'openwrtstudio-mobile' &&
+        segments[2] == 'releases' &&
+        segments[3] == 'download' &&
+        segments[4].isNotEmpty &&
+        segments[5].toLowerCase().endsWith('.apk') &&
+        !segments[5].contains('/');
   }
 }

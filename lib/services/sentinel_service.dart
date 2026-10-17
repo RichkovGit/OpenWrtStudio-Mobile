@@ -53,8 +53,10 @@ fi
           ? res[1] as Map<String, dynamic>?
           : null;
       final stdout = data?['stdout'] as String? ?? '';
-      final lines =
-          stdout.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      final lines = stdout
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty);
 
       final statusMap = <String, (SentinelStatus, int?)>{};
       for (final line in lines) {
@@ -95,6 +97,7 @@ fi
     required bool useHttps,
   }) async {
     const healScript = r'''
+set -e
 /etc/init.d/dnsmasq restart >/dev/null 2>&1
 if [ -f /etc/init.d/mihomo ]; then
   /etc/init.d/mihomo restart >/dev/null 2>&1
@@ -117,7 +120,11 @@ echo "healed"
         command: '/bin/sh',
         params: ['-c', healScript],
       );
-      return res != null;
+      return res is List &&
+          res.length == 2 &&
+          res[0] == 0 &&
+          res[1] is Map &&
+          res[1]['code'] == 0;
     } catch (e) {
       Logger.error('Failed to run AutoHeal', e);
       return false;

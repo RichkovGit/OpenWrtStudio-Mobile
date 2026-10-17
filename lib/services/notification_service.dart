@@ -2,8 +2,9 @@ import 'package:flutter/services.dart';
 import 'package:luci_mobile/utils/logger.dart';
 
 class NotificationService {
-  static const MethodChannel _channel =
-      MethodChannel('com.openwrt.studio/notifications');
+  static const MethodChannel _channel = MethodChannel(
+    'com.openwrt.studio/notifications',
+  );
 
   /// Displays a native Android notification with high priority
   static Future<bool> showNotification({
@@ -27,9 +28,7 @@ class NotificationService {
   /// Cancels an active notification or all notifications
   static Future<void> cancelNotification([int? id]) async {
     try {
-      await _channel.invokeMethod('cancelNotification', {
-        if (id != null) 'id': id,
-      });
+      await _channel.invokeMethod('cancelNotification', {'id': ?id});
     } catch (e) {
       Logger.error('Failed to cancel notification: $e');
     }

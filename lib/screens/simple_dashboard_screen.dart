@@ -71,21 +71,25 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   // OTA update state
   OtaReleaseInfo? _availableOtaRelease;
   String _currentAppVer = '2.5.12';
+  Timer? _otaCheckTimer;
 
   @override
   void initState() {
     super.initState();
     _loadAll();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) _checkOtaQuietly();
+    _otaCheckTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) unawaited(_checkOtaQuietly());
     });
   }
 
+  @override
+  void dispose() {
+    _otaCheckTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadAll() async {
-    await Future.wait([
-      _loadWifiNetworks(),
-      _loadProtocolsState(),
-    ]);
+    await Future.wait([_loadWifiNetworks(), _loadProtocolsState()]);
   }
 
   Future<void> _checkOtaQuietly() async {
@@ -151,15 +155,17 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       final isIfaceDisabled =
           iface['disabled'] == '1' || iface['disabled'] == true;
 
-      list.add(SimpleWifiNetwork(
-        section: sec,
-        ssid: ssid,
-        key: key,
-        encryption: encryption,
-        device: device,
-        band: band,
-        isEnabled: !isRadioDisabled && !isIfaceDisabled,
-      ));
+      list.add(
+        SimpleWifiNetwork(
+          section: sec,
+          ssid: ssid,
+          key: key,
+          encryption: encryption,
+          device: device,
+          band: band,
+          isEnabled: !isRadioDisabled && !isIfaceDisabled,
+        ),
+      );
     });
 
     return list;
@@ -208,7 +214,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     final uciConfig = appState.dashboardData?['uciWirelessConfig'];
     if (uciConfig is Map && uciConfig['values'] is Map) {
       networks = _parseWifiFromUciValues(
-          Map<String, dynamic>.from(uciConfig['values'] as Map));
+        Map<String, dynamic>.from(uciConfig['values'] as Map),
+      );
     }
 
     // 2. If empty or not loaded yet, query live router config
@@ -253,8 +260,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         useHttps: appState.useHttps,
       );
 
-      final available =
-          items.where((p) => p.isInstalled || p.isRunning).toList();
+      final available = items
+          .where((p) => p.isInstalled || p.isRunning)
+          .toList();
       final list = available.isNotEmpty ? available : items;
       final active = list.where((p) => p.isRunning).firstOrNull;
 
@@ -417,13 +425,16 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Отмена')),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Отмена'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Перезагрузить',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Перезагрузить',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -440,61 +451,48 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
     final isOnline = appState.isConnected;
+    final compactHeader =
+        MediaQuery.sizeOf(context).width <
+        560 * MediaQuery.textScalerOf(context).scale(1);
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 16,
         title: const Row(
           children: [
             Icon(Icons.router, size: 24, color: Color(0xFF00D2FF)),
             SizedBox(width: 10),
-            Text('OpenWrt Studio',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Expanded(
+              child: Text(
+                'OpenWrt Studio',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
           ],
         ),
-        actions: [
-          // Mode switcher
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GestureDetector(
-                  onTap: () {},
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00D2FF),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Text(
-                      '⚡ Простой',
-                      style: TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12),
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: widget.onSwitchToExpert,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    child: const Text('🛠️ Эксперт',
-                        style: TextStyle(color: Colors.white70, fontSize: 12)),
-                  ),
+        actions: compactHeader
+            ? null
+            : [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: _buildModeSelector(),
                 ),
               ],
-            ),
-          ),
-        ],
+        bottom: compactHeader
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SizedBox(
+                    height: 48,
+                    width: double.infinity,
+                    child: _buildModeSelector(expanded: true),
+                  ),
+                ),
+              )
+            : null,
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -528,6 +526,27 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     );
   }
 
+  Widget _buildModeSelector({bool expanded = false}) => SegmentedButton<bool>(
+    expandedInsets: expanded ? EdgeInsets.zero : null,
+    showSelectedIcon: false,
+    segments: const [
+      ButtonSegment(
+        value: false,
+        icon: Icon(Icons.bolt),
+        label: Text('Простой'),
+      ),
+      ButtonSegment(
+        value: true,
+        icon: Icon(Icons.tune),
+        label: Text('Эксперт'),
+      ),
+    ],
+    selected: const {false},
+    onSelectionChanged: (selection) {
+      if (selection.contains(true)) widget.onSwitchToExpert();
+    },
+  );
+
   Widget _buildOtaBanner() {
     if (_availableOtaRelease == null) return const SizedBox.shrink();
     return Container(
@@ -535,14 +554,12 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0F2A38),
-            Color(0xFF13384D),
-          ],
+          colors: [Color(0xFF0F2A38), Color(0xFF13384D)],
         ),
         borderRadius: BorderRadius.circular(16),
-        border:
-            Border.all(color: const Color(0xFF00D2FF).withValues(alpha: 0.5)),
+        border: Border.all(
+          color: const Color(0xFF00D2FF).withValues(alpha: 0.5),
+        ),
       ),
       child: Row(
         children: [
@@ -552,17 +569,21 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.system_update,
-                color: Color(0xFF00D2FF), size: 22),
+            child: const Icon(
+              Icons.system_update,
+              color: Color(0xFF00D2FF),
+              size: 22,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Доступно обновление!',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                const Text(
+                  'Доступно обновление!',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
                 const SizedBox(height: 2),
                 Text(
                   'Версия v${_availableOtaRelease!.version}',
@@ -578,7 +599,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               OtaUpdateDialog.show(
@@ -587,8 +609,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 currentVersion: _currentAppVer,
               );
             },
-            child: const Text('Обновить',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            child: const Text(
+              'Обновить',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
           ),
         ],
       ),
@@ -649,7 +673,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                         ? 'Подключено к роутеру'
                         : 'Нет подключения к сети',
                     style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -673,9 +699,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
               child: Text(
                 isOnline ? 'В СЕТИ' : 'ОФЛАЙН',
                 style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -723,47 +750,53 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF00D2FF).withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.security_rounded,
-                        color: Color(0xFF00D2FF),
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'VPN и Протоколы обхода',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFF00D2FF,
+                          ).withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          activeRunning != null
-                              ? '🟢 Активен: ${activeRunning.name}'
-                              : '⚪ Все службы остановлены',
-                          style: TextStyle(
-                            color: activeRunning != null
-                                ? Colors.greenAccent
-                                : Colors.grey.shade400,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        child: const Icon(
+                          Icons.security_rounded,
+                          color: Color(0xFF00D2FF),
+                          size: 22,
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'VPN и Протоколы обхода',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              activeRunning != null
+                                  ? '🟢 Активен: ${activeRunning.name}'
+                                  : '⚪ Все службы остановлены',
+                              style: TextStyle(
+                                color: activeRunning != null
+                                    ? Colors.greenAccent
+                                    : Colors.grey.shade400,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 if (_isSwitchingProtocol || _isLoadingForkopAction)
                   const SizedBox(
@@ -774,7 +807,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 else if (selectedProto != null)
                   Switch(
                     value: isSelectedRunning,
-                    activeColor: const Color(0xFF00D2FF),
+                    activeThumbColor: const Color(0xFF00D2FF),
                     onChanged: (_) => _toggleProtocolService(selectedProto),
                   ),
               ],
@@ -798,8 +831,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       padding: const EdgeInsets.only(right: 6),
                       child: ChoiceChip(
                         selected: isSel,
-                        selectedColor:
-                            const Color(0xFF00D2FF).withValues(alpha: 0.25),
+                        selectedColor: const Color(
+                          0xFF00D2FF,
+                        ).withValues(alpha: 0.25),
                         avatar: isRun
                             ? const Icon(
                                 Icons.circle,
@@ -814,8 +848,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                                 ? const Color(0xFF00D2FF)
                                 : (isRun ? Colors.greenAccent : Colors.white70),
                             fontSize: 12,
-                            fontWeight:
-                                isSel ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSel
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                         onSelected: (val) {
@@ -963,8 +998,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                           final isCurrent = _selectedPreset == nodeName;
                           return ChoiceChip(
                             selected: isCurrent,
-                            selectedColor:
-                                const Color(0xFF00D2FF).withValues(alpha: 0.25),
+                            selectedColor: const Color(
+                              0xFF00D2FF,
+                            ).withValues(alpha: 0.25),
                             label: Text(
                               nodeName,
                               style: TextStyle(
@@ -990,8 +1026,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
             const SizedBox(height: 8),
             // Bottom Link: Open all protocols management
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 if (selectedProto?.id == 'forkop' ||
                     selectedProto?.id == 'sing-box')
@@ -1007,13 +1045,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const ForkopScreen(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const ForkopScreen()),
                       ).then((_) => _loadProtocolsState());
                     },
                   ),
-                const Spacer(),
                 TextButton.icon(
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.grey.shade400,
@@ -1052,20 +1087,29 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.wifi, color: Colors.tealAccent, size: 24),
-                    SizedBox(width: 8),
-                    Text('Беспроводная сеть Wi-Fi',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.wifi, color: Colors.tealAccent, size: 24),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Беспроводная сеть Wi-Fi',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 if (_isLoadingWifi)
                   const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
               ],
             ),
             const SizedBox(height: 12),
@@ -1138,7 +1182,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       child: Text(
                         net.ssid,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1155,9 +1201,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                 child: Text(
                   net.band,
                   style: const TextStyle(
-                      color: Color(0xFF00D2FF),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold),
+                    color: Color(0xFF00D2FF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -1166,15 +1213,18 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Пароль:',
-                  style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const Text(
+                'Пароль:',
+                style: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
               if (!hasPassword)
                 const Text(
                   'Без пароля (Открытая сеть)',
                   style: TextStyle(
-                      color: Colors.orangeAccent,
-                      fontSize: 12,
-                      fontStyle: FontStyle.italic),
+                    color: Colors.orangeAccent,
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
                 )
               else
                 Row(
@@ -1183,16 +1233,18 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                     Text(
                       net.showPassword ? net.key : '••••••••••••',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          fontFamily: 'monospace'),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontFamily: 'monospace',
+                      ),
                     ),
                     IconButton(
                       icon: Icon(
-                          net.showPassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                          size: 18),
+                        net.showPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        size: 18,
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       constraints: const BoxConstraints(),
                       onPressed: () {
@@ -1229,8 +1281,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Быстрые действия',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Быстрые действия',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -1241,7 +1295,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       side: const BorderSide(color: Colors.orangeAccent),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     icon: const Icon(Icons.restart_alt),
                     label: const Text('Перезагрузка'),
@@ -1256,7 +1311,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       side: const BorderSide(color: Color(0xFF00D2FF)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                     icon: const Icon(Icons.build_outlined),
                     label: const Text('Все опции (Эксперт)'),

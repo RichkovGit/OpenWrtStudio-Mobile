@@ -559,105 +559,92 @@ class RealApiService implements IApiService {
       method: 'getWirelessDevices',
       detail: 'invalid response',
     );
+    dynamic wirelessResult;
+    Object? firstError;
+    StackTrace? firstStack;
     try {
-      // First, get wireless device information to find all wireless interfaces
-      final wirelessResult = await callWithContext(
-        ipAddress,
-        sysauth,
-        useHttps,
+      wirelessResult = validateRpcResult(
+        await callWithContext(
+          ipAddress,
+          sysauth,
+          useHttps,
+          object: 'luci-rpc',
+          method: 'getWirelessDevices',
+          context: context,
+        ),
         object: 'luci-rpc',
         method: 'getWirelessDevices',
-        context: context,
       );
-
-      if (wirelessResult is List &&
-          wirelessResult.length > 1 &&
-          wirelessResult[0] == 0) {
-        final data = wirelessResult[1];
-        if (data is! Map<String, dynamic>) {
-          throw invalidResponse;
-        }
-        final wirelessData = data;
-
-        final result = <String, Set<String>>{};
-        Object? firstError;
-        StackTrace? firstStack;
-        var attempted = 0;
-        var succeeded = 0;
-
-        // For each wireless radio, get the associated stations
-        for (final entry in wirelessData.entries) {
-          final radioData = entry.value;
-          if (radioData is! Map<String, dynamic>) throw invalidResponse;
-          final rawInterfaces = radioData['interfaces'];
-          if (rawInterfaces == null) continue;
-          if (rawInterfaces is! List) throw invalidResponse;
-
-          for (final iface in rawInterfaces) {
-            if (iface is! Map<String, dynamic>) throw invalidResponse;
-            final config = iface['config'];
-            if (config != null && config is! Map) throw invalidResponse;
-            if (config is Map && config['mode'] == 'sta') continue;
-            final ifname = iface['ifname'];
-            if (ifname == null) continue;
-            if (ifname is! String) throw invalidResponse;
-            attempted++;
-            try {
-              final stations = await fetchAssociatedStationsWithContext(
-                ipAddress: ipAddress,
-                sysauth: sysauth,
-                useHttps: useHttps,
-                interface: ifname,
-                context: context?.mounted == true ? context : null,
-              );
-              succeeded++;
-              if (stations.isNotEmpty) {
-                result[ifname] = stations.toSet();
-              }
-            } catch (e, stack) {
-              firstError ??= e;
-              firstStack ??= stack;
-            }
-          }
-        }
-        if (result.isEmpty) {
-          for (final fallbackIface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1']) {
-            try {
-              final stations = await fetchAssociatedStationsWithContext(
-                ipAddress: ipAddress,
-                sysauth: sysauth,
-                useHttps: useHttps,
-                interface: fallbackIface,
-                context: context?.mounted == true ? context : null,
-              );
-              if (stations.isNotEmpty) {
-                result[fallbackIface] = stations.toSet();
-              }
-            } catch (_) {}
-          }
-        }
-        return result;
+    } catch (e, stack) {
+      // A malformed successful response is not evidence of an empty radio.
+      if (e is RpcException &&
+          e.status == null &&
+          e.detail == 'invalid response') {
+        rethrow;
       }
-      throw invalidResponse;
-    } catch (e) {
-      Logger.warning('Failed to fetch wireless devices: $e');
-      final fallbackResult = <String, Set<String>>{};
-      for (final fallbackIface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1']) {
-        try {
-          final stations = await fetchAssociatedStationsWithContext(
-            ipAddress: ipAddress,
-            sysauth: sysauth,
-            useHttps: useHttps,
-            interface: fallbackIface,
-            context: context?.mounted == true ? context : null,
-          );
-          if (stations.isNotEmpty) {
-            fallbackResult[fallbackIface] = stations.toSet();
-          }
-        } catch (_) {}
-      }
-      return fallbackResult;
+      firstError = e;
+      firstStack = stack;
+      Logger.warning('Wireless device discovery failed: $e');
     }
+
+    final interfaces = <String>{};
+    if (wirelessResult != null) {
+      final data = wirelessResult.length > 1 ? wirelessResult[1] : null;
+      if (data is! Map) throw invalidResponse;
+      // Validate the complete payload before returning any partial result.
+      for (final radioData in data.values) {
+        if (radioData is! Map) throw invalidResponse;
+        final rawInterfaces = radioData['interfaces'];
+        if (rawInterfaces == null) continue;
+        if (rawInterfaces is! List) throw invalidResponse;
+        for (final iface in rawInterfaces) {
+          if (iface is! Map) throw invalidResponse;
+          final config = iface['config'];
+          if (config != null && config is! Map) throw invalidResponse;
+          if (config is Map && config['mode'] == 'sta') continue;
+          final ifname = iface['ifname'];
+          if (ifname == null) continue;
+          if (ifname is! String || ifname.isEmpty) throw invalidResponse;
+          interfaces.add(ifname);
+        }
+      }
+    }
+
+    final result = <String, Set<String>>{};
+    final attempted = <String>{};
+    var succeeded = 0;
+    Future<void> queryInterface(String ifname) async {
+      if (!attempted.add(ifname)) return;
+      try {
+        final stations = await fetchAssociatedStationsWithContext(
+          ipAddress: ipAddress,
+          sysauth: sysauth,
+          useHttps: useHttps,
+          interface: ifname,
+          context: context?.mounted == true ? context : null,
+        );
+        succeeded++;
+        if (stations.isNotEmpty) result[ifname] = stations.toSet();
+      } catch (e, stack) {
+        firstError ??= e;
+        firstStack ??= stack;
+      }
+    }
+
+    for (final ifname in interfaces) {
+      await queryInterface(ifname);
+    }
+    // Some firmware lacks luci-rpc discovery but still provides iwinfo/hostapd.
+    // A validated empty association list already counts as a successful query.
+    if (succeeded == 0 && firstError != null) {
+      for (final fallbackIface in ['phy0-ap0', 'phy1-ap0', 'wlan0', 'wlan1']) {
+        await queryInterface(fallbackIface);
+      }
+    }
+    if (succeeded == 0 && firstError != null) {
+      Error.throwWithStackTrace(firstError!, firstStack!);
+    }
+    return result;
   }
 
   /// Fetches associated stations (wireless clients) for a given wireless interface (e.g., wlan0)
@@ -674,57 +661,82 @@ class RealApiService implements IApiService {
       method: 'assoclist',
       detail: 'invalid response',
     );
+    Object? firstError;
+    StackTrace? firstStack;
+    var emptyIwinfoResponse = false;
+    final macPattern = RegExp(r'^(?:[0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$');
     try {
-      final result = await callWithContext(
-        ipAddress,
-        sysauth,
-        useHttps,
+      final result = validateRpcResult(
+        await callWithContext(
+          ipAddress,
+          sysauth,
+          useHttps,
+          object: 'iwinfo',
+          method: 'assoclist',
+          params: {'device': interface},
+          context: context,
+        ),
         object: 'iwinfo',
         method: 'assoclist',
-        params: {'device': interface},
-        context: context,
       );
-      // Handle LuCI RPC format: [status, data]
-      if (result is List && result.length > 1 && result[0] == 0) {
-        final data = result[1];
-        if (data is Map && data['results'] is List) {
-          final resultsList = data['results'] as List;
-          final macs = <String>[];
-          for (final entry in resultsList) {
-            if (entry is Map && entry['mac'] != null) {
-              macs.add(entry['mac'].toString());
-            }
-          }
-          if (macs.isNotEmpty) return macs;
-        }
+      final data = result.length > 1 ? result[1] : null;
+      if (data is! Map || data['results'] is! List) throw invalidResponse;
+      final macs = <String>[];
+      for (final entry in data['results'] as List) {
+        final mac = entry is Map ? entry['mac'] : null;
+        if (mac is! String || !macPattern.hasMatch(mac)) throw invalidResponse;
+        macs.add(mac);
       }
-    } catch (e) {
+      if (macs.isNotEmpty) return macs;
+      emptyIwinfoResponse = true;
+    } catch (e, stack) {
+      firstError = e;
+      firstStack = stack;
       Logger.warning('iwinfo assoclist failed for $interface: $e');
     }
 
     // Fallback to hostapd.<interface> get_clients (MediaTek MT79xx / mac80211)
     try {
-      final hostapdResult = await callWithContext(
-        ipAddress,
-        sysauth,
-        useHttps,
+      final hostapdResult = validateRpcResult(
+        await callWithContext(
+          ipAddress,
+          sysauth,
+          useHttps,
+          object: 'hostapd.$interface',
+          method: 'get_clients',
+          params: {},
+          context: context?.mounted == true ? context : null,
+        ),
         object: 'hostapd.$interface',
         method: 'get_clients',
-        params: {},
-        context: context,
       );
-      if (hostapdResult is List && hostapdResult.length > 1 && hostapdResult[0] == 0) {
-        final data = hostapdResult[1];
-        if (data is Map && data['clients'] is Map) {
-          final clientsMap = data['clients'] as Map;
-          return clientsMap.keys.map((k) => k.toString()).toList();
-        }
+      final data = hostapdResult.length > 1 ? hostapdResult[1] : null;
+      if (data is! Map || data['clients'] is! Map) {
+        throw RpcException(
+          object: 'hostapd.$interface',
+          method: 'get_clients',
+          detail: 'invalid response',
+        );
       }
-    } catch (e) {
+      final macs = <String>[];
+      for (final mac in (data['clients'] as Map).keys) {
+        if (mac is! String || !macPattern.hasMatch(mac)) {
+          throw RpcException(
+            object: 'hostapd.$interface',
+            method: 'get_clients',
+            detail: 'invalid response',
+          );
+        }
+        macs.add(mac);
+      }
+      return macs;
+    } catch (e, stack) {
+      firstError ??= e;
+      firstStack ??= stack;
       Logger.warning('hostapd.$interface get_clients failed: $e');
     }
-
-    return [];
+    if (emptyIwinfoResponse) return [];
+    Error.throwWithStackTrace(firstError, firstStack);
   }
 
   @override

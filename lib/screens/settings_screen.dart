@@ -63,9 +63,7 @@ class SettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
                       child: Text(
                         context.l10n.theme,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -95,10 +93,9 @@ class SettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text(
                         'Цветовая схема (OpenWrt Studio)',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                     Padding(
@@ -113,7 +110,8 @@ class SettingsScreen extends ConsumerWidget {
                           final name = entry.value.$1;
                           final color = entry.value.$2;
                           final isSelected =
-                              appState.accentColor.value == color.value;
+                              appState.accentColor.toARGB32() ==
+                              color.toARGB32();
                           return InkWell(
                             onTap: () => appState.setAccentColor(color),
                             borderRadius: BorderRadius.circular(16),
@@ -126,8 +124,9 @@ class SettingsScreen extends ConsumerWidget {
                                 color: color.withAlpha(isSelected ? 50 : 20),
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color:
-                                      isSelected ? color : Colors.transparent,
+                                  color: isSelected
+                                      ? color
+                                      : Colors.transparent,
                                   width: 2,
                                 ),
                               ),
@@ -167,9 +166,7 @@ class SettingsScreen extends ConsumerWidget {
                           Expanded(
                             child: Text(
                               'Масштаб интерфейса и шрифта',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -177,8 +174,10 @@ class SettingsScreen extends ConsumerWidget {
                             TextButton.icon(
                               onPressed: () => appState.setUiScale(1.0),
                               icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text('100%',
-                                  style: TextStyle(fontSize: 12)),
+                              label: const Text(
+                                '100%',
+                                style: TextStyle(fontSize: 12),
+                              ),
                               style: TextButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -196,10 +195,8 @@ class SettingsScreen extends ConsumerWidget {
                       child: Text(
                         'Регулирует размер текста и элементов приложения (${(appState.uiScale * 100).round()}%)',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
-                            ),
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 6),
@@ -252,13 +249,29 @@ class SettingsScreen extends ConsumerWidget {
                         runSpacing: 8,
                         children: [
                           _buildScaleChip(
-                              context, appState, 0.85, '85% Мелкий'),
+                            context,
+                            appState,
+                            0.85,
+                            '85% Мелкий',
+                          ),
                           _buildScaleChip(
-                              context, appState, 0.90, '90% Компакт'),
+                            context,
+                            appState,
+                            0.90,
+                            '90% Компакт',
+                          ),
                           _buildScaleChip(
-                              context, appState, 1.00, '100% Стандарт'),
+                            context,
+                            appState,
+                            1.00,
+                            '100% Стандарт',
+                          ),
                           _buildScaleChip(
-                              context, appState, 1.15, '115% Крупный'),
+                            context,
+                            appState,
+                            1.15,
+                            '115% Крупный',
+                          ),
                         ],
                       ),
                     ),
@@ -267,16 +280,14 @@ class SettingsScreen extends ConsumerWidget {
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest
-                              .withAlpha(80),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest.withAlpha(80),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant
-                                .withAlpha(80),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.outlineVariant.withAlpha(80),
                           ),
                         ),
                         child: Row(
@@ -300,13 +311,11 @@ class SettingsScreen extends ConsumerWidget {
                                   ),
                                   Text(
                                     'Шрифт адаптируется на всех экранах устройства.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
+                                    style: Theme.of(context).textTheme.bodySmall
                                         ?.copyWith(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                   ),
                                 ],
@@ -321,9 +330,7 @@ class SettingsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                       child: Text(
                         context.l10n.dashboard,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                        style: Theme.of(context).textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -340,15 +347,16 @@ class SettingsScreen extends ConsumerWidget {
                         leading: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color:
-                                Theme.of(context).colorScheme.primaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Icon(
                             Icons.dashboard_customize,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer,
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.onPrimaryContainer,
                             size: 24,
                           ),
                         ),
@@ -380,9 +388,7 @@ class SettingsScreen extends ConsumerWidget {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
                         child: Text(
                           context.l10n.reviewerMode,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -408,10 +414,12 @@ class SettingsScreen extends ConsumerWidget {
                           icon: const Icon(Icons.exit_to_app),
                           label: Text(context.l10n.exitReviewerMode),
                           style: FilledButton.styleFrom(
-                            backgroundColor:
-                                Theme.of(context).colorScheme.error,
-                            foregroundColor:
-                                Theme.of(context).colorScheme.onError,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onError,
                           ),
                         ),
                       ),

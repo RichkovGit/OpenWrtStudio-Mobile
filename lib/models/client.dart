@@ -159,8 +159,9 @@ class Client {
 
     List<String>? ipv6Addresses;
     if (lease['ipv6addrs'] != null && lease['ipv6addrs'] is List) {
-      ipv6Addresses =
-          (lease['ipv6addrs'] as List).map((e) => e.toString()).toList();
+      ipv6Addresses = (lease['ipv6addrs'] as List)
+          .map((e) => e.toString())
+          .toList();
     } else if (lease['ipv6addr'] != null) {
       // Some APIs may use a single string or a comma-separated string
       final v6 = lease['ipv6addr'];
@@ -178,7 +179,8 @@ class Client {
     return Client(
       ipAddress: toStringValue(lease['ipaddr']) ?? 'N/A',
       macAddress: toStringValue(lease['macaddr']) ?? 'N/A',
-      hostname: toStringValue(lease['hostname']) ??
+      hostname:
+          toStringValue(lease['hostname']) ??
           toStringValue(lease['name']) ??
           'Unknown',
       hostId: toStringValue(lease['hostid']),

@@ -156,7 +156,15 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
     required String serviceName,
     required String action, // 'start', 'stop', 'restart'
   }) async {
-    const allowedActions = {'start', 'stop', 'restart', 'reload', 'status', 'enable', 'disable'};
+    const allowedActions = {
+      'start',
+      'stop',
+      'restart',
+      'reload',
+      'status',
+      'enable',
+      'disable',
+    };
     final cleanAction = action.trim().toLowerCase();
     if (!allowedActions.contains(cleanAction)) return false;
     final cleanService = serviceName.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
@@ -256,7 +264,8 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
         .toList();
     if (safePkgs.isEmpty) return false;
     final pkgs = safePkgs.join(' ');
-    final script = '''
+    final script =
+        '''
 if command -v apk >/dev/null 2>&1; then
   apk add $pkgs
 elif command -v opkg >/dev/null 2>&1; then

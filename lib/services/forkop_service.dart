@@ -10,14 +10,22 @@ class ForkopService {
   final IApiService apiService;
   final Dio dio;
 
+  static bool _executionSucceeded(dynamic response) =>
+      response is List &&
+      response.length == 2 &&
+      response[0] == 0 &&
+      response[1] is Map &&
+      response[1]['code'] == 0;
+
   ForkopService({required this.apiService, Dio? dioClient})
-      : dio = dioClient ??
-            Dio(
-              BaseOptions(
-                connectTimeout: const Duration(seconds: 4),
-                receiveTimeout: const Duration(seconds: 6),
-              ),
-            );
+    : dio =
+          dioClient ??
+          Dio(
+            BaseOptions(
+              connectTimeout: const Duration(seconds: 4),
+              receiveTimeout: const Duration(seconds: 6),
+            ),
+          );
 
   static final Map<String, String> _knownGroupLabels = {
     'main-priority-main_priority-out': 'Приоритет: Blanc -> Stealth -> Free',
@@ -43,7 +51,7 @@ class ForkopService {
           ...Map<String, dynamic>.from(data),
           'name': nodeName,
           'label': label,
-          if (rawType != null) 'type': rawType,
+          'type': ?rawType,
         });
         nodes.add(node);
       }
@@ -103,7 +111,7 @@ class ForkopService {
         command: '/bin/sh',
         params: [
           '-c',
-          '[ -x /usr/bin/forkop ] && /usr/bin/forkop clash_api get_proxies'
+          '[ -x /usr/bin/forkop ] && /usr/bin/forkop clash_api get_proxies',
         ],
       );
       if (res is List && res.length > 1) {
@@ -125,7 +133,8 @@ class ForkopService {
       }
     } catch (e) {
       Logger.debug(
-          'Router forkop clash_api CLI fetch failed ($e), trying cache');
+        'Router forkop clash_api CLI fetch failed ($e), trying cache',
+      );
     }
 
     // 3. Try ForkOP section cache via ubus file.read (/var/run/forkop/section-cache/main.json)
@@ -152,8 +161,9 @@ class ForkopService {
           if (servers is Map) {
             servers.forEach((tag, srv) {
               final tagName = tag.toString();
-              final meta =
-                  outMeta[tagName] is Map ? outMeta[tagName] as Map : null;
+              final meta = outMeta[tagName] is Map
+                  ? outMeta[tagName] as Map
+                  : null;
               final nodeType = meta?['type']?.toString() ?? 'vless';
               nodes.add(
                 ForkopNode(
@@ -323,7 +333,8 @@ fi
     int controllerPort = 9090,
     String? secret,
   }) async {
-    final targetGroup = (groupName == null ||
+    final targetGroup =
+        (groupName == null ||
             groupName.isEmpty ||
             groupName.toUpperCase() == 'GLOBAL')
         ? 'main-priority-main_priority-out'
@@ -358,13 +369,15 @@ fi
       try {
         final safeTarget = nodeName.replaceAll("'", r"'\''");
         final safeGroup = targetGroup.replaceAll("'", r"'\''");
-        final script = '''
-/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget' 2>/dev/null || true
-/usr/bin/forkop clash_api set_group_proxy main-out '$safeTarget' 2>/dev/null || true
-uci set forkop.vpn_proxy.selected_node='$safeTarget' 2>/dev/null || true
-uci commit forkop 2>/dev/null || true
-echo 0
-''';
+        // Only inferred groups may fall back to the legacy main-out selector.
+        // Recording a UCI value does not establish that a live selector changed.
+        final inferredGroup =
+            groupName == null ||
+            groupName.isEmpty ||
+            groupName.toUpperCase() == 'GLOBAL';
+        final script =
+            "/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget'"
+            '${inferredGroup ? " || /usr/bin/forkop clash_api set_group_proxy main-out '$safeTarget'" : ""}';
         final res = await apiService.systemExec(
           routerIp,
           sysauth,
@@ -373,15 +386,11 @@ echo 0
           params: ['-c', script],
         );
 
-        if (res is List && res.length > 1) {
-          final data = res[1] as Map<String, dynamic>?;
-          final stdout = (data?['stdout'] as String? ?? '').trim();
-          if (stdout.endsWith('0')) {
-            success = true;
-            Logger.info(
-              'Successfully selected node $nodeName via router forkop CLI',
-            );
-          }
+        if (_executionSucceeded(res)) {
+          success = true;
+          Logger.info(
+            'Successfully selected node $nodeName via router forkop CLI',
+          );
         }
       } catch (e) {
         Logger.error('Router CLI fallback selectNode failed', e);
@@ -428,16 +437,17 @@ echo 0
   }) async {
     try {
       final trimmedUrl = subscriptionUrl.trim();
-      if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+      if (!trimmedUrl.startsWith('http://') &&
+          !trimmedUrl.startsWith('https://')) {
         Logger.error('Invalid subscription URL format: $subscriptionUrl');
         return false;
       }
 
       final safeUrl = "'${trimmedUrl.replaceAll("'", r"'\''")}'";
       final safeTarget = "'${targetPath.replaceAll("'", r"'\''")}'";
-      final script = '''
-curl -k -s -L $safeUrl -o $safeTarget.tmp && mv $safeTarget.tmp $safeTarget && /etc/init.d/mihomo restart >/dev/null 2>&1
-echo \$?
+      final script =
+          '''
+curl -f -k -s -L $safeUrl -o $safeTarget.tmp && mv $safeTarget.tmp $safeTarget && /etc/init.d/mihomo restart >/dev/null 2>&1
 ''';
       final res = await apiService.systemExec(
         routerIp,
@@ -446,11 +456,7 @@ echo \$?
         command: '/bin/sh',
         params: ['-c', script],
       );
-      final data = res is List && res.length > 1
-          ? res[1] as Map<String, dynamic>?
-          : null;
-      final stdout = (data?['stdout'] as String? ?? '').trim();
-      return stdout.endsWith('0');
+      return _executionSucceeded(res);
     } catch (e) {
       Logger.error('Failed to update subscription on router', e);
       return false;
@@ -516,7 +522,7 @@ echo \$?
           '[ -x /usr/bin/forkop ] && /usr/bin/forkop restart || /etc/init.d/forkop restart',
         ],
       );
-      return res is List && res.isNotEmpty && res[0] == 0;
+      return _executionSucceeded(res);
     } catch (e) {
       Logger.error('Failed to restart forkop', e);
       return false;
@@ -540,7 +546,7 @@ echo \$?
           '[ -x /usr/bin/forkop ] && /usr/bin/forkop stop || /etc/init.d/forkop stop',
         ],
       );
-      return res is List && res.isNotEmpty && res[0] == 0;
+      return _executionSucceeded(res);
     } catch (e) {
       Logger.error('Failed to stop forkop', e);
       return false;
@@ -564,7 +570,7 @@ echo \$?
           '[ -x /usr/bin/forkop ] && /usr/bin/forkop start || /etc/init.d/forkop start',
         ],
       );
-      return res is List && res.isNotEmpty && res[0] == 0;
+      return _executionSucceeded(res);
     } catch (e) {
       Logger.error('Failed to start forkop', e);
       return false;
@@ -588,7 +594,7 @@ echo \$?
           '[ -x /usr/bin/forkop ] && /usr/bin/forkop reload || /etc/init.d/forkop reload',
         ],
       );
-      return res is List && res.isNotEmpty && res[0] == 0;
+      return _executionSucceeded(res);
     } catch (e) {
       Logger.error('Failed to reload forkop', e);
       return false;
@@ -614,7 +620,7 @@ echo \$?
           '[ -x /usr/bin/forkop ] && /usr/bin/forkop $cmd || /etc/init.d/forkop $cmd',
         ],
       );
-      return res is List && res.isNotEmpty && res[0] == 0;
+      return _executionSucceeded(res);
     } catch (e) {
       Logger.error('Failed to toggle forkop autostart', e);
       return false;

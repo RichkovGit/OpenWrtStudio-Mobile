@@ -24,10 +24,7 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
     final appState = ref.read(appStateProvider);
 
     try {
-      final res = await appState.systemExec(
-        command: '/bin/ps',
-        params: ['-w'],
-      );
+      final res = await appState.systemExec(command: '/bin/ps', params: ['-w']);
 
       final list = <Map<String, dynamic>>[];
       if (res is List && res.length > 1 && res[1] is Map) {
@@ -62,13 +59,11 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
 
   Future<void> _killProcess(String pid, int signal, String actionName) async {
     final appState = ref.read(appStateProvider);
-    await appState.systemExec(
-      command: '/bin/kill',
-      params: ['-$signal', pid],
-    );
+    await appState.systemExec(command: '/bin/kill', params: ['-$signal', pid]);
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Процесс $pid: $actionName')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Процесс $pid: $actionName')));
     }
     await _fetchProcesses();
   }
@@ -80,7 +75,9 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
         title: const Text('Диспетчер процессов'),
         actions: [
           IconButton(
-              icon: const Icon(Icons.refresh), onPressed: _fetchProcesses),
+            icon: const Icon(Icons.refresh),
+            onPressed: _fetchProcesses,
+          ),
         ],
       ),
       body: SafeArea(
@@ -89,48 +86,60 @@ class _ProcessesScreenState extends ConsumerState<ProcessesScreen> {
         child: _loading
             ? const Center(child: CircularProgressIndicator())
             : _processes.isEmpty
-                ? const Center(child: Text('Нет данных о процессах'))
-                : ListView.separated(
-                    padding: const EdgeInsets.only(bottom: 36),
-                    itemCount: _processes.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (ctx, i) {
-                      final p = _processes[i];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: const Color(0xFF1E293B),
-                          child: Text(p['pid'],
-                              style: const TextStyle(
-                                  fontSize: 11, color: Color(0xFF00D2FF))),
+            ? const Center(child: Text('Нет данных о процессах'))
+            : ListView.separated(
+                padding: const EdgeInsets.only(bottom: 36),
+                itemCount: _processes.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (ctx, i) {
+                  final p = _processes[i];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFF1E293B),
+                      child: Text(
+                        p['pid'],
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF00D2FF),
                         ),
-                        title: Text(p['command'],
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w600),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                            'Пользователь: ${p['user']} • Статус: ${p['stat']}',
-                            style: const TextStyle(
-                                fontSize: 11, color: Colors.grey)),
-                        trailing: PopupMenuButton<int>(
-                          icon: const Icon(Icons.more_vert, size: 20),
-                          onSelected: (sig) => _killProcess(
-                              p['pid'],
-                              sig,
-                              sig == 15
-                                  ? 'SIGTERM (завершение)'
-                                  : 'SIGKILL (принудительно)'),
-                          itemBuilder: (ctx) => const [
-                            PopupMenuItem(
-                                value: 15, child: Text('Завершить (SIGTERM)')),
-                            PopupMenuItem(
-                                value: 9,
-                                child: Text('Принудительно убить (SIGKILL)')),
-                          ],
+                      ),
+                    ),
+                    title: Text(
+                      p['command'],
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      'Пользователь: ${p['user']} • Статус: ${p['stat']}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    trailing: PopupMenuButton<int>(
+                      icon: const Icon(Icons.more_vert, size: 20),
+                      onSelected: (sig) => _killProcess(
+                        p['pid'],
+                        sig,
+                        sig == 15
+                            ? 'SIGTERM (завершение)'
+                            : 'SIGKILL (принудительно)',
+                      ),
+                      itemBuilder: (ctx) => const [
+                        PopupMenuItem(
+                          value: 15,
+                          child: Text('Завершить (SIGTERM)'),
                         ),
-                      );
-                    },
-                  ),
+                        PopupMenuItem(
+                          value: 9,
+                          child: Text('Принудительно убить (SIGKILL)'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }

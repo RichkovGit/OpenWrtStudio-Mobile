@@ -99,8 +99,11 @@ class RouterDiscoveryService {
 
   Future<bool> _checkSocket(String host, int port, int timeoutMs) async {
     try {
-      final socket = await Socket.connect(host, port,
-          timeout: Duration(milliseconds: timeoutMs));
+      final socket = await Socket.connect(
+        host,
+        port,
+        timeout: Duration(milliseconds: timeoutMs),
+      );
       socket.destroy();
       return true;
     } catch (_) {
