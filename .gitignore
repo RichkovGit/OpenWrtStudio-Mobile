@@ -145,5 +145,6 @@ GoogleService-Info.plist
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
 
 # Root test captures and temp certs
+/android/build/
 /*.der
 /*.png
