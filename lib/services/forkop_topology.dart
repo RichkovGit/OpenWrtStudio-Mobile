@@ -93,7 +93,9 @@ class ForkopTopology {
         e['all'] = strings(item['outbounds']);
       }
     }
+    final sections = <String>{};
     for (final cache in caches) {
+      if (cache['section'] is String) sections.add(cache['section'] as String);
       if (cache['servers'] is Map) {
         (cache['servers'] as Map).forEach((tag, value) {
           final e = get(tag.toString());
@@ -104,10 +106,17 @@ class ForkopTopology {
           }
         });
       }
-      if (cache['outboundMetadata'] is Map)
-        (cache['outboundMetadata'] as Map).forEach(
-          (tag, value) => metadata(get(tag.toString()), value),
-        );
+      if (cache['outboundMetadata'] is Map) {
+        final columns = cache['outboundMetadata'] as Map;
+        for (final pair in {'names': 'label', 'protocols':'type'}.entries) {
+          if (columns[pair.key] is Map) {
+            (columns[pair.key] as Map).forEach((tag,value) { if(value is String) get(tag.toString())[pair.value]=value; });
+          }
+        }
+        columns.forEach((tag,value) {
+          if(!['names','protocols','countries','transports','securities'].contains(tag)) metadata(get(tag.toString()),value);
+        });
+      }
       for (final kind in {
         'urltestGroups': 'urltest',
         'priorityGroups': 'priority',
@@ -173,19 +182,16 @@ class ForkopTopology {
     final roots = groups.where((e) => !referenced.contains(e['name'])).toList();
     final route = config['route'];
     final finalTag = route is Map ? route['final'] : null;
-    final root = entries.containsKey(finalTag)
-        ? finalTag as String
-        : entries.containsKey('main-out')
-        ? 'main-out'
-        : roots.length == 1
-        ? roots.single['name'] as String
-        : '';
+    final rootTags = sections.map((section) => '$section-out${section=='direct'||section=='bypass'?'-1':''}').where((tag)=>entries[tag]!=null&&isGroup(entries[tag]!)&&!internal(entries[tag]!)).toSet();
+    if(rootTags.isEmpty) {
+      if(entries[finalTag]!=null&&isGroup(entries[finalTag]!)&&!internal(entries[finalTag]!)) { rootTags.add(finalTag as String); }
+      else if(entries['main-out']!=null&&isGroup(entries['main-out']!)) { rootTags.add('main-out'); }
+      else if(roots.length==1) { rootTags.add(roots.single['name'] as String); }
+    }
     final active = <String>{};
-    var current = root;
-    while (entries[current] != null &&
-        entries[current]!['live'] == true &&
-        active.add(current)) {
-      current = entries[current]!['now']?.toString() ?? '';
+    for(final root in rootTags) {
+      var current=root;
+      while (entries[current] != null && entries[current]!['live'] == true && active.add(current)) { current=entries[current]!['now']?.toString()??''; }
     }
     int? latency(Map e, Set<String> seen) {
       if (!seen.add(e['name'] as String)) return null;
@@ -212,7 +218,8 @@ class ForkopTopology {
                 (e['all'] as List).contains(target['name']),
           )
           .toList();
-      if (parents.any((e) => e['name'] == root)) return root;
+      final directParents=parents.where((e)=>rootTags.contains(e['name'])).toList();
+      if(directParents.length==1) return directParents.single['name'] as String;
       final onPath = parents.where((e) => active.contains(e['name'])).toList();
       return onPath.length == 1
           ? onPath.single['name'] as String

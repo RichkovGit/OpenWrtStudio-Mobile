@@ -26,8 +26,9 @@ jobs:
       - run: flutter pub get
       - name: Format changed sources and retain exact tested patch
         run: |
-          dart fix --apply --code=curly_braces_in_flow_control_structures
           dart format lib/models/forkop_node.dart lib/services/forkop_service.dart lib/services/forkop_topology.dart lib/services/ota_service.dart lib/screens/forkop_screen.dart lib/screens/simple_dashboard_screen.dart test/core_mobile_regression_test.dart test/forkop_topology_test.dart
+          dart fix --apply --code=curly_braces_in_flow_control_structures
+          dart format lib test
           mkdir -p checks
           git diff --binary -- lib test > checks/format.patch
       - name: Commit formatter-only changes to this work branch

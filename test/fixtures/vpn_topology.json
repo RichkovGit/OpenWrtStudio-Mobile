@@ -1,7 +1,7 @@
 {
   "config": {
     "route": {
-      "final": "main-out"
+      "final": "direct-out"
     },
     "outbounds": [
       {
@@ -23,6 +23,22 @@
           "auto-shrimp",
           "auto-blanc"
         ]
+      },
+      {
+        "tag": "direct-out",
+        "type": "direct"
+      },
+      {
+        "tag": "node-a",
+        "type": "vless",
+        "server": "198.51.100.10",
+        "server_port": 443
+      },
+      {
+        "tag": "node-b",
+        "type": "hysteria2",
+        "server": "2001:db8::1",
+        "server_port": 8443
       }
     ]
   },
@@ -34,13 +50,17 @@
         "node-b-plus": "198.51.100.11"
       },
       "outboundMetadata": {
-        "node-a": {
-          "displayName": "Blanc Amsterdam",
-          "server_port": 443
+        "names": {
+          "node-a": "Blanc Amsterdam",
+          "node-b": "Shrimp Helsinki"
         },
-        "node-b": {
-          "displayName": "Shrimp Helsinki",
-          "server_port": 8443
+        "protocols": {
+          "node-a": "vless",
+          "node-b": "hysteria2"
+        },
+        "countries": {
+          "node-a": "NL",
+          "node-b": "FI"
         }
       },
       "urltestGroups": {
@@ -58,7 +78,8 @@
         "priority-route": {
           "name": "Приоритет: Shrimp -> Stealth -> Blanc -> Hella -> Free"
         }
-      }
+      },
+      "section": "main"
     },
     {
       "urltestGroups": {
@@ -176,5 +197,6 @@
         }
       ]
     }
-  }
+  },
+  "schemaSource": "ushan0v/forkop @ dd483297be0ac4e52bb8f482e2640238b75af532: section-cache outboundMetadata column maps and section selectors"
 }
