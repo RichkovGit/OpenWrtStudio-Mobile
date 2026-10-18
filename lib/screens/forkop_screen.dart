@@ -85,8 +85,9 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
 
       if (!mounted ||
           generation != _loadGeneration ||
-          appState.selectedRouter?.activeAddress != router.activeAddress)
+          appState.selectedRouter?.activeAddress != router.activeAddress) {
         return;
+      }
       final activeName = nodes
           .where((n) => n.isActive && !n.isGroup)
           .firstOrNull
@@ -488,8 +489,9 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  if (group.canSelectMembers)
+                  if (group.canSelectMembers) {
                     _selectNode(candidate, groupName: group.name);
+                  }
                 },
               );
             },

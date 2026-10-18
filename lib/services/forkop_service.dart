@@ -56,8 +56,9 @@ class ForkopService {
       final data = response.data is String
           ? jsonDecode(response.data as String)
           : response.data;
-      if (response.statusCode == 200 && data is Map && data['proxies'] is Map)
+      if (response.statusCode == 200 && data is Map && data['proxies'] is Map) {
         proxies = data['proxies'] as Map;
+      }
     } catch (_) {
       /* Controller may be bound to router loopback. Use authenticated rpcd below. */
     }
@@ -72,8 +73,9 @@ class ForkopService {
         );
         if (_executionSucceeded(response)) {
           final data = jsonDecode(response[1]['stdout'] as String? ?? '{}');
-          if (data is Map && data['proxies'] is Map)
+          if (data is Map && data['proxies'] is Map) {
             proxies = data['proxies'] as Map;
+          }
         }
       } catch (_) {}
     }
@@ -114,8 +116,9 @@ class ForkopService {
         '/etc/sing-box/config.json',
       ]) {
         if (path.endsWith('main.json') && caches.isNotEmpty ||
-            path.endsWith('config.json') && config.isNotEmpty)
+            path.endsWith('config.json') && config.isNotEmpty) {
           continue;
+        }
         try {
           final response = await apiService.call(
             routerIp,
@@ -210,8 +213,9 @@ class ForkopService {
         !parent.hasLiveState ||
         !parent.canSelectMembers ||
         !parent.all.contains(nodeName) ||
-        parent.name == nodeName)
+        parent.name == nodeName) {
       return false;
+    }
 
     final groupTag = parent.name;
     bool success = false;

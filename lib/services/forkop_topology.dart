@@ -75,8 +75,9 @@ class ForkopTopology {
       }
       if (value['type'] is String) e['type'] = value['type'];
       if (value['server'] is String) e['server'] = value['server'];
-      if (value['server_port'] is num || value['port'] is num)
+      if (value['server_port'] is num || value['port'] is num) {
         e['port'] = ((value['server_port'] ?? value['port']) as num).toInt();
+      }
       for (final key in ['outbounds', 'all', 'members', 'nodes']) {
         if (value[key] is List) {
           e['all'] = strings(value[key]);
@@ -108,13 +109,23 @@ class ForkopTopology {
       }
       if (cache['outboundMetadata'] is Map) {
         final columns = cache['outboundMetadata'] as Map;
-        for (final pair in {'names': 'label', 'protocols':'type'}.entries) {
+        for (final pair in {'names': 'label', 'protocols': 'type'}.entries) {
           if (columns[pair.key] is Map) {
-            (columns[pair.key] as Map).forEach((tag,value) { if(value is String) get(tag.toString())[pair.value]=value; });
+            (columns[pair.key] as Map).forEach((tag, value) {
+              if (value is String) get(tag.toString())[pair.value] = value;
+            });
           }
         }
-        columns.forEach((tag,value) {
-          if(!['names','protocols','countries','transports','securities'].contains(tag)) metadata(get(tag.toString()),value);
+        columns.forEach((tag, value) {
+          if (![
+            'names',
+            'protocols',
+            'countries',
+            'transports',
+            'securities',
+          ].contains(tag)) {
+            metadata(get(tag.toString()), value);
+          }
         });
       }
       for (final kind in {
@@ -138,8 +149,9 @@ class ForkopTopology {
       if (value is! Map) return;
       final e = get(name.toString());
       final type = value['type']?.toString() ?? e['type']?.toString() ?? '';
-      if (e['type'] != 'priority' || type.toLowerCase() != 'selector')
+      if (e['type'] != 'priority' || type.toLowerCase() != 'selector') {
         e['type'] = type;
+      }
       e['live'] = true;
       e['mutable'] = type.toLowerCase() == 'selector';
       e['now'] = value['now'];
@@ -182,16 +194,37 @@ class ForkopTopology {
     final roots = groups.where((e) => !referenced.contains(e['name'])).toList();
     final route = config['route'];
     final finalTag = route is Map ? route['final'] : null;
-    final rootTags = sections.map((section) => '$section-out${section=='direct'||section=='bypass'?'-1':''}').where((tag)=>entries[tag]!=null&&isGroup(entries[tag]!)&&!internal(entries[tag]!)).toSet();
-    if(rootTags.isEmpty) {
-      if(entries[finalTag]!=null&&isGroup(entries[finalTag]!)&&!internal(entries[finalTag]!)) { rootTags.add(finalTag as String); }
-      else if(entries['main-out']!=null&&isGroup(entries['main-out']!)) { rootTags.add('main-out'); }
-      else if(roots.length==1) { rootTags.add(roots.single['name'] as String); }
+    final rootTags = sections
+        .map(
+          (section) =>
+              '$section-out${section == 'direct' || section == 'bypass' ? '-1' : ''}',
+        )
+        .where(
+          (tag) =>
+              entries[tag] != null &&
+              isGroup(entries[tag]!) &&
+              !internal(entries[tag]!),
+        )
+        .toSet();
+    if (rootTags.isEmpty) {
+      if (entries[finalTag] != null &&
+          isGroup(entries[finalTag]!) &&
+          !internal(entries[finalTag]!)) {
+        rootTags.add(finalTag as String);
+      } else if (entries['main-out'] != null && isGroup(entries['main-out']!)) {
+        rootTags.add('main-out');
+      } else if (roots.length == 1) {
+        rootTags.add(roots.single['name'] as String);
+      }
     }
     final active = <String>{};
-    for(final root in rootTags) {
-      var current=root;
-      while (entries[current] != null && entries[current]!['live'] == true && active.add(current)) { current=entries[current]!['now']?.toString()??''; }
+    for (final root in rootTags) {
+      var current = root;
+      while (entries[current] != null &&
+          entries[current]!['live'] == true &&
+          active.add(current)) {
+        current = entries[current]!['now']?.toString() ?? '';
+      }
     }
     int? latency(Map e, Set<String> seen) {
       if (!seen.add(e['name'] as String)) return null;
@@ -218,8 +251,12 @@ class ForkopTopology {
                 (e['all'] as List).contains(target['name']),
           )
           .toList();
-      final directParents=parents.where((e)=>rootTags.contains(e['name'])).toList();
-      if(directParents.length==1) return directParents.single['name'] as String;
+      final directParents = parents
+          .where((e) => rootTags.contains(e['name']))
+          .toList();
+      if (directParents.length == 1) {
+        return directParents.single['name'] as String;
+      }
       final onPath = parents.where((e) => active.contains(e['name'])).toList();
       return onPath.length == 1
           ? onPath.single['name'] as String

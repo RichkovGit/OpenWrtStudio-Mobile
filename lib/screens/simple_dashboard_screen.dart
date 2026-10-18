@@ -285,8 +285,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
       if (mounted) {
         setState(() {
-          if (generation != _protocolsGeneration || appState.activeIp != ip)
+          if (generation != _protocolsGeneration || appState.activeIp != ip) {
             return;
+          }
           _protocols = list;
           _selectedProtocol = active ?? _selectedProtocol ?? list.firstOrNull;
           _forkopPresets = presets;

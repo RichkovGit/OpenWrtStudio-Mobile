@@ -100,9 +100,10 @@ void main() {
                   );
                 } else {
                   writes++;
-                  if (apply)
+                  if (apply) {
                     ((f['proxies'] as Map)['main-out'] as Map)['now'] =
                         'node-a';
+                  }
                   h.resolve(Response(requestOptions: o, statusCode: 204));
                 }
               },
@@ -201,7 +202,7 @@ class _TopologyApi implements IApiService {
         {'code': 0, 'stdout': ''},
       ];
     }
-    if (script.contains('get_proxies'))
+    if (script.contains('get_proxies')) {
       return [
         0,
         {
@@ -209,6 +210,7 @@ class _TopologyApi implements IApiService {
           'stdout': jsonEncode({'proxies': f['proxies']}),
         },
       ];
+    }
     return [
       0,
       {
