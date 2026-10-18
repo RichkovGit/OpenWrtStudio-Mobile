@@ -4,7 +4,7 @@ on:
     branches: [codex/fix-vpn-selection]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: linux-vpn-${{ github.ref }}
   cancel-in-progress: true
@@ -30,6 +30,15 @@ jobs:
           dart format lib/models/forkop_node.dart lib/services/forkop_service.dart lib/services/forkop_topology.dart lib/services/ota_service.dart lib/screens/forkop_screen.dart lib/screens/simple_dashboard_screen.dart test/core_mobile_regression_test.dart test/forkop_topology_test.dart
           mkdir -p checks
           git diff --binary -- lib test > checks/format.patch
+      - name: Commit formatter-only changes to this work branch
+        run: |
+          if ! git diff --quiet -- lib test; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add lib test
+            git commit -m "Format and lint VPN changes"
+            git push origin HEAD:codex/fix-vpn-selection
+          fi
       - name: Analyze all sources
         run: flutter analyze --fatal-infos
       - name: Run all tests
