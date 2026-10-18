@@ -1,0 +1,180 @@
+{
+  "config": {
+    "route": {
+      "final": "main-out"
+    },
+    "outbounds": [
+      {
+        "tag": "main-out",
+        "type": "selector",
+        "outbounds": [
+          "priority-route",
+          "auto-shrimp",
+          "auto-hella",
+          "node-a",
+          "node-b",
+          "direct-out"
+        ]
+      },
+      {
+        "tag": "priority-route",
+        "type": "selector",
+        "outbounds": [
+          "auto-shrimp",
+          "auto-blanc"
+        ]
+      }
+    ]
+  },
+  "cache": [
+    {
+      "servers": {
+        "node-a": "198.51.100.10",
+        "node-b": "2001:db8::1",
+        "node-b-plus": "198.51.100.11"
+      },
+      "outboundMetadata": {
+        "node-a": {
+          "displayName": "Blanc Amsterdam",
+          "server_port": 443
+        },
+        "node-b": {
+          "displayName": "Shrimp Helsinki",
+          "server_port": 8443
+        }
+      },
+      "urltestGroups": {
+        "auto-blanc": {
+          "name": "Авто Blanc (Запасной 2)"
+        },
+        "auto-shrimp": {
+          "name": "Авто Shrimp (Основной)"
+        },
+        "auto-hella": {
+          "name": "Авто Hella (Запасной 3)"
+        }
+      },
+      "priorityGroups": {
+        "priority-route": {
+          "name": "Приоритет: Shrimp -> Stealth -> Blanc -> Hella -> Free"
+        }
+      }
+    },
+    {
+      "urltestGroups": {
+        "auto-stealth": {
+          "name": "Авто Stealth (Запасной 1)"
+        },
+        "auto-free": {
+          "name": "Авто Фри (Аварийный)"
+        }
+      }
+    }
+  ],
+  "proxies": {
+    "GLOBAL": {
+      "type": "Selector",
+      "now": "direct-out",
+      "all": [
+        "main-out",
+        "direct-out"
+      ]
+    },
+    "auto-blanc": {
+      "type": "URLTest",
+      "now": "node-a",
+      "all": [
+        "node-a"
+      ],
+      "history": [
+        {
+          "delay": 999
+        },
+        {
+          "delay": 0
+        }
+      ]
+    },
+    "node-a": {
+      "type": "VLESS",
+      "history": [
+        {
+          "delay": 210
+        }
+      ]
+    },
+    "direct-out": {
+      "type": "Direct"
+    },
+    "bypass-out": {
+      "type": "Direct"
+    },
+    "REJECT": {
+      "type": "Reject"
+    },
+    "main-out": {
+      "type": "Selector",
+      "now": "priority-route",
+      "all": [
+        "priority-route",
+        "auto-shrimp",
+        "auto-hella",
+        "node-a",
+        "node-b",
+        "direct-out"
+      ]
+    },
+    "priority-route": {
+      "type": "Selector",
+      "now": "auto-shrimp",
+      "all": [
+        "auto-shrimp",
+        "auto-blanc"
+      ]
+    },
+    "auto-shrimp": {
+      "type": "URLTest",
+      "now": "node-b",
+      "all": [
+        "node-b"
+      ]
+    },
+    "auto-hella": {
+      "type": "URLTest",
+      "now": "node-a",
+      "all": [
+        "node-a"
+      ]
+    },
+    "auto-stealth": {
+      "type": "URLTest",
+      "now": "node-a",
+      "all": [
+        "node-a"
+      ]
+    },
+    "auto-free": {
+      "type": "URLTest",
+      "now": "node-a",
+      "all": [
+        "node-a"
+      ]
+    },
+    "node-b": {
+      "type": "Hysteria2",
+      "history": [
+        {
+          "delay": 167
+        }
+      ]
+    },
+    "node-b-plus": {
+      "type": "VLESS",
+      "history": [
+        {
+          "delay": 0
+        }
+      ]
+    }
+  }
+}

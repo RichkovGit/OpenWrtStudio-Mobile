@@ -1,0 +1,68 @@
+name: VPN regression and Linux packages
+on:
+  push:
+    branches: [codex/fix-vpn-selection]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-vpn-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check-and-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - name: Install Linux build and smoke-test dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev liblzma-dev desktop-file-utils patchelf libfuse2 xvfb dbus-x11 gnome-keyring xdotool x11-apps imagemagick
+      - run: flutter pub get
+      - name: Format changed sources and retain exact tested patch
+        run: |
+          dart format lib/models/forkop_node.dart lib/services/forkop_service.dart lib/services/forkop_topology.dart lib/services/ota_service.dart lib/screens/forkop_screen.dart lib/screens/simple_dashboard_screen.dart test/core_mobile_regression_test.dart test/forkop_topology_test.dart
+          mkdir -p checks
+          git diff --binary -- lib test > checks/format.patch
+      - name: Analyze all sources
+        run: flutter analyze --fatal-infos
+      - name: Run all tests
+        run: flutter test --reporter expanded
+      - name: Build native Linux application after checks pass
+        run: ./scripts/build-linux.sh
+      - name: Download official AppImage build tools
+        run: |
+          mkdir -p build/tools
+          curl -fL https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -o build/tools/linuxdeploy-x86_64.AppImage
+          curl -fL https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh -o build/tools/linuxdeploy-plugin-gtk.sh
+          chmod +x build/tools/*
+      - name: Package tar archive and AppImage
+        run: PATH="$PWD/build/tools:$PATH" LINUXDEPLOY="$PWD/build/tools/linuxdeploy-x86_64.AppImage" ./scripts/package-linux.sh
+      - name: Smoke-test native and extracted AppImage
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          xvfb-run -a dbus-run-session -- bash scripts/smoke-linux.sh
+      - name: Save generated Linux runner
+        if: always()
+        run: |
+          if [ -d linux ]; then tar -czf checks/linux-runner.tar.gz linux .metadata; fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: linux-checks-and-format
+          path: checks/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: OpenWrtStudio-linux-x86_64
+          path: |
+            release/*.AppImage
+            release/*.tar.gz
+            release/SHA256SUMS.txt
+            LINUX_INSTALL.md
+          compression-level: 0

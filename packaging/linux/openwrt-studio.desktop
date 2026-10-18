@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=OpenWrt Studio
+Comment=Manage OpenWrt routers, clients and VPN
+Exec=openwrt-studio
+Icon=openwrt-studio
+Terminal=false
+Categories=Network;System;
+StartupWMClass=org.openwrtstudio.Studio

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -80,6 +81,7 @@ class OtaService {
 
   /// Returns the newest stable release that can actually run on this device.
   Future<OtaReleaseInfo?> checkForUpdate() async {
+    if (defaultTargetPlatform != TargetPlatform.android) return null;
     try {
       final current = _parseVersion(await getCurrentVersion());
       if (current == null) return null;
