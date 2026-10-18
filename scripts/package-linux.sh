@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+shopt -s nullglob
 cd "$(dirname "$0")/.."
 bundle=build/linux/x64/release/bundle
 [[ -x "$bundle/openwrt-studio" ]]

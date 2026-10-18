@@ -133,8 +133,8 @@ class ForkopNode {
   }
 
   factory ForkopNode.fromJson(Map<String, dynamic> json) {
-    final rawType = json['type'] as String?;
-    final history = json['history'] as List<dynamic>?;
+    final rawType = json['type']?.toString();
+    final history = json['history'] is List ? json['history'] as List : null;
     int? delay;
     if (history != null && history.isNotEmpty) {
       final last = history.last;
@@ -154,14 +154,14 @@ class ForkopNode {
       label: json['label'] as String?,
       type: ProxyType.fromString(rawType),
       server: json['server'] as String?,
-      port: json['port'] as int?,
+      port: json['port'] is num ? (json['port'] as num).toInt() : null,
       latencyMs: delay != null && delay > 0 ? delay : null,
       isActive: json['isActive'] as bool? ?? false,
       group: json['group'] as String? ?? '',
       hasLiveState: json['hasLiveState'] as bool? ?? false,
       canSelectMembers: json['canSelectMembers'] as bool? ?? false,
       udp: json['udp'] as bool? ?? true,
-      now: json['now'] as String?,
+      now: json['now'] is String ? json['now'] as String : null,
       all: allList,
     );
   }

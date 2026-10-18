@@ -134,12 +134,13 @@ class ForkopService {
     final parent = nodes.where((n) => n.name == targetGroup).firstOrNull;
     if (target == null || parent == null || !parent.hasLiveState || !parent.canSelectMembers || !parent.all.contains(nodeName) || parent.name == nodeName) return false;
 
+    final groupTag = parent.name;
     bool success = false;
 
     // 1. Try external controller REST API on :9090
     try {
       final url =
-          'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(targetGroup)}';
+          'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(groupTag)}';
       final headers = <String, dynamic>{'Content-Type': 'application/json'};
       if (secret != null && secret.isNotEmpty) {
         headers['Authorization'] = 'Bearer $secret';
@@ -159,10 +160,10 @@ class ForkopService {
     }
 
     // 2. Fallback to native router CLI execution via ubus
-    if (!success && sysauth != null && sysauth.isNotEmpty) {
+    if (!success) {
       try {
         final safeTarget = nodeName.replaceAll("'", r"'\''");
-        final safeGroup = targetGroup.replaceAll("'", r"'\''");
+        final safeGroup = groupTag.replaceAll("'", r"'\''");
         final script = "/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget'";
         final res = await apiService.systemExec(
           routerIp,
@@ -175,7 +176,7 @@ class ForkopService {
         if (_executionSucceeded(res)) {
           success = true;
           Logger.info(
-            'Successfully selected node $nodeName via router forkop CLI',
+            'Router accepted selection command for $nodeName; checking state',
           );
         }
       } catch (e) {
@@ -185,7 +186,7 @@ class ForkopService {
 
     if (!success) return false;
     final confirmed = await fetchNodes(routerIp: routerIp, sysauth: sysauth, useHttps: useHttps, controllerPort: controllerPort, secret: secret);
-    return confirmed.any((n) => n.name == targetGroup && n.now == nodeName && n.hasLiveState);
+    return confirmed.any((n) => n.name == groupTag && n.now == nodeName && n.hasLiveState);
   }
 
   /// Sets routing mode: 'Rule', 'Global', 'Direct'

@@ -462,10 +462,11 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
             itemBuilder: (context, i) {
               final candidate = group.all[i];
               final isCurrent = group.now == candidate;
+              final title = _nodes.where((n) => n.name == candidate).firstOrNull?.displayTitle ?? candidate;
               return ListTile(
                 dense: true,
                 title: Text(
-                  candidate,
+                  title,
                   style: TextStyle(
                     fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
                   ),
