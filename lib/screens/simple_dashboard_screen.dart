@@ -285,7 +285,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
       if (mounted) {
         setState(() {
-          if (generation != _protocolsGeneration || appState.activeIp != ip) return;
+          if (generation != _protocolsGeneration || appState.activeIp != ip)
+            return;
           _protocols = list;
           _selectedProtocol = active ?? _selectedProtocol ?? list.firstOrNull;
           _forkopPresets = presets;
@@ -329,10 +330,13 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     if (mounted) {
       setState(() {
         _isLoadingForkopAction = false;
-
       });
       await _loadProtocolsState();
-      _showMessage(success ? 'Роутер подтвердил выбор узла' : 'Роутер не подтвердил переключение');
+      _showMessage(
+        success
+            ? 'Роутер подтвердил выбор узла'
+            : 'Роутер не подтвердил переключение',
+      );
     }
   }
 

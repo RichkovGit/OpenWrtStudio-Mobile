@@ -40,47 +40,112 @@ class ForkopService {
     final caches = <Map<String, dynamic>>[];
     try {
       final response = await dio.get<dynamic>(
-        Uri(scheme: 'http', host: routerIp, port: controllerPort, path: '/proxies').toString(),
-        options: Options(headers: {if (secret != null && secret.isNotEmpty) 'Authorization': 'Bearer $secret'}),
+        Uri(
+          scheme: 'http',
+          host: routerIp,
+          port: controllerPort,
+          path: '/proxies',
+        ).toString(),
+        options: Options(
+          headers: {
+            if (secret != null && secret.isNotEmpty)
+              'Authorization': 'Bearer $secret',
+          },
+        ),
       );
-      final data = response.data is String ? jsonDecode(response.data as String) : response.data;
-      if (response.statusCode == 200 && data is Map && data['proxies'] is Map) proxies = data['proxies'] as Map;
-    } catch (_) { /* Controller may be bound to router loopback. Use authenticated rpcd below. */ }
+      final data = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data;
+      if (response.statusCode == 200 && data is Map && data['proxies'] is Map)
+        proxies = data['proxies'] as Map;
+    } catch (_) {
+      /* Controller may be bound to router loopback. Use authenticated rpcd below. */
+    }
     if (proxies.isEmpty) {
       try {
-        final response = await apiService.systemExec(routerIp, sysauth, useHttps, command: '/bin/sh', params: ['-c', '/usr/bin/forkop clash_api get_proxies']);
+        final response = await apiService.systemExec(
+          routerIp,
+          sysauth,
+          useHttps,
+          command: '/bin/sh',
+          params: ['-c', '/usr/bin/forkop clash_api get_proxies'],
+        );
         if (_executionSucceeded(response)) {
           final data = jsonDecode(response[1]['stdout'] as String? ?? '{}');
-          if (data is Map && data['proxies'] is Map) proxies = data['proxies'] as Map;
+          if (data is Map && data['proxies'] is Map)
+            proxies = data['proxies'] as Map;
         }
       } catch (_) {}
     }
     try {
-      final response = await apiService.systemExec(routerIp, sysauth, useHttps, command: '/bin/sh', params: ['-c', r"printf '===CACHE===\n'; cat /var/run/forkop/section-cache/*.json 2>/dev/null || cat /etc/forkop/section-cache/*.json 2>/dev/null; printf '\n===CONFIG===\n'; cat /etc/sing-box/config.json 2>/dev/null"]);
-      if (response is List && response.length == 2 && response[0] == 0 && response[1] is Map) {
+      final response = await apiService.systemExec(
+        routerIp,
+        sysauth,
+        useHttps,
+        command: '/bin/sh',
+        params: [
+          '-c',
+          r"printf '===CACHE===\n'; cat /var/run/forkop/section-cache/*.json 2>/dev/null || cat /etc/forkop/section-cache/*.json 2>/dev/null; printf '\n===CONFIG===\n'; cat /etc/sing-box/config.json 2>/dev/null",
+        ],
+      );
+      if (response is List &&
+          response.length == 2 &&
+          response[0] == 0 &&
+          response[1] is Map) {
         final output = response[1]['stdout'] as String? ?? '';
         final marker = output.indexOf('===CONFIG===');
         if (marker >= 0) {
-          caches.addAll(ForkopTopology.documents(output.substring(0, marker).replaceFirst('===CACHE===', '')));
-          final docs = ForkopTopology.documents(output.substring(marker + '===CONFIG==='.length));
+          caches.addAll(
+            ForkopTopology.documents(
+              output.substring(0, marker).replaceFirst('===CACHE===', ''),
+            ),
+          );
+          final docs = ForkopTopology.documents(
+            output.substring(marker + '===CONFIG==='.length),
+          );
           if (docs.isNotEmpty) config = docs.first;
         }
       }
     } catch (_) {}
     // Some rpcd accounts allow file.read but not file.exec.
     if (caches.isEmpty || config.isEmpty) {
-      for (final path in ['/var/run/forkop/section-cache/main.json', '/etc/sing-box/config.json']) {
-        if (path.endsWith('main.json') && caches.isNotEmpty || path.endsWith('config.json') && config.isNotEmpty) continue;
+      for (final path in [
+        '/var/run/forkop/section-cache/main.json',
+        '/etc/sing-box/config.json',
+      ]) {
+        if (path.endsWith('main.json') && caches.isNotEmpty ||
+            path.endsWith('config.json') && config.isNotEmpty)
+          continue;
         try {
-          final response = await apiService.call(routerIp, sysauth, useHttps, object: 'file', method: 'read', params: {'path': path});
-          if (response is List && response.length == 2 && response[0] == 0 && response[1] is Map) {
-            final docs = ForkopTopology.documents(response[1]['data'] as String? ?? '');
-            if (path.endsWith('main.json')) { caches.addAll(docs); } else if (docs.isNotEmpty) { config = docs.first; }
+          final response = await apiService.call(
+            routerIp,
+            sysauth,
+            useHttps,
+            object: 'file',
+            method: 'read',
+            params: {'path': path},
+          );
+          if (response is List &&
+              response.length == 2 &&
+              response[0] == 0 &&
+              response[1] is Map) {
+            final docs = ForkopTopology.documents(
+              response[1]['data'] as String? ?? '',
+            );
+            if (path.endsWith('main.json')) {
+              caches.addAll(docs);
+            } else if (docs.isNotEmpty) {
+              config = docs.first;
+            }
           }
         } catch (_) {}
       }
     }
-    return ForkopTopology.parse(proxies: proxies, config: config, caches: caches);
+    return ForkopTopology.parse(
+      proxies: proxies,
+      config: config,
+      caches: caches,
+    );
   }
 
   /// Tests latency for a specific node via external controller or router ping
@@ -128,11 +193,25 @@ class ForkopService {
     String? secret,
   }) async {
     if (sysauth == null || sysauth.isEmpty) return false;
-    final nodes = await fetchNodes(routerIp: routerIp, sysauth: sysauth, useHttps: useHttps, controllerPort: controllerPort, secret: secret);
+    final nodes = await fetchNodes(
+      routerIp: routerIp,
+      sysauth: sysauth,
+      useHttps: useHttps,
+      controllerPort: controllerPort,
+      secret: secret,
+    );
     final target = nodes.where((n) => n.name == nodeName).firstOrNull;
-    final targetGroup = groupName != null && groupName.isNotEmpty ? groupName : target?.group;
+    final targetGroup = groupName != null && groupName.isNotEmpty
+        ? groupName
+        : target?.group;
     final parent = nodes.where((n) => n.name == targetGroup).firstOrNull;
-    if (target == null || parent == null || !parent.hasLiveState || !parent.canSelectMembers || !parent.all.contains(nodeName) || parent.name == nodeName) return false;
+    if (target == null ||
+        parent == null ||
+        !parent.hasLiveState ||
+        !parent.canSelectMembers ||
+        !parent.all.contains(nodeName) ||
+        parent.name == nodeName)
+      return false;
 
     final groupTag = parent.name;
     bool success = false;
@@ -164,7 +243,8 @@ class ForkopService {
       try {
         final safeTarget = nodeName.replaceAll("'", r"'\''");
         final safeGroup = groupTag.replaceAll("'", r"'\''");
-        final script = "/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget'";
+        final script =
+            "/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget'";
         final res = await apiService.systemExec(
           routerIp,
           sysauth,
@@ -185,8 +265,16 @@ class ForkopService {
     }
 
     if (!success) return false;
-    final confirmed = await fetchNodes(routerIp: routerIp, sysauth: sysauth, useHttps: useHttps, controllerPort: controllerPort, secret: secret);
-    return confirmed.any((n) => n.name == groupTag && n.now == nodeName && n.hasLiveState);
+    final confirmed = await fetchNodes(
+      routerIp: routerIp,
+      sysauth: sysauth,
+      useHttps: useHttps,
+      controllerPort: controllerPort,
+      secret: secret,
+    );
+    return confirmed.any(
+      (n) => n.name == groupTag && n.now == nodeName && n.hasLiveState,
+    );
   }
 
   /// Sets routing mode: 'Rule', 'Global', 'Direct'

@@ -83,8 +83,14 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
         useHttps: router.activeUseHttps,
       );
 
-      if (!mounted || generation != _loadGeneration || appState.selectedRouter?.activeAddress != router.activeAddress) return;
-      final activeName = nodes.where((n) => n.isActive && !n.isGroup).firstOrNull?.displayTitle;
+      if (!mounted ||
+          generation != _loadGeneration ||
+          appState.selectedRouter?.activeAddress != router.activeAddress)
+        return;
+      final activeName = nodes
+          .where((n) => n.isActive && !n.isGroup)
+          .firstOrNull
+          ?.displayTitle;
       setState(() {
         _nodes = nodes;
         _subscriptions = subs;
@@ -158,7 +164,6 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
           backgroundColor: Colors.green.shade700,
         ),
       );
-
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -462,7 +467,12 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
             itemBuilder: (context, i) {
               final candidate = group.all[i];
               final isCurrent = group.now == candidate;
-              final title = _nodes.where((n) => n.name == candidate).firstOrNull?.displayTitle ?? candidate;
+              final title =
+                  _nodes
+                      .where((n) => n.name == candidate)
+                      .firstOrNull
+                      ?.displayTitle ??
+                  candidate;
               return ListTile(
                 dense: true,
                 title: Text(
@@ -478,7 +488,8 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  if (group.canSelectMembers) _selectNode(candidate, groupName: group.name);
+                  if (group.canSelectMembers)
+                    _selectNode(candidate, groupName: group.name);
                 },
               );
             },
@@ -946,7 +957,8 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(12),
                                         onTap: () {
-                                          if (group.canSelectMembers && group.all.isNotEmpty) {
+                                          if (group.canSelectMembers &&
+                                              group.all.isNotEmpty) {
                                             _showCandidatesDialog(group);
                                           } else {
                                             _selectNode(group.name);
@@ -1108,8 +1120,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                                   itemCount: _regularNodes.length,
                                   itemBuilder: (context, index) {
                                     final node = _regularNodes[index];
-                                    final isSelected =
-                                        node.isActive;
+                                    final isSelected = node.isActive;
                                     final latColor = _getLatencyColor(
                                       node.latencyMs,
                                     );

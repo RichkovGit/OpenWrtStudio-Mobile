@@ -66,10 +66,25 @@ void main() {
 
     test('transport success alone cannot select an unknown node', () async {
       final api = _RecordingApi();
-      final dio = Dio()..interceptors.add(InterceptorsWrapper(onRequest: (o,h) => h.resolve(Response(requestOptions:o,statusCode:204))));
-      addTearDown(() => dio.close(force:true));
-      expect(await ForkopService(apiService:api,dioClient:dio).selectNode(routerIp:'router',sysauth:'session',nodeName:'node'),isFalse);
-      expect(api.executions.any((e)=>e.params.last.contains('set_group_proxy')),isFalse);
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (o, h) =>
+                h.resolve(Response(requestOptions: o, statusCode: 204)),
+          ),
+        );
+      addTearDown(() => dio.close(force: true));
+      expect(
+        await ForkopService(
+          apiService: api,
+          dioClient: dio,
+        ).selectNode(routerIp: 'router', sysauth: 'session', nodeName: 'node'),
+        isFalse,
+      );
+      expect(
+        api.executions.any((e) => e.params.last.contains('set_group_proxy')),
+        isFalse,
+      );
     });
 
     test(

@@ -121,7 +121,9 @@ class ForkopNode {
       type: type ?? this.type,
       server: server ?? this.server,
       port: port ?? this.port,
-      latencyMs: identical(latencyMs, _unsetDelay) ? this.latencyMs : latencyMs as int?,
+      latencyMs: identical(latencyMs, _unsetDelay)
+          ? this.latencyMs
+          : latencyMs as int?,
       isActive: isActive ?? this.isActive,
       group: group ?? this.group,
       hasLiveState: hasLiveState,
