@@ -16,14 +16,12 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            appStateProvider.overrideWith((ref) => _WirelessState()),
-          ],
+          overrides: [appStateProvider.overrideWith((ref) => _WirelessState())],
           child: MaterialApp(
             builder: (context, child) => MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                textScaler: TextScaler.linear(scale),
-              ),
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
               child: child!,
             ),
             home: const DashboardScreen(),
