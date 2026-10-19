@@ -138,17 +138,21 @@ class ForkopNode {
   }
 
   static int? latestDelay(dynamic history, dynamic fallback) {
-    dynamic value=fallback;
-    if(history is List && history.isNotEmpty) {
-      dynamic latest=history.last; DateTime? newest;
-      for(final entry in history) {
-        if(entry is! Map) continue;
-        final time=DateTime.tryParse(entry['time']?.toString()??'');
-        if(time!=null&&(newest==null||!time.isBefore(newest))) { newest=time; latest=entry; }
+    dynamic value = fallback;
+    if (history is List && history.isNotEmpty) {
+      dynamic latest = history.last;
+      DateTime? newest;
+      for (final entry in history) {
+        if (entry is! Map) continue;
+        final time = DateTime.tryParse(entry['time']?.toString() ?? '');
+        if (time != null && (newest == null || !time.isBefore(newest))) {
+          newest = time;
+          latest = entry;
+        }
       }
-      value=latest is Map ? latest['delay'] : null;
+      value = latest is Map ? latest['delay'] : null;
     }
-    return value is num && value>0 ? value.toInt() : null;
+    return value is num && value > 0 ? value.toInt() : null;
   }
 
   factory ForkopNode.fromJson(Map<String, dynamic> json) {
@@ -180,9 +184,9 @@ class ForkopNode {
   Map<String, dynamic> toJson() => {
     'name': name,
     'label': label,
-    'hasLiveState':hasLiveState,
-    'canSelectMembers':canSelectMembers,
-    'isOnActivePath':isOnActivePath,
+    'hasLiveState': hasLiveState,
+    'canSelectMembers': canSelectMembers,
+    'isOnActivePath': isOnActivePath,
     'type': type.name,
     'server': server,
     'port': port,

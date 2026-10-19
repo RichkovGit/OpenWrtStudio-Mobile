@@ -269,10 +269,22 @@ class ForkopService {
     }
 
     if (!success) return false;
-    for(var attempt=0; attempt<3; attempt++) {
-      final confirmed=await fetchNodes(routerIp:routerIp,sysauth:sysauth,useHttps:useHttps,controllerPort:controllerPort,secret:secret);
-      if(confirmed.any((n)=>n.name==groupTag&&n.now==nodeName&&n.hasLiveState)) return true;
-      if(attempt<2) await Future<void>.delayed(const Duration(milliseconds:150));
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final confirmed = await fetchNodes(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+        controllerPort: controllerPort,
+        secret: secret,
+      );
+      if (confirmed.any(
+        (n) => n.name == groupTag && n.now == nodeName && n.hasLiveState,
+      )) {
+        return true;
+      }
+      if (attempt < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
     }
     return false;
   }

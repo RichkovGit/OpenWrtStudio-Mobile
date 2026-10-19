@@ -226,11 +226,13 @@ class ForkopTopology {
         current = entries[current]!['now']?.toString() ?? '';
       }
     }
-    final selectedPolicies=rootTags.map((tag)=>entries[tag]!['now']).toSet();
+    final selectedPolicies = rootTags
+        .map((tag) => entries[tag]!['now'])
+        .toSet();
     int? latency(Map e, Set<String> seen) {
       if (!seen.add(e['name'] as String)) return null;
-      final delay=ForkopNode.latestDelay(e['history'], e['delay']);
-      if(delay!=null) return delay;
+      final delay = ForkopNode.latestDelay(e['history'], e['delay']);
+      if (delay != null) return delay;
       final next = entries[e['now']];
       return next != null ? latency(next, seen) : null;
     }
@@ -268,7 +270,9 @@ class ForkopTopology {
         .map(
           (e) => ForkopNode.fromJson({
             ...e,
-            'isActive': isGroup(e) ? selectedPolicies.contains(e['name']) : active.contains(e['name']),
+            'isActive': isGroup(e)
+                ? selectedPolicies.contains(e['name'])
+                : active.contains(e['name']),
             'isOnActivePath': active.contains(e['name']),
             'group': selector(e),
             'delay': latency(e, {}),

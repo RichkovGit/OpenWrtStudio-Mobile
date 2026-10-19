@@ -980,7 +980,11 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      ForkopQuickChoices(nodes:_forkopPresets,busy:_isLoadingForkopAction,onSelect:_selectForkopPreset),
+                      ForkopQuickChoices(
+                        nodes: _forkopPresets,
+                        busy: _isLoadingForkopAction,
+                        onSelect: _selectForkopPreset,
+                      ),
                     ],
                   ],
                 ),
