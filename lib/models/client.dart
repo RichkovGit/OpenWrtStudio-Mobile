@@ -21,6 +21,13 @@ class Client {
   final String? deviceClass; // "phone", "laptop", "tv", etc.
   final bool isBlocked;
   final int? signal; // in dBm, e.g. -64
+  // Which saved router profile reported this client. Null when unknown.
+  // Writes (reservation, block) must target the owning router, so the detail
+  // page refuses to mutate a client belonging to a router that is not the
+  // selected one.
+  final String? routerId;
+  final String? routerLabel;
+
 
   Client({
     required this.ipAddress,
@@ -40,6 +47,9 @@ class Client {
     this.deviceClass,
     this.isBlocked = false,
     this.signal,
+    this.routerId,
+    this.routerLabel,
+
   });
 
   // Helper function to determine connection type from MAC address or other data
@@ -192,6 +202,8 @@ class Client {
       expiresAt: expiresAtTimestamp, // Store the calculated absolute timestamp
       connectionType: _determineConnectionType(lease),
       ipv6Addresses: ipv6Addresses,
+      routerId: toStringValue(lease['_routerId']),
+      routerLabel: toStringValue(lease['_routerLabel']),
     );
   }
 
@@ -279,6 +291,9 @@ class Client {
     String? deviceClass,
     bool? isBlocked,
     int? signal,
+    String? routerId,
+    String? routerLabel,
+
   }) {
     return Client(
       ipAddress: ipAddress ?? this.ipAddress,
@@ -298,6 +313,9 @@ class Client {
       deviceClass: deviceClass ?? this.deviceClass,
       isBlocked: isBlocked ?? this.isBlocked,
       signal: signal ?? this.signal,
+      routerId: routerId ?? this.routerId,
+      routerLabel: routerLabel ?? this.routerLabel,
+
     );
   }
 }

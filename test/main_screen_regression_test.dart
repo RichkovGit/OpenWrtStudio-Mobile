@@ -1,3 +1,4 @@
+import 'package:luci_mobile/navigation/luci_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,7 +35,7 @@ void main() {
   ) async {
     final state = _ScreenState();
     await _show(tester, state);
-    state.requestTab(0);
+    state.requestTab(LuciTab.dashboard);
     await tester.pump();
     expect(state.requestedTab, isNull);
     tester
@@ -52,7 +53,7 @@ void main() {
   });
 
   testWidgets('invalid initial tab safely opens dashboard', (tester) async {
-    await _show(tester, _ScreenState(), initialTab: 99);
+    await _show(tester, _ScreenState(), initialTab: LuciTab.fromIndex(99));
     expect(
       tester.widget<NavigationBar>(find.byType(NavigationBar)).selectedIndex,
       0,
@@ -140,7 +141,7 @@ void main() {
 Future<void> _show(
   WidgetTester tester,
   _ScreenState state, {
-  int? initialTab,
+  LuciTab? initialTab,
 }) async {
   await tester.pumpWidget(
     ProviderScope(

@@ -1,0 +1,33 @@
+name: Validate upstream sync
+on:
+  push:
+    branches: [codex/sync-upstream-2]
+permissions:
+  contents: write
+concurrency:
+  group: upstream-sync-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Format the integration branch
+        run: |
+          dart format .
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add lib test pubspec.lock
+          if ! git diff --cached --quiet; then
+            git commit -m 'style: format upstream integration'
+            git push origin HEAD:codex/sync-upstream-2
+          fi
+      - run: flutter analyze --fatal-infos
+      - run: flutter test --reporter expanded

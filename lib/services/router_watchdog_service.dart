@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:luci_mobile/services/notification_service.dart';
+import 'package:luci_mobile/services/watchdog_notification_service.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/utils/logger.dart';
@@ -105,7 +105,7 @@ class RouterWatchdogService {
     required String message,
   }) async {
     if (!_isCurrent(generation)) return;
-    await NotificationService.showNotification(
+    await WatchdogNotificationService.showNotification(
       id: id,
       title: title,
       message: message,

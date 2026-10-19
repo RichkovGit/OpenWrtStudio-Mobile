@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
-import 'package:luci_mobile/screens/settings_screen.dart';
+import 'package:luci_mobile/screens/studio_preferences_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -23,7 +23,7 @@ import 'package:luci_mobile/screens/processes_screen.dart';
 import 'package:luci_mobile/screens/system_logs_screen.dart';
 import 'package:luci_mobile/screens/thermal_screen.dart';
 import 'package:luci_mobile/screens/startup_services_screen.dart';
-import 'package:luci_mobile/screens/diagnostics_screen.dart';
+import 'package:luci_mobile/screens/studio_diagnostics_screen.dart';
 import 'package:luci_mobile/screens/usb_config_screen.dart';
 import 'package:luci_mobile/services/ota_service.dart';
 import 'package:luci_mobile/widgets/ota_update_dialog.dart';
@@ -587,7 +587,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const DiagnosticsScreen(),
+                        builder: (context) => const StudioDiagnosticsScreen(),
                       ),
                     );
                   },
@@ -718,7 +718,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
+                        builder: (context) => const StudioPreferencesScreen(),
                       ),
                     );
                   },

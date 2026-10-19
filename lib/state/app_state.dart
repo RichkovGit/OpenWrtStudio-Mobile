@@ -1,14 +1,18 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
+import 'package:luci_mobile/models/app_failure.dart';
+import 'package:luci_mobile/services/event_log.dart';
+import 'package:luci_mobile/services/background_worker.dart';
+import 'package:luci_mobile/services/background_monitor.dart';
+import 'package:luci_mobile/utils/uci_values.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/router_service.dart';
 import 'package:luci_mobile/services/throughput_service.dart';
 import 'package:luci_mobile/models/client.dart';
+import 'package:luci_mobile/models/station_info.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/models/dashboard_preferences.dart';
 import 'package:luci_mobile/models/glinet_data.dart';
@@ -21,6 +25,9 @@ import 'package:luci_mobile/config/app_config.dart';
 import 'package:luci_mobile/utils/http_client_manager.dart';
 import 'package:luci_mobile/utils/logger.dart';
 import 'package:luci_mobile/models/wifi_scan_result.dart';
+import 'package:luci_mobile/navigation/luci_tab.dart';
+import 'package:luci_mobile/services/router_liveness_probe.dart';
+import 'package:luci_mobile/state/router_session.dart';
 
 class AppState extends ChangeNotifier {
   static AppState? _instance;
@@ -32,6 +39,7 @@ class AppState extends ChangeNotifier {
   RouterService? _routerService;
   ThroughputService? _throughputService;
   final HttpClientManager _httpClientManager = HttpClientManager();
+  final IRouterLivenessProbe _livenessProbe = const RouterLivenessProbe();
 
   // Reviewer mode state
   bool _reviewerModeEnabled = false;
@@ -39,13 +47,25 @@ class AppState extends ChangeNotifier {
 
   bool _isLoading = false;
   String? _errorMessage;
+  AppFailure? _loginFailure;
   bool? _canReboot;
-  String? _rebootAccessError;
+
+  /// True when the administrator-access check could not be completed. A
+  /// flag, not a sentence: there is only one thing to say, and the screen
+  /// showing it can say it in the user's language.
+  bool _rebootAccessUnknown = false;
   int _rebootAccessRequestId = 0;
 
   Map<String, dynamic>? _dashboardData;
   bool _isDashboardLoading = false;
-  String? _dashboardError;
+  DateTime? _dashboardSettledAt;
+
+  /// What went wrong, not how to say it.
+  ///
+  /// `AppState` has no `BuildContext`, so it cannot look up a translation;
+  /// it records what failed and the screen showing it does the wording. See
+  /// `appFailureText`.
+  AppFailure? _appFailure;
 
   Timer? _throughputTimer;
   Timer? _pollingTimer;
@@ -71,6 +91,22 @@ class AppState extends ChangeNotifier {
 
   // Guards against overlapping throughput polls on slow links.
   bool _throughputUpdateInFlight = false;
+
+  // Set while a UCI apply is awaiting confirmation. rpcd binds a pending
+  // rollback to the session id that called uci.apply, so any re-login during
+  // the confirm window makes uci.confirm fail and the router revert. While
+  // this is set, the throughput poll and the dashboard fetch (whose fallback
+  // path can re-login) stand down.
+  bool _criticalSection = false;
+
+  /// How many applies are in flight.
+  ///
+  /// Two screens can each have an apply running — they take up to 90 seconds
+  /// and the user can navigate away mid-flight. Without a depth count the
+  /// first one to finish resumes polling during the second's rollback
+  /// window, and that traffic can invalidate the session its confirm needs.
+  int _criticalDepth = 0;
+  bool _pendingRefresh = false;
 
   // Set when dispose() runs; suppresses late async notifications.
   bool _isDisposed = false;
@@ -315,11 +351,12 @@ class AppState extends ChangeNotifier {
   }
 
   // Add requestedTab for programmatic tab switching
-  int? requestedTab;
+  LuciTab? requestedTab;
+
   String? requestedInterfaceToScroll;
 
-  void requestTab(int index, {String? interfaceToScroll}) {
-    requestedTab = index;
+  void requestTab(LuciTab tab, {String? interfaceToScroll}) {
+    requestedTab = tab;
     requestedInterfaceToScroll = interfaceToScroll;
     notifyListeners();
   }
@@ -333,9 +370,11 @@ class AppState extends ChangeNotifier {
     required IApiService apiService,
     required IAuthService authService,
     IGlInetApiService? glInetApiService,
+    RouterService? routerService,
   }) : _apiService = apiService,
        _authService = authService,
-       _glInetService = glInetApiService;
+       _glInetService = glInetApiService,
+       _routerService = routerService;
 
   static AppState get instance {
     return _instance ??= AppState._();
@@ -574,6 +613,71 @@ class AppState extends ChangeNotifier {
   }
 
   String? get sysauth => _authService?.sysauth;
+
+  /// Monotonic counter bumped on login, router switch and logout. Async work
+  /// captures it before awaiting and discards its result if it no longer
+  /// matches.
+  int get sessionToken => _sessionToken;
+
+  /// The API service for the active mode (real or reviewer mock).
+  ///
+  /// Feature modules share this instance rather than building their own from
+  /// `ServiceContainer`, so that stateful mocks stay consistent with writes
+  /// made through `AppState`.
+  IApiService? get apiService => _apiService;
+
+  /// The current authenticated connection as a value object, or null when
+  /// there is no usable session.
+  ///
+  /// Feature modules watch this instead of reading the individual auth fields,
+  /// so that any change of router or credentials invalidates their state
+  /// automatically. See `RouterSession`.
+  RouterSession? get currentSession {
+    final router = _routerService?.selectedRouter;
+    final address = _authService?.ipAddress;
+    final token = _authService?.sysauth;
+
+    // Reviewer mode is served entirely by mocks and may have no saved router
+    // at all; synthesize a session so mock-backed screens still render.
+    if (reviewerModeEnabled) {
+      return RouterSession(
+        routerId: router?.id ?? RouterSession.reviewerRouterId,
+        ipAddress: address ?? router?.activeAddress ?? '192.168.1.1',
+        sysauth: token ?? RouterSession.reviewerRouterId,
+        useHttps: _authService?.useHttps ?? false,
+        token: _sessionToken,
+        reviewerMode: true,
+      );
+    }
+
+    if (token == null || token.isEmpty) return null;
+    if (address == null || address.isEmpty) return null;
+
+    // The router this session is *on*, which is not always the selected one:
+    // a switch whose login failed leaves the previous router's credentials in
+    // place, and labelling them with the newly selected router would have
+    // every feature screen read and write the old router under the new one's
+    // name - reservations, block rules and applies included.
+    final owner = _routerOnAddress(address) ?? router;
+    return RouterSession(
+      routerId: owner?.id ?? address,
+      ipAddress: address,
+      sysauth: token,
+      useHttps: _authService?.useHttps ?? false,
+      token: _sessionToken,
+      fallbackAddress: owner?.inactiveAddress,
+      fallbackUseHttps: owner?.inactiveUseHttps,
+    );
+  }
+
+  /// The saved router reachable at [address], if any.
+  model.Router? _routerOnAddress(String address) {
+    for (final r in _routerService?.routers ?? const <model.Router>[]) {
+      if (r.ipAddress == address || r.alternateAddress == address) return r;
+    }
+    return null;
+  }
+
   bool get isAuthenticated => _authService?.isAuthenticated ?? false;
   IApiService? get apiService => _apiService;
   bool get hasRouters =>
@@ -581,12 +685,20 @@ class AppState extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool? get canReboot => _reviewerModeEnabled ? true : _canReboot;
-  String? get rebootAccessError => _rebootAccessError;
+  bool get rebootAccessUnknown => _rebootAccessUnknown;
 
+  /// A message the *screen* produced - a form that does not validate. It
+  /// arrives already translated, because the screen had a `BuildContext`.
   void setError(String error) {
     _errorMessage = error;
+    _loginFailure = null;
     notifyListeners();
   }
+
+  /// A failure `login` itself hit, which has no words yet: the login screen
+  /// looks them up. Set alongside [errorMessage] so that whichever happened
+  /// last is the one shown.
+  AppFailure? get loginFailure => _loginFailure;
 
   Map<String, dynamic>? get dashboardData => _dashboardData;
   List<double> get rxHistory => _throughputService?.rxHistory ?? [];
@@ -594,7 +706,20 @@ class AppState extends ChangeNotifier {
   double get currentRxRate => _throughputService?.currentRxRate ?? 0.0;
   double get currentTxRate => _throughputService?.currentTxRate ?? 0.0;
   bool get isDashboardLoading => _isDashboardLoading;
-  String? get dashboardError => _dashboardError;
+
+  /// Whether a dashboard fetch is running or has only just finished, so
+  /// fetching again now would ask the router the same things twice.
+  ///
+  /// Logging in fetches the dashboard and then opens it, and the dashboard
+  /// used to fetch again on opening. A failed fetch counts too: its error is
+  /// what the dashboard should show, not a second wait for the same timeout.
+  bool get dashboardFetchIsFresh =>
+      _isDashboardLoading ||
+      (_dashboardSettledAt != null &&
+          DateTime.now().difference(_dashboardSettledAt!) <
+              const Duration(seconds: 5));
+
+  AppFailure? get appFailure => _appFailure;
 
   // Interface-specific throughput getters
   List<double> getRxHistoryForInterface(String interface) {
@@ -639,6 +764,24 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Tells an enabled background poll where the selected router now is.
+  ///
+  /// Called after every path that can settle on a different address: the
+  /// router switch, the dashboard's failover, and auto-login.
+  Future<void> _pointBackgroundPollAtSelectedRouter() async {
+    final router = _routerService?.selectedRouter;
+    if (router == null) return;
+    await followSelectedRouter(
+      MonitoredRouter(
+        id: router.id,
+        ipAddress: router.activeAddress,
+        username: router.username,
+        password: router.password,
+        useHttps: router.activeUseHttps,
+      ),
+    );
+  }
+
   Future<void> removeRouter(String id) async {
     if (_routerService == null) return;
 
@@ -655,6 +798,13 @@ class AppState extends ChangeNotifier {
         router.alternateAddress!,
       );
     }
+
+    // Its address and password must not stay behind in the background
+    // isolate's copy, being polled every quarter of an hour - nor its
+    // activity feed, which a re-added router with the same address and
+    // account would inherit, ids being derived from those two.
+    await forgetBackgroundRouter(id);
+    await EventLog(_secureStorageService).clear(id);
 
     final needsSwitch = await _routerService!.removeRouter(id);
     if (needsSwitch && _routerService!.routers.isNotEmpty) {
@@ -677,15 +827,18 @@ class AppState extends ChangeNotifier {
     // Invalidate any in-flight requests from the previously selected router
     _sessionToken++;
     final token = _sessionToken;
+    // The old router's dashboard must not be read as the new one's: the
+    // event feed would take its uptime as a baseline and report a reboot.
+    _dashboardData = null;
     _cancelRebootPolling();
     // Cancelling the poll removes the only path that clears this flag, so
     // reset it here or the new router gets no throughput timer.
     _isRebooting = false;
 
     _isLoading = true;
-    _dashboardError = null;
+    _appFailure = null;
     _canReboot = null;
-    _rebootAccessError = null;
+    _rebootAccessUnknown = false;
 
     // Clear throughput data and GL.iNet session when switching routers
     _cancelThroughputTimer();
@@ -716,11 +869,16 @@ class AppState extends ChangeNotifier {
     // A newer session started while this switch was in flight - it owns the
     // loading and error state now.
     if (token != _sessionToken) return;
+    // A background poll that is on watches whichever router the user is
+    // looking at, not the one selected when they switched it on. Read back
+    // from the service rather than from `found`: logging in may have failed
+    // over to the other address and persisted that choice, and the poll
+    // needs the address that actually answered.
+    if (loginSuccess) await _pointBackgroundPollAtSelectedRouter();
     // login() already fetches dashboard data on success; fetching again here
     // would double the RPC burst on every router switch.
     if (!loginSuccess) {
-      _dashboardError =
-          'Login Failed: Invalid credentials or host unreachable.';
+      _appFailure = const AppFailure(AppFailureKind.login);
     }
     _isLoading = false;
     notifyListeners();
@@ -759,8 +917,9 @@ class AppState extends ChangeNotifier {
     final token = _sessionToken;
     _isLoading = true;
     _errorMessage = null;
+    _loginFailure = null;
     _canReboot = null;
-    _rebootAccessError = null;
+    _rebootAccessUnknown = false;
 
     // Clear throughput data when logging in to prevent mixing data from different sessions
     _cancelThroughputTimer();
@@ -832,6 +991,7 @@ class AppState extends ChangeNotifier {
                       activeAddressIndex: 1,
                     );
               await updateRouter(updatedRouter);
+              await _pointBackgroundPollAtSelectedRouter();
               if (result.usedAddressIndex != router.activeAddressIndex) {
                 Logger.info(
                   'Switched to ${result.usedAddressIndex == 0 ? "primary" : "alternate"} address',
@@ -840,23 +1000,26 @@ class AppState extends ChangeNotifier {
             }
           }
         }
+        // The fetch starts the throughput poll once it has data. Starting it
+        // here as well ran the poll after a failed fetch too, against a
+        // router that was not answering.
         await fetchDashboardData();
         if (token != _sessionToken) return false;
-        _startThroughputTimer();
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
         if (token != _sessionToken) return false;
-        _errorMessage =
-            'Login Failed: Invalid credentials or host unreachable.';
+        _errorMessage = null;
+        _loginFailure = const AppFailure(AppFailureKind.login);
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
       if (token != _sessionToken) return false;
-      _errorMessage = 'An error occurred: $e';
+      _errorMessage = null;
+      _loginFailure = AppFailure(AppFailureKind.login, cause: e);
       _isLoading = false;
       notifyListeners();
       return false;
@@ -882,20 +1045,44 @@ class AppState extends ChangeNotifier {
     }
     // A newer session started while cleanup ran - it owns the state now.
     if (token != _sessionToken) return;
+    // A login, router switch or dashboard fetch this logout overtook returns
+    // without touching these, leaving the login button spinning - or the
+    // dashboard, which skips its own fetch while one is running, loading.
+    _isLoading = false;
+    _isDashboardLoading = false;
     _glInetService?.clearSession();
     _dashboardData = null;
-    _dashboardError = null;
+    _dashboardSettledAt = null;
+    _appFailure = null;
     _canReboot = null;
-    _rebootAccessError = null;
+    _rebootAccessUnknown = false;
     _cancelThroughputTimer();
     notifyListeners();
   }
 
-  Future<void> fetchDashboardData({bool isRetryAfterFallback = false}) async {
+  Future<void> fetchDashboardData({bool isRetryAfterFallback = false}) =>
+      _fetchDashboardData(isRetryAfterFallback: isRetryAfterFallback);
+
+  /// [resentUnanswered] marks the one retry after requests a router left
+  /// unanswered (see below). It is kept apart from [isRetryAfterFallback]
+  /// so that retry does not use up the alternate address: a saved address
+  /// that went away mid-fetch looks like that hang first, and the retry is
+  /// what then finds it gone.
+  Future<void> _fetchDashboardData({
+    required bool isRetryAfterFallback,
+    bool resentUnanswered = false,
+  }) async {
+    // A UCI apply is awaiting confirmation. This fetch's fallback path can
+    // re-login, which would invalidate the session the pending rollback is
+    // bound to and make the router revert the change.
+    if (_criticalSection) {
+      return;
+    }
+
     if (_reviewerModeEnabled) {
       // For reviewer mode, return mock data immediately
       _isDashboardLoading = true;
-      _dashboardError = null;
+      _appFailure = null;
       notifyListeners();
 
       await Future.delayed(
@@ -918,6 +1105,7 @@ class AppState extends ChangeNotifier {
         final processedDhcpData = _processDhcpLeases(rawDhcpData);
 
         _dashboardData = {
+          'fetchedAt': DateTime.now(),
           'boardInfo': results[0][1],
           'sysInfo': results[1][1],
           'networkDevices': results[2][1],
@@ -931,7 +1119,7 @@ class AppState extends ChangeNotifier {
               DateTime.now().millisecondsSinceEpoch, // Force UI updates
         };
         _canReboot = true;
-        _rebootAccessError = null;
+        _rebootAccessUnknown = false;
 
         // Update throughput data with mock network data for reviewer mode
         if (_throughputService != null) {
@@ -971,7 +1159,7 @@ class AppState extends ChangeNotifier {
         _isDashboardLoading = false;
         notifyListeners();
       } catch (e) {
-        _dashboardError = 'Failed to fetch dashboard data: $e';
+        _appFailure = AppFailure(AppFailureKind.fetch, cause: e);
         _isDashboardLoading = false;
         notifyListeners();
       }
@@ -996,9 +1184,9 @@ class AppState extends ChangeNotifier {
     final token = _sessionToken;
 
     _isDashboardLoading = true;
-    _dashboardError = null;
+    _appFailure = null;
     _canReboot = null;
-    _rebootAccessError = null;
+    _rebootAccessUnknown = false;
     final rebootAccessRequestId = ++_rebootAccessRequestId;
     notifyListeners();
 
@@ -1011,6 +1199,14 @@ class AppState extends ChangeNotifier {
         requestId: rebootAccessRequestId,
       ),
     );
+
+    // Some LuCI builds hang requests that run alongside others
+    // (openwrt/luci#9091), and the first burst after login is how the app
+    // finds out. The router is sent one request at a time from then on, so
+    // whatever this fetch lost to it - optional wireless data included,
+    // which goes missing quietly - comes back if it asks once more. These
+    // are all reads, and `resentUnanswered` keeps it to once.
+    var unanswered = false;
 
     try {
       // Perform all API calls in parallel
@@ -1029,6 +1225,7 @@ class AppState extends ChangeNotifier {
             params: params,
           );
         } catch (e, stack) {
+          if (isUnansweredParallelRequest(e)) unanswered = true;
           Logger.warning('Optional RPC $object.$method failed: $e');
           Logger.debug('Optional RPC $object.$method stack: $stack');
           return null;
@@ -1128,6 +1325,14 @@ class AppState extends ChangeNotifier {
         wirelessFuture,
         uciWirelessFuture,
       ]);
+      if (unanswered && !resentUnanswered) {
+        if (token != _sessionToken) return;
+        _isDashboardLoading = false;
+        return await _fetchDashboardData(
+          isRetryAfterFallback: isRetryAfterFallback,
+          resentUnanswered: true,
+        );
+      }
       final wirelessRaw = optionalResults[0];
       final uciWirelessRaw = optionalResults[1];
 
@@ -1259,6 +1464,7 @@ class AppState extends ChangeNotifier {
       if (token != _sessionToken) return;
 
       _dashboardData = {
+        'fetchedAt': DateTime.now(),
         'boardInfo': boardInfoData,
         'sysInfo': sysInfoData,
         'networkDevices': networkData,
@@ -1290,17 +1496,32 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       // A newer session started; don't surface this fetch's error.
       if (token != _sessionToken) return;
+      // The router did answer - just not in parallel - so this is no reason
+      // to try the other address.
+      if (isUnansweredParallelRequest(e) && !resentUnanswered) {
+        _isDashboardLoading = false;
+        return await _fetchDashboardData(
+          isRetryAfterFallback: isRetryAfterFallback,
+          resentUnanswered: true,
+        );
+      }
       final status = e is DioException ? e.response?.statusCode : null;
+      // A rejected session is worth retrying on the other address, and so
+      // is any failure to reach the router at all - including the reset
+      // connection a router serves while it reloads after an apply, which
+      // Dio reports as `unknown`.
       final retryable =
           e is DioException &&
-          (status == 401 ||
-              status == 403 ||
-              e.type == DioExceptionType.connectionError ||
-              e.type == DioExceptionType.connectionTimeout ||
-              e.type == DioExceptionType.sendTimeout ||
-              e.type == DioExceptionType.receiveTimeout);
+          (status == 401 || status == 403 || isRouterUnreachable(e));
       final router = _routerService?.selectedRouter;
+      // Not while an apply is awaiting confirmation: rpcd binds the pending
+      // rollback to the session that called `uci.apply`, so a new login here
+      // makes the confirm fail and the router revert the user's change. The
+      // reset connection a router serves while it reloads after that apply is
+      // exactly what `retryable` now catches, so this fetch is the one most
+      // likely to be in flight.
       if (retryable &&
+          !_criticalSection &&
           !isRetryAfterFallback &&
           router != null &&
           router.hasFallback &&
@@ -1322,17 +1543,20 @@ class AppState extends ChangeNotifier {
             await updateRouter(
               router.copyWith(activeAddressIndex: result.usedAddressIndex),
             );
+            // The poll has to learn the address that answered too.
+            await _pointBackgroundPollAtSelectedRouter();
           }
           _isDashboardLoading = false;
           return await fetchDashboardData(isRetryAfterFallback: true);
         }
       }
-      _dashboardError = userFacingApiError(e);
+      _appFailure = AppFailure(AppFailureKind.fetch, cause: e);
     } finally {
       // A newer session (router switch / re-login / logout) started while this
       // fetch was in flight - drop the stale results instead of clobbering it.
       if (token == _sessionToken) {
         _isDashboardLoading = false;
+        _dashboardSettledAt = DateTime.now();
         notifyListeners();
       }
     }
@@ -1346,7 +1570,7 @@ class AppState extends ChangeNotifier {
     required int requestId,
   }) async {
     bool? allowed;
-    String? error;
+    var unknown = false;
     try {
       final result = await _apiService!.call(
         ip,
@@ -1357,16 +1581,14 @@ class AppState extends ChangeNotifier {
         params: {'scope': 'ubus', 'object': 'system', 'function': 'reboot'},
       );
       allowed = rpcAccessAllowed(result);
-      if (allowed == null) {
-        error = 'Could not check administrator access. Refresh to retry.';
-      }
+      unknown = allowed == null;
     } catch (e) {
       Logger.warning('Could not check reboot access: $e');
-      error = 'Could not check administrator access. Refresh to retry.';
+      unknown = true;
     }
     if (token != _sessionToken || requestId != _rebootAccessRequestId) return;
     _canReboot = allowed;
-    _rebootAccessError = error;
+    _rebootAccessUnknown = unknown;
     notifyListeners();
   }
 
@@ -1455,6 +1677,10 @@ class AppState extends ChangeNotifier {
     if (_isRebooting) {
       return;
     }
+    // Nor while a UCI apply is awaiting confirmation.
+    if (_criticalSection) {
+      return;
+    }
     _throughputTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       _updateThroughputOnly();
     });
@@ -1464,6 +1690,12 @@ class AppState extends ChangeNotifier {
   Future<void> _updateThroughputOnly() async {
     // Don't try to update throughput during reboot
     if (_isRebooting) {
+      return;
+    }
+
+    // Nor while a UCI apply is awaiting confirmation - an extra request can
+    // cost the session that the pending rollback is bound to.
+    if (_criticalSection) {
       return;
     }
 
@@ -1604,6 +1836,55 @@ class AppState extends ChangeNotifier {
   void _cancelThroughputTimer() {
     _throughputTimer?.cancel();
     _throughputService?.clear();
+  }
+
+  /// Whether a session-bound operation (a UCI apply awaiting confirmation) is
+  /// in progress. While true, background polling and the dashboard's
+  /// re-login-on-failure path are suppressed.
+  bool get isInCriticalSection => _criticalSection;
+
+  /// Suspends background router traffic for the duration of a session-bound
+  /// operation. Always pair with [endCriticalSection].
+  void beginCriticalSection() {
+    _criticalDepth++;
+    if (_criticalSection) return;
+    _criticalSection = true;
+    _throughputTimer?.cancel();
+    notifyListeners();
+  }
+
+  /// Resumes background traffic. Pass `refresh: false` when the caller will
+  /// re-establish the session itself (for example after a rollback).
+  Future<void> endCriticalSection({bool refresh = true}) async {
+    if (!_criticalSection) return;
+    // A nested `refresh: false` must not cancel an outer `refresh: true`.
+    _pendingRefresh = _pendingRefresh || refresh;
+    if (_criticalDepth > 0) _criticalDepth--;
+    if (_criticalDepth > 0) return;
+
+    refresh = _pendingRefresh;
+    _pendingRefresh = false;
+    _criticalSection = false;
+    notifyListeners();
+    if (refresh) {
+      // Guarded so the restart below still happens: a refresh that throws
+      // would otherwise leave live throughput frozen until some other flow
+      // happened to start the timer again.
+      try {
+        await fetchDashboardData();
+      } catch (e, stack) {
+        Logger.exception('Refresh after a change failed', e, stack);
+      }
+    }
+    // Both paths: `beginCriticalSection` cancelled the timer, and four of the
+    // five write flows end with `refresh: false`. Restarting only in the
+    // refresh branch left live throughput frozen after any firewall,
+    // wireless, add-on or client change. `_startThroughputTimer` already
+    // returns early while rebooting or inside a critical section.
+    //
+    // Not after a logout, though: an apply that outlived the session would
+    // otherwise leave a timer ticking on the login screen.
+    if (_authService?.sysauth != null) _startThroughputTimer();
   }
 
   Future<bool> reboot({BuildContext? context}) async {
@@ -1796,98 +2077,13 @@ class AppState extends ChangeNotifier {
       _httpClientManager.disposeClient(targetIp, targetUseHttps);
     }
 
-    // Try multiple endpoints in order
-    final scheme = targetUseHttps ? 'https' : 'http';
-    final endpoints = [
-      '/', // Root
-      '/cgi-bin/luci/', // LuCI login page
-      '/cgi-bin/luci/admin', // Admin page
-    ];
-
-    for (final endpoint in endpoints) {
-      // Create a fresh Dio client for pinging to avoid certificate/connection
-      // issues; declared outside try so finally can always close it.
-      final dio = Dio(
-        BaseOptions(
-          connectTimeout: const Duration(seconds: 5),
-          receiveTimeout: const Duration(seconds: 5),
-          sendTimeout: const Duration(seconds: 5),
-          followRedirects: false,
-          validateStatus: (code) => code != null && code >= 200 && code < 500,
-        ),
-      );
-      try {
-        // Build the URI structurally: string interpolation produces an
-        // invalid authority for IPv6 literals (missing brackets), while
-        // Uri host handling adds them automatically. Persisted addresses
-        // may hold unbracketed IPv6 literals (2+ colons) - bracket them
-        // first or the authority parse throws and every probe fails.
-        var authorityInput = targetIp;
-        if (!authorityInput.startsWith('[') &&
-            ':'.allMatches(authorityInput).length > 1) {
-          authorityInput = '[$authorityInput]';
-        }
-        final authority = Uri.parse('//$authorityInput');
-        final uri = Uri(
-          scheme: scheme,
-          host: authority.host,
-          port: authority.hasPort ? authority.port : null,
-          path: endpoint,
-        );
-
-        if (targetUseHttps) {
-          final adapter = IOHttpClientAdapter();
-          adapter.createHttpClient = () {
-            final httpClient = HttpClient();
-            httpClient.connectionTimeout = const Duration(seconds: 5);
-            // Liveness probe only - no credentials are sent, but still prefer
-            // an already-pinned certificate when we have one.
-            httpClient.badCertificateCallback = (cert, host, port) {
-              return HttpClientManager().isCertificatePinned(host, port, cert);
-            };
-            return httpClient;
-          };
-          dio.httpClientAdapter = adapter;
-        }
-
-        // print('[Ping] Attempt $_pollAttempts: Checking $url');
-        final response = await dio.getUri(uri);
-        // print('[Ping] Response from $endpoint: ${response.statusCode}');
-
-        // Accept various status codes as "alive"
-        final isAlive =
-            response.statusCode != null &&
-            response.statusCode! >= 200 &&
-            response.statusCode! < 500;
-
-        if (isAlive) {
-          if (_pollAttempts > 5) {
-            // If we've been polling for a while and get a response,
-            // wait a bit more to ensure services are fully started
-            await Future.delayed(const Duration(seconds: 5));
-          }
-          return true;
-        }
-      } catch (e) {
-        // Try next endpoint
-        if (endpoint == endpoints.last) {
-          // print('[Ping] All endpoints failed on attempt $_pollAttempts');
-          // print('[Ping] Last error: ${e.toString()}');
-
-          if (e is SocketException) {
-            // print('[Ping] Socket error: ${e.message}, OS Error: ${e.osError}');
-          } else if (e is HandshakeException) {
-            // print('[Ping] SSL handshake error - router may still be starting');
-          }
-        }
-      } finally {
-        // Each attempt uses its own throwaway client; close it so repeated
-        // polls don't retain adapters and sockets until process shutdown.
-        dio.close(force: true);
-      }
+    final alive = await _livenessProbe.isReachable(targetIp, targetUseHttps);
+    if (alive && _pollAttempts > 5) {
+      // If we've been polling for a while and get a response, wait a bit
+      // more to ensure services are fully started.
+      await Future.delayed(const Duration(seconds: 5));
     }
-
-    return false;
+    return alive;
   }
 
   Future<bool> checkRouterAvailability() async {
@@ -1908,24 +2104,15 @@ class AppState extends ChangeNotifier {
   ///
   /// Returns `null` when the response cannot be parsed.
   Map<String, dynamic>? _resolveUciSections(dynamic result, String configName) {
-    if (result is! List || result.length < 2) return null;
-    final outer = result[1];
-    if (outer is! Map) return null;
-    // Real API: sections under 'values'
-    if (outer['values'] is Map) {
-      return Map<String, dynamic>.from(outer['values'] as Map);
-    }
-    // Mock: sections under the config name key (e.g. 'wireless', 'firewall')
-    if (outer[configName] is Map) {
-      return Map<String, dynamic>.from(outer[configName] as Map);
-    }
-    // Flat map — sections directly at result[1]
-    return Map<String, dynamic>.from(outer);
+    if (result is! List || result.length < 2 || result[1] is! Map) return null;
+    return uciValuesOf(result, config: configName);
   }
 
-  bool _isUciDisabled(dynamic value) => value is List
-      ? value.any(_isUciDisabled)
-      : value == true || value?.toString() == '1';
+  /// UCI spells booleans several ways, and a hand-written `disabled 'yes'`
+  /// disables a radio just as `'1'` does. Reading it as enabled would mean
+  /// a wifi restart silently turned it back on.
+  bool _isUciDisabled(dynamic value) =>
+      value is List ? value.any(_isUciDisabled) : uciBool(value);
 
   /// Restarts a specific radio via UCI disable/enable cycle.
   /// This is more reliable than `wifi reload` which doesn't work on all routers.
@@ -2140,7 +2327,7 @@ class AppState extends ChangeNotifier {
 
       return true;
     } catch (e) {
-      _dashboardError = 'Failed to toggle Wi-Fi: $e';
+      _appFailure = AppFailure(AppFailureKind.wifiToggle, cause: e);
       notifyListeners();
       return false;
     }
@@ -2320,7 +2507,10 @@ class AppState extends ChangeNotifier {
         throw FormatException('Radio $radioName not found');
       }
       if (_isUciDisabled(radio['disabled'])) {
-        _dashboardError = 'Enable $radioName before restarting it';
+        _appFailure = AppFailure(
+          AppFailureKind.radioDisabledForRestart,
+          subject: radioName,
+        );
         notifyListeners();
         return false;
       }
@@ -2332,7 +2522,7 @@ class AppState extends ChangeNotifier {
       return true;
     } catch (e, stack) {
       Logger.exception('Failed to restart radio $radioName', e, stack);
-      _dashboardError = 'Failed to restart radio: $e';
+      _appFailure = AppFailure(AppFailureKind.radioRestart, cause: e);
       notifyListeners();
       return false;
     }
@@ -2388,7 +2578,10 @@ class AppState extends ChangeNotifier {
         throw FormatException('Radio $radioDevice not found');
       }
       if (_isUciDisabled(radio['disabled'])) {
-        _dashboardError = 'Enable $radioDevice before connecting';
+        _appFailure = AppFailure(
+          AppFailureKind.radioDisabledForConnect,
+          subject: radioDevice,
+        );
         notifyListeners();
         return false;
       }
@@ -2484,16 +2677,7 @@ class AppState extends ChangeNotifier {
           }
           if (section['name']?.toString() == 'wan') {
             wanZoneIndex = zoneIndex;
-            final networks = section['network'];
-            foundInWan = networks is List
-                ? networks
-                      .map((value) => value.toString())
-                      .contains(staNetworkName)
-                : networks
-                          ?.toString()
-                          .split(RegExp(r'\s+'))
-                          .contains(staNetworkName) ==
-                      true;
+            foundInWan = uciList(section['network']).contains(staNetworkName);
             break;
           }
           zoneIndex++;
@@ -2795,7 +2979,11 @@ class AppState extends ChangeNotifier {
       return true;
     } catch (e, stack) {
       Logger.exception('Failed to connect to wireless network', e, stack);
-      _dashboardError = 'Failed to connect to $ssid: $e';
+      _appFailure = AppFailure(
+        AppFailureKind.wifiConnect,
+        subject: ssid,
+        cause: e,
+      );
       notifyListeners();
       return false;
     }
@@ -2847,7 +3035,7 @@ class AppState extends ChangeNotifier {
     } catch (e, stack) {
       // UCI operations failed — actual error
       Logger.exception('Failed to toggle wireless interface (UCI)', e, stack);
-      _dashboardError = 'Failed to toggle interface: $e';
+      _appFailure = AppFailure(AppFailureKind.interfaceToggle, cause: e);
       notifyListeners();
       return false;
     }
@@ -2863,7 +3051,7 @@ class AppState extends ChangeNotifier {
         e,
         stack,
       );
-      _dashboardError = 'Interface toggled but wireless reload failed: $e';
+      _appFailure = AppFailure(AppFailureKind.wirelessReload, cause: e);
       notifyListeners();
       return false;
     }
@@ -2910,7 +3098,7 @@ class AppState extends ChangeNotifier {
       );
     } catch (e, stack) {
       Logger.exception('Failed to modify wireless interface (UCI)', e, stack);
-      _dashboardError = 'Failed to modify interface: $e';
+      _appFailure = AppFailure(AppFailureKind.interfaceModify, cause: e);
       notifyListeners();
       return false;
     }
@@ -2919,7 +3107,7 @@ class AppState extends ChangeNotifier {
       await _wifiReload(context: context?.mounted == true ? context : null);
     } catch (e, stack) {
       Logger.exception('Wireless reload failed after interface edit', e, stack);
-      _dashboardError = 'Interface modified but wireless reload failed: $e';
+      _appFailure = AppFailure(AppFailureKind.wirelessReload, cause: e);
       notifyListeners();
       return false;
     }
@@ -2962,7 +3150,7 @@ class AppState extends ChangeNotifier {
       );
     } catch (e, stack) {
       Logger.exception('Failed to delete wireless interface (UCI)', e, stack);
-      _dashboardError = 'Failed to delete interface: $e';
+      _appFailure = AppFailure(AppFailureKind.interfaceDelete, cause: e);
       notifyListeners();
       return false;
     }
@@ -2975,7 +3163,7 @@ class AppState extends ChangeNotifier {
         e,
         stack,
       );
-      _dashboardError = 'Interface deleted but wireless reload failed: $e';
+      _appFailure = AppFailure(AppFailureKind.wirelessReload, cause: e);
       notifyListeners();
       return false;
     }
@@ -3026,6 +3214,7 @@ class AppState extends ChangeNotifier {
           await updateRouter(
             router.copyWith(activeAddressIndex: result.usedAddressIndex),
           );
+          await _pointBackgroundPollAtSelectedRouter();
         }
         return true;
       }
@@ -3175,14 +3364,15 @@ class AppState extends ChangeNotifier {
 
       // Normalize wireless MACs for consistent lookup
       final normalizedWireless = {
-        ...wirelessMacs.map((m) => m.toUpperCase().replaceAll('-', ':')),
+        ...wirelessMacs.map(StationInfo.normalizeMac),
         ...wirelessDetails.keys,
       };
+
 
       final clients = <String, Client>{}; // key by normalized MAC
       for (final lease in leases) {
         var client = Client.fromLease(lease);
-        final macNorm = client.macAddress.toUpperCase().replaceAll('-', ':');
+        final macNorm = StationInfo.normalizeMac(client.macAddress);
         if (macNorm == '00:00:00:00:00:00' || client.ipAddress == '1.1.1.1') {
           continue;
         }
@@ -3196,6 +3386,7 @@ class AppState extends ChangeNotifier {
             hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}',
           );
         }
+
 
         final isWireless = normalizedWireless.contains(macNorm);
         final isReachable =
@@ -3474,6 +3665,21 @@ class AppState extends ChangeNotifier {
   }
 
   /// Returns clients for the currently selected router only
+  /// Stamps clients with the router they came from.
+  ///
+  /// Only the selected-router fetch can do this safely; the aggregated fetch
+  /// merges several routers and loses provenance for wireless-only entries,
+  /// which stay unstamped so the detail page refuses to write to them.
+  List<Client> _stampSelectedRouter(List<Client> clients) {
+    final router = _routerService?.selectedRouter;
+    final id = router?.id ?? currentSession?.routerId;
+    if (id == null) return clients;
+    final label = router?.lastKnownHostname ?? router?.activeAddress;
+    return [
+      for (final c in clients) c.copyWith(routerId: id, routerLabel: label),
+    ];
+  }
+
   Future<List<Client>> fetchClientsForSelectedRouter() async {
     try {
       if (_reviewerModeEnabled) {
@@ -3496,13 +3702,11 @@ class AppState extends ChangeNotifier {
           );
         }
         // Normalize wireless MACs for consistent lookup
-        final normalizedMacs = macs
-            .map((m) => m.toUpperCase().replaceAll('-', ':'))
-            .toSet();
+        final normalizedMacs = macs.map(StationInfo.normalizeMac).toSet();
         final clientMap = <String, Client>{};
         for (final l in leases) {
           final c = Client.fromLease(l);
-          final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
+          final macNorm = StationInfo.normalizeMac(c.macAddress);
           final isWireless = normalizedMacs.contains(macNorm);
           clientMap[macNorm] = isWireless
               ? c.copyWith(connectionType: ConnectionType.wireless)
@@ -3514,7 +3718,7 @@ class AppState extends ChangeNotifier {
             clientMap[mac] = Client.fromWirelessStation(mac);
           }
         }
-        final reviewerClients = clientMap.values.toList();
+        final reviewerClients = _stampSelectedRouter(clientMap.values.toList());
         _sortClients(reviewerClients);
         return reviewerClients;
       }
@@ -3617,14 +3821,14 @@ class AppState extends ChangeNotifier {
 
       // Normalize wireless MACs for consistent lookup
       final normalizedWireless = {
-        ...wireless.map((m) => m.toUpperCase().replaceAll('-', ':')),
+        ...wireless.map(StationInfo.normalizeMac),
         ...wirelessDetails.keys,
       };
 
       final clientMap = <String, Client>{};
       for (final l in leases) {
         var c = Client.fromLease(l);
-        final macNorm = c.macAddress.toUpperCase().replaceAll('-', ':');
+        final macNorm = StationInfo.normalizeMac(c.macAddress);
         if (macNorm == '00:00:00:00:00:00' || c.ipAddress == '1.1.1.1') {
           continue;
         }
@@ -3639,6 +3843,7 @@ class AppState extends ChangeNotifier {
             hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}',
           );
         }
+
 
         final isWireless = normalizedWireless.contains(macNorm);
         final isReachable =
@@ -3740,7 +3945,8 @@ class AppState extends ChangeNotifier {
       // Enrich with blocked status from OpenWrt firewall
       await _enrichClientsWithFirewallBlocks(clientMap);
 
-      final clients = clientMap.values.toList();
+      final clients = _stampSelectedRouter(clientMap.values.toList());
+
       _sortClients(clients);
       return clients;
     } catch (e, stack) {
@@ -3962,7 +4168,13 @@ class AppState extends ChangeNotifier {
           final data = result[1] as Map<String, dynamic>;
           final leases = (data['dhcp_leases'] as List<dynamic>? ?? [])
               .cast<Map<String, dynamic>>();
-          return leases;
+          final routerId = currentSession?.routerId;
+          if (routerId == null) return leases;
+          return leases
+              .map(
+                (lease) => <String, dynamic>{...lease, '_routerId': routerId},
+              )
+              .toList();
         }
         return [];
       }
@@ -4012,7 +4224,18 @@ class AppState extends ChangeNotifier {
               final leases = (data['dhcp_leases'] as List<dynamic>? ?? [])
                   .cast<Map<String, dynamic>>();
               successfulRouters++;
-              return leases;
+              // Record which router answered. Dedup below keeps one entry per
+              // MAC+IP, so without this the detail page cannot tell which
+              // router to write a reservation or block rule to.
+              return leases
+                  .map(
+                    (lease) => <String, dynamic>{
+                      ...lease,
+                      '_routerId': r.id,
+                      '_routerLabel': r.lastKnownHostname ?? r.activeAddress,
+                    },
+                  )
+                  .toList();
             }
             throw const RpcException(
               object: 'luci-rpc',

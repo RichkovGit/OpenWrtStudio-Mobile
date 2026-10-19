@@ -1,3 +1,4 @@
+import 'package:luci_mobile/navigation/luci_tab.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,7 +38,7 @@ void main() {
       await tester.tap(find.text('192.168.1.2'));
       await tester.pumpAndSettle();
       expect(find.byType(ManageRoutersScreen), findsNothing);
-      expect(state.requestedTab, 0);
+      expect(state.requestedTab, LuciTab.dashboard);
       expect(tester.takeException(), isNull);
     },
   );
