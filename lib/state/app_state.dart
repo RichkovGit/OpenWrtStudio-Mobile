@@ -142,6 +142,7 @@ class AppState extends ChangeNotifier {
 
   // Cached friendly client hostnames (persists across reconnects/drops)
   final Map<String, String> _cachedClientNames = {};
+  String? _clientHistoryRouterId;
 
   // Persistent device history (matches PC OpenWrtStudio ClientManagerService device cache)
   final Map<
@@ -371,10 +372,12 @@ class AppState extends ChangeNotifier {
     required IAuthService authService,
     IGlInetApiService? glInetApiService,
     RouterService? routerService,
+    bool reviewerMode = false,
   }) : _apiService = apiService,
        _authService = authService,
        _glInetService = glInetApiService,
-       _routerService = routerService;
+       _routerService = routerService,
+       _reviewerModeEnabled = reviewerMode;
 
   static AppState get instance {
     return _instance ??= AppState._();
@@ -3361,6 +3364,7 @@ class AppState extends ChangeNotifier {
         Logger.warning('Using wireless clients without DHCP data: $leaseError');
       }
 
+      _clientHistoryRouterId = null;
       // Normalize wireless MACs for consistent lookup
       final normalizedWireless = {
         ...wirelessMacs.map(StationInfo.normalizeMac),
@@ -3667,17 +3671,23 @@ class AppState extends ChangeNotifier {
   /// Only the selected-router fetch can do this safely; the aggregated fetch
   /// merges several routers and loses provenance for wireless-only entries,
   /// which stay unstamped so the detail page refuses to write to them.
-  List<Client> _stampSelectedRouter(List<Client> clients) {
-    final router = _routerService?.selectedRouter;
-    final id = router?.id ?? currentSession?.routerId;
-    if (id == null) return clients;
-    final label = router?.lastKnownHostname ?? router?.activeAddress;
+  List<Client> _stampSelectedRouter(
+    List<Client> clients,
+    RouterSession? owner,
+  ) {
+    if (owner == null || owner != currentSession) return [];
+    final router = _routerOnAddress(owner.ipAddress);
     return [
-      for (final c in clients) c.copyWith(routerId: id, routerLabel: label),
+      for (final c in clients)
+        c.copyWith(
+          routerId: owner.routerId,
+          routerLabel: router?.lastKnownHostname,
+        ),
     ];
   }
 
   Future<List<Client>> fetchClientsForSelectedRouter() async {
+    final owner = currentSession;
     try {
       if (_reviewerModeEnabled) {
         final stationsMap = await _apiService!.fetchAssociatedStations();
@@ -3715,7 +3725,10 @@ class AppState extends ChangeNotifier {
             clientMap[mac] = Client.fromWirelessStation(mac);
           }
         }
-        final reviewerClients = _stampSelectedRouter(clientMap.values.toList());
+        final reviewerClients = _stampSelectedRouter(
+          clientMap.values.toList(),
+          owner,
+        );
         _sortClients(reviewerClients);
         return reviewerClients;
       }
@@ -3810,6 +3823,12 @@ class AppState extends ChangeNotifier {
         _authService!.sysauth!,
         activeHttps,
       );
+      if (owner == null || owner != currentSession) return [];
+      if (_clientHistoryRouterId != owner.routerId) {
+        _persistentDeviceHistory.clear();
+        _cachedClientNames.clear();
+        _clientHistoryRouterId = owner.routerId;
+      }
       for (final entry in staticNames.entries) {
         if (!_isGenericHostname(entry.value)) {
           _cachedClientNames[entry.key] = entry.value;
@@ -3941,7 +3960,7 @@ class AppState extends ChangeNotifier {
       // Enrich with blocked status from OpenWrt firewall
       await _enrichClientsWithFirewallBlocks(clientMap);
 
-      final clients = _stampSelectedRouter(clientMap.values.toList());
+      final clients = _stampSelectedRouter(clientMap.values.toList(), owner);
 
       _sortClients(clients);
       return clients;
