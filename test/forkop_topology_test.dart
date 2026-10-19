@@ -47,7 +47,10 @@ void main() {
         nodes.singleWhere((n) => n.name == 'node-b-plus').latencyMs,
         isNull,
       );
-      expect(nodes.singleWhere((n) => n.name == 'auto-blanc').latencyMs, isNull);
+      expect(
+        nodes.singleWhere((n) => n.name == 'auto-blanc').latencyMs,
+        isNull,
+      );
       final quick = ForkopTopology.quickChoices(nodes);
       expect(
         quick.map((n) => n.name),
