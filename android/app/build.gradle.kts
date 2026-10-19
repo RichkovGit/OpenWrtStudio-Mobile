@@ -76,6 +76,8 @@ android {
             )
         }
         getByName("debug") {
+            applicationIdSuffix = ".upstreamtest"
+            versionNameSuffix = "-upstream-test"
             // Debug builds use the default debug signing config
             // No custom keystore required for debug builds
         }

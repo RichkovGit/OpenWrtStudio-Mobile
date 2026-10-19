@@ -1,7 +1,7 @@
 name: VPN regression and Linux packages
 on:
   push:
-    branches: [codex/fix-vpn-selection, main]
+    branches: [codex/fix-vpn-selection, codex/sync-upstream-2, main]
   workflow_dispatch:
 permissions:
   contents: read

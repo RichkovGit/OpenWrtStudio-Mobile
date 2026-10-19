@@ -3,7 +3,7 @@ on:
   push:
     branches: [codex/sync-upstream-2]
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: upstream-sync-${{ github.ref }}
   cancel-in-progress: true
@@ -19,15 +19,33 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Format the integration branch
-        run: |
-          dart format .
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add lib test pubspec.lock
-          if ! git diff --cached --quiet; then
-            git commit -m 'style: format upstream integration'
-            git push origin HEAD:codex/sync-upstream-2
-          fi
+      - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze --fatal-infos
       - run: flutter test --reporter expanded
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Retain jni linker workaround
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          cache = Path(os.environ.get('PUB_CACHE') or Path.home() / '.pub-cache')
+          for path in cache.glob('hosted/*/jni-*/src/CMakeLists.txt'):
+              source = path.read_text()
+              if '-Wl,--build-id=none,' not in source:
+                  path.write_text(source.replace('-Wl,', '-Wl,--build-id=none,'))
+          PY
+      - name: Build standalone Android test APK after checks pass
+        run: |
+          flutter build apk --debug --target-platform android-arm64
+          mkdir -p android-test
+          cp build/app/outputs/flutter-apk/app-debug.apk android-test/OpenWrtStudio-2.5.25-upstream-test-arm64.apk
+          cp UPSTREAM_SYNC.md android-test/
+          (cd android-test && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: OpenWrtStudio-Android-upstream-test
+          path: android-test/
+          if-no-files-found: error
