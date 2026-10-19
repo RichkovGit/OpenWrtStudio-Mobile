@@ -632,13 +632,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                           : Icons.restart_alt,
                       iconColor: Theme.of(context).colorScheme.primary,
                       title: context.l10n.rebootRouter,
-                      subtitle:
-                          accessError ? context.l10n.rebootAccessUnknown :
-                          switch (canReboot) {
-                            false => context.l10n.administratorAccessRequired,
-                            null => context.l10n.checkingAdministratorAccess,
-                            true => context.l10n.rebootRouterDescription,
-                          },
+                      subtitle: accessError
+                          ? context.l10n.rebootAccessUnknown
+                          : switch (canReboot) {
+                              false => context.l10n.administratorAccessRequired,
+                              null => context.l10n.checkingAdministratorAccess,
+                              true => context.l10n.rebootRouterDescription,
+                            },
                       onTap: rebootEnabled
                           ? () => _showRebootDialog(context)
                           : null,
