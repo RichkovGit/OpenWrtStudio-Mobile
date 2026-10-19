@@ -114,7 +114,7 @@ jobs:
           test "$found" = 1
           sleep 5
           kill -0 "$app_pid"
-          ! grep -E 'Unhandled Exception|Failed to load dynamic library|error while loading shared libraries' startup.log
+          if grep -E 'Unhandled Exception|Failed to load dynamic library|error while loading shared libraries' startup.log; then exit 1; fi
           if command -v xwd >/dev/null; then xwd -root -silent | convert xwd:- screenshot.png; fi
           SCRIPT
           xvfb-run -a dbus-run-session -- bash smoke.sh
