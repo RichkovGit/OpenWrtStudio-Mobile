@@ -35,20 +35,20 @@ cd OpenWrtStudio-*-linux-x86_64
 ./openwrt-studio
 ```
 
-Сохраняйте `lib/` и `data/` рядом с исполняемым файлом. Для архива нужны системные GTK 3, libsecret, jsoncpp, libstdc++, графические драйверы и пользовательский keyring. Примеры зависимостей:
+Сохраняйте `lib/` и `data/` рядом с исполняемым файлом. Для архива нужны системные GTK 3, libsecret, jsoncpp, libstdc++, EGL/OpenGL ES 2 (`libGLESv2.so.2`), графические драйверы и пользовательский keyring. Примеры зависимостей:
 
 ```sh
 # Debian 12 / Ubuntu 22.04
-sudo apt install libgtk-3-0 libsecret-1-0 libjsoncpp25 gnome-keyring
+sudo apt install libgtk-3-0 libsecret-1-0 libjsoncpp25 libegl1 libgles2 gnome-keyring
 # Fedora
-sudo dnf install gtk3 libsecret jsoncpp gnome-keyring
+sudo dnf install gtk3 libsecret jsoncpp mesa-libEGL mesa-libGLES gnome-keyring
 # Arch
-sudo pacman -S gtk3 libsecret jsoncpp gnome-keyring
+sudo pacman -S gtk3 libsecret jsoncpp libglvnd gnome-keyring
 # openSUSE
-sudo zypper install gtk3 libsecret-1-0 libjsoncpp25 gnome-keyring
+sudo zypper install gtk3 libsecret-1-0 libjsoncpp25 Mesa-libEGL1 Mesa-libGLESv2-2 gnome-keyring
 ```
 
-Названия пакетов зависят от версии дистрибутива (в Ubuntu 24.04 GTK имеет суффикс t64). AppImage уменьшает зависимость от этих различий.
+Названия пакетов зависят от версии дистрибутива (в Ubuntu 24.04 GTK имеет суффикс t64). AppImage уменьшает зависимость от этих различий. EGL/OpenGL ES и драйверы видеокарты остаются системными зависимостями AppImage: при сообщении `Couldn't open libGLESv2.so.2` установите `libgles2` (Debian/Ubuntu) или `mesa-libGLES` (Fedora).
 
 Установка архива для текущего пользователя с ярлыком:
 
