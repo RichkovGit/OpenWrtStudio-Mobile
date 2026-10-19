@@ -126,3 +126,7 @@ flutter build appbundle --release
 ## 📄 Лицензия
 Проект распространяется под свободной лицензией **GNU General Public License v3.0 (GPL-3.0)**.
 Оригинальный проект: [cogwheel0/luci-mobile](https://github.com/cogwheel0/luci-mobile).
+
+## Синхронизация с оригиналом
+
+Ветка `codex/sync-upstream-2` объединяет LuCI Mobile 2.0 и исправления входа с функциями Studio. [Порядок локальной проверки](UPSTREAM_SYNC.md).

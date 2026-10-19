@@ -604,7 +604,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   appStateProvider.select((state) => state.canReboot),
                 );
                 final accessError = ref.watch(
-                  appStateProvider.select((state) => state.rebootAccessError),
+                  appStateProvider.select((state) => state.rebootAccessUnknown),
                 );
                 final rebootEnabled = canReboot == true && !isRebooting;
                 return _MoreScreenSection(
@@ -625,7 +625,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     ),
                     _buildMoreTile(
                       context,
-                      icon: accessError != null
+                      icon: accessError
                           ? Icons.error_outline
                           : canReboot == false
                           ? Icons.lock_outline
@@ -633,7 +633,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                       iconColor: Theme.of(context).colorScheme.primary,
                       title: context.l10n.rebootRouter,
                       subtitle:
-                          accessError ??
+                          accessError ? context.l10n.rebootAccessUnknown :
                           switch (canReboot) {
                             false => context.l10n.administratorAccessRequired,
                             null => context.l10n.checkingAdministratorAccess,

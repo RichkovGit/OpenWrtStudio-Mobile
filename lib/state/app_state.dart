@@ -679,7 +679,6 @@ class AppState extends ChangeNotifier {
   }
 
   bool get isAuthenticated => _authService?.isAuthenticated ?? false;
-  IApiService? get apiService => _apiService;
   bool get hasRouters =>
       _routerService != null && _routerService!.routers.isNotEmpty;
   bool get isLoading => _isLoading;

@@ -204,8 +204,9 @@ class _MainScreenState extends ConsumerState<MainScreen>
         // next mount, jumping the user to a tab they asked for before
         // logging out - or latches when it names the tab already showing.
         if (appState.requestedTab != requested ||
-            appState.requestedInterfaceToScroll != requestedInterface)
+            appState.requestedInterfaceToScroll != requestedInterface) {
           return;
+        }
         appState.requestedTab = null;
         appState.requestedInterfaceToScroll = null;
         if (!mounted) return;

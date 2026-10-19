@@ -397,7 +397,7 @@ class _UsbApi extends MockApiService {
     bool useHttps, {
     required String config,
     required String section,
-    required Map<String, String> values,
+    required Map<String, Object> values,
     BuildContext? context,
   }) async {
     if (failWrites) return [6];

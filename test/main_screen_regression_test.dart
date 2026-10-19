@@ -30,6 +30,16 @@ void main() {
     await tester.pump();
   });
 
+  testWidgets('upstream settings keeps Studio tools reachable', (tester) async {
+    await _show(tester, _ScreenState(), initialTab: LuciTab.settings);
+    await tester.tap(find.text('OpenWrt Studio'));
+    await tester.pumpAndSettle();
+    expect(find.text('ForkOP Прокси и Серверы'), findsOneWidget);
+    expect(find.text('VPN и Протоколы'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
+
   testWidgets('request for current tab is consumed before next navigation', (
     tester,
   ) async {

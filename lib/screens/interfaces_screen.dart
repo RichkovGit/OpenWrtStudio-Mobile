@@ -9,7 +9,6 @@ import 'package:luci_mobile/models/glinet_data.dart';
 import 'package:luci_mobile/models/interface.dart';
 import 'package:luci_mobile/utils/wifi_utils.dart';
 
-import 'dart:math';
 
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
