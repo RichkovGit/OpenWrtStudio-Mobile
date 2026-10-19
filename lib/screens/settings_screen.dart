@@ -290,14 +290,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LuciHubSection(tiles: [
-              LuciHubTile(icon: Icons.extension_outlined, iconColor: Theme.of(context).colorScheme.primary,
-                title: 'OpenWrt Studio', subtitle: 'VPN, ForkOP, Mihomo, USB',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MoreScreen()))),
-              LuciHubTile(icon: Icons.palette_outlined, iconColor: Theme.of(context).colorScheme.primary,
-                title: 'Оформление Studio', subtitle: 'Цветовая схема и масштаб интерфейса',
-                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StudioPreferencesScreen()))),
-            ]),
+            LuciHubSection(
+              tiles: [
+                LuciHubTile(
+                  icon: Icons.extension_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'OpenWrt Studio',
+                  subtitle: 'VPN, ForkOP, Mihomo, USB',
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const MoreScreen())),
+                ),
+                LuciHubTile(
+                  icon: Icons.palette_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'Оформление Studio',
+                  subtitle: 'Цветовая схема и масштаб интерфейса',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const StudioPreferencesScreen(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
             LuciSectionHeader(context.l10n.deviceManagement),
             Builder(
               builder: (context) {

@@ -116,7 +116,6 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                     Navigator.of(
                                       context,
                                     ).popUntil((route) => route.isFirst);
-
                                   } finally {
                                     if (mounted) {
                                       setState(() {

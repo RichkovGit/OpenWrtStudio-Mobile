@@ -7,10 +7,12 @@ class StudioDiagnosticsScreen extends ConsumerStatefulWidget {
   const StudioDiagnosticsScreen({super.key});
 
   @override
-  ConsumerState<StudioDiagnosticsScreen> createState() => _StudioDiagnosticsScreenState();
+  ConsumerState<StudioDiagnosticsScreen> createState() =>
+      _StudioDiagnosticsScreenState();
 }
 
-class _StudioDiagnosticsScreenState extends ConsumerState<StudioDiagnosticsScreen> {
+class _StudioDiagnosticsScreenState
+    extends ConsumerState<StudioDiagnosticsScreen> {
   final TextEditingController _targetCtrl = TextEditingController(
     text: '1.1.1.1',
   );

@@ -25,7 +25,8 @@ class MainScreen extends ConsumerStatefulWidget {
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObserver {
+class _MainScreenState extends ConsumerState<MainScreen>
+    with WidgetsBindingObserver {
   bool _isForeground = true;
   String? _routerEndpoint(String address, bool useHttps) {
     var input = address.trim();
@@ -109,8 +110,11 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    _isForeground = lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
-    WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _syncWatchdog(); });
+    _isForeground =
+        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncWatchdog();
+    });
     if (widget.initialTab != null) _selected = widget.initialTab!;
     _pendingInterface = widget.interfaceToScroll;
   }
@@ -199,7 +203,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
         // Cleared whatever happens: a request left standing replays on the
         // next mount, jumping the user to a tab they asked for before
         // logging out - or latches when it names the tab already showing.
-        if (appState.requestedTab != requested || appState.requestedInterfaceToScroll != requestedInterface) return;
+        if (appState.requestedTab != requested ||
+            appState.requestedInterfaceToScroll != requestedInterface)
+          return;
         appState.requestedTab = null;
         appState.requestedInterfaceToScroll = null;
         if (!mounted) return;
@@ -213,7 +219,9 @@ class _MainScreenState extends ConsumerState<MainScreen> with WidgetsBindingObse
     }
 
     if (!appState.isExpertMode) {
-      return SimpleDashboardScreen(onSwitchToExpert: () => appState.setExpertMode(true));
+      return SimpleDashboardScreen(
+        onSwitchToExpert: () => appState.setExpertMode(true),
+      );
     }
     return Scaffold(
       body: LuciTabTransition(

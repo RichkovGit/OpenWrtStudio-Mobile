@@ -11,7 +11,6 @@ import 'package:luci_mobile/utils/wifi_utils.dart';
 
 import 'dart:math';
 
-
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/widgets/luci_loading_states.dart';

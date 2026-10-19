@@ -3368,7 +3368,6 @@ class AppState extends ChangeNotifier {
         ...wirelessDetails.keys,
       };
 
-
       final clients = <String, Client>{}; // key by normalized MAC
       for (final lease in leases) {
         var client = Client.fromLease(lease);
@@ -3386,7 +3385,6 @@ class AppState extends ChangeNotifier {
             hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}',
           );
         }
-
 
         final isWireless = normalizedWireless.contains(macNorm);
         final isReachable =
@@ -3843,7 +3841,6 @@ class AppState extends ChangeNotifier {
             hostname: 'Wi-Fi Клиент ${macNorm.substring(macNorm.length - 5)}',
           );
         }
-
 
         final isWireless = normalizedWireless.contains(macNorm);
         final isReachable =

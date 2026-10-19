@@ -478,7 +478,6 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                                       ),
                                                 ),
                                               ),
-
                                         ),
                                       ),
                                     );
@@ -505,14 +504,12 @@ class _UnifiedClientCard extends ConsumerStatefulWidget {
   final VoidCallback? onRefresh;
   final VoidCallback onOpenDetails;
 
-
   const _UnifiedClientCard({
     required this.client,
     required this.isExpanded,
     required this.onTap,
     this.onRefresh,
     required this.onOpenDetails,
-
   });
 
   @override

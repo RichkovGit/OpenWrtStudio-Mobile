@@ -28,7 +28,6 @@ class Client {
   final String? routerId;
   final String? routerLabel;
 
-
   Client({
     required this.ipAddress,
     required this.macAddress,
@@ -49,7 +48,6 @@ class Client {
     this.signal,
     this.routerId,
     this.routerLabel,
-
   });
 
   // Helper function to determine connection type from MAC address or other data
@@ -293,7 +291,6 @@ class Client {
     int? signal,
     String? routerId,
     String? routerLabel,
-
   }) {
     return Client(
       ipAddress: ipAddress ?? this.ipAddress,
@@ -315,7 +312,6 @@ class Client {
       signal: signal ?? this.signal,
       routerId: routerId ?? this.routerId,
       routerLabel: routerLabel ?? this.routerLabel,
-
     );
   }
 }
