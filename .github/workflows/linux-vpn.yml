@@ -1,10 +1,10 @@
 name: VPN regression and Linux packages
 on:
   push:
-    branches: [codex/fix-vpn-selection]
+    branches: [codex/fix-vpn-selection, main]
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 concurrency:
   group: linux-vpn-${{ github.ref }}
   cancel-in-progress: true
@@ -24,22 +24,10 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev libjsoncpp-dev liblzma-dev desktop-file-utils patchelf libfuse2 xvfb dbus-x11 gnome-keyring xdotool x11-apps imagemagick
       - run: flutter pub get
-      - name: Format changed sources and retain exact tested patch
+      - name: Verify source formatting
         run: |
-          dart format lib/widgets/forkop_quick_choices.dart test/forkop_quick_choices_test.dart lib/models/forkop_node.dart lib/services/forkop_service.dart lib/services/forkop_topology.dart lib/services/ota_service.dart lib/screens/forkop_screen.dart lib/screens/simple_dashboard_screen.dart test/core_mobile_regression_test.dart test/forkop_topology_test.dart
-          dart fix --apply --code=curly_braces_in_flow_control_structures
-          dart format lib test
           mkdir -p checks
-          git diff --binary -- lib test > checks/format.patch
-      - name: Commit formatter-only changes to this work branch
-        run: |
-          if ! git diff --quiet -- lib test; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git add lib test
-            git commit -m "Format and lint VPN changes"
-            git push origin HEAD:codex/fix-vpn-selection
-          fi
+          dart format --output=none --set-exit-if-changed .
       - name: Analyze all sources
         run: flutter analyze --fatal-infos
       - name: Run all tests

@@ -88,4 +88,4 @@ flutter test
 ./scripts/package-linux.sh
 ```
 
-Первая команда сборки генерирует стандартный Flutter Linux runner; существующие Dart-экраны не заменяются. Для AppImage укажите `LINUXDEPLOY` и добавьте `linuxdeploy-plugin-gtk.sh` в PATH, как в `.github/workflows/linux-vpn.yml`.
+Первая команда сборки генерирует стандартный Flutter Linux runner в отдельной временной папке и копирует только linux/: исходные экраны, тесты и pubspec.yaml не заменяются. Для AppImage укажите `LINUXDEPLOY` и добавьте `linuxdeploy-plugin-gtk.sh` в PATH, как в `.github/workflows/linux-vpn.yml`.
