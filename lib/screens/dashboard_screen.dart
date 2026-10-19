@@ -690,8 +690,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               horizontal: 16.0,
               vertical: 8.0,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Wrap(
+              alignment: WrapAlignment.spaceAround,
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 _buildSpeedIndicator(
                   Icons.arrow_downward,
@@ -1140,7 +1142,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 3),
-                  Text('$signal dBm', style: textTheme.bodySmall),
+                  Flexible(
+                    child: Text(
+                      '$signal dBm',
+                      style: textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             Row(
@@ -1152,7 +1161,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: Colors.grey.shade600,
                 ),
                 const SizedBox(width: 3),
-                Text('кан. $channel', style: textTheme.bodySmall),
+                Flexible(
+                  child: Text(
+                    'кан. $channel',
+                    style: textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ],
