@@ -1,3 +1,5 @@
+const _unsetDelay = Object();
+
 enum ProxyType {
   shadowsocks,
   vmess,
@@ -5,6 +7,7 @@ enum ProxyType {
   trojan,
   hysteria,
   hysteria2,
+  tuic,
   wireguard,
   amneziawg,
   direct,
@@ -25,6 +28,7 @@ enum ProxyType {
       'trojan' => ProxyType.trojan,
       'hysteria' => ProxyType.hysteria,
       'hysteria2' || 'hy2' => ProxyType.hysteria2,
+      'tuic' => ProxyType.tuic,
       'wireguard' || 'wg' => ProxyType.wireguard,
       'amneziawg' || 'awg' => ProxyType.amneziawg,
       'direct' => ProxyType.direct,
@@ -44,6 +48,7 @@ enum ProxyType {
     ProxyType.trojan => 'Trojan',
     ProxyType.hysteria => 'Hysteria',
     ProxyType.hysteria2 => 'Hysteria 2',
+    ProxyType.tuic => 'TUIC',
     ProxyType.wireguard => 'WireGuard',
     ProxyType.amneziawg => 'AmneziaWG',
     ProxyType.direct => 'Direct',
@@ -66,6 +71,9 @@ class ForkopNode {
   final bool isActive;
   final String group;
   final bool udp;
+  final bool hasLiveState;
+  final bool isOnActivePath;
+  final bool canSelectMembers;
   final String? now; // Selected node if this is a selector group
   final List<String> all; // Candidate node names for groups
 
@@ -77,7 +85,10 @@ class ForkopNode {
     this.port,
     this.latencyMs,
     this.isActive = false,
-    this.group = 'PROXY',
+    this.group = '',
+    this.hasLiveState = false,
+    this.isOnActivePath = false,
+    this.canSelectMembers = false,
     this.udp = true,
     this.now,
     this.all = const [],
@@ -99,7 +110,7 @@ class ForkopNode {
     ProxyType? type,
     String? server,
     int? port,
-    int? latencyMs,
+    Object? latencyMs = _unsetDelay,
     bool? isActive,
     String? group,
     bool? udp,
@@ -112,27 +123,41 @@ class ForkopNode {
       type: type ?? this.type,
       server: server ?? this.server,
       port: port ?? this.port,
-      latencyMs: latencyMs ?? this.latencyMs,
+      latencyMs: identical(latencyMs, _unsetDelay)
+          ? this.latencyMs
+          : latencyMs as int?,
       isActive: isActive ?? this.isActive,
       group: group ?? this.group,
+      hasLiveState: hasLiveState,
+      isOnActivePath: isOnActivePath,
+      canSelectMembers: canSelectMembers,
       udp: udp ?? this.udp,
       now: now ?? this.now,
       all: all ?? this.all,
     );
   }
 
-  factory ForkopNode.fromJson(Map<String, dynamic> json) {
-    final rawType = json['type'] as String?;
-    final history = json['history'] as List<dynamic>?;
-    int? delay;
-    if (history != null && history.isNotEmpty) {
-      final last = history.last;
-      if (last is Map && last['delay'] is num) {
-        delay = (last['delay'] as num).toInt();
+  static int? latestDelay(dynamic history, dynamic fallback) {
+    dynamic value = fallback;
+    if (history is List && history.isNotEmpty) {
+      dynamic latest = history.last;
+      DateTime? newest;
+      for (final entry in history) {
+        if (entry is! Map) continue;
+        final time = DateTime.tryParse(entry['time']?.toString() ?? '');
+        if (time != null && (newest == null || !time.isBefore(newest))) {
+          newest = time;
+          latest = entry;
+        }
       }
-    } else if (json['delay'] is num) {
-      delay = (json['delay'] as num).toInt();
+      value = latest is Map ? latest['delay'] : null;
     }
+    return value is num && value > 0 ? value.toInt() : null;
+  }
+
+  factory ForkopNode.fromJson(Map<String, dynamic> json) {
+    final rawType = json['type']?.toString();
+    final delay = latestDelay(json['history'], json['delay']);
 
     final allList =
         (json['all'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
@@ -143,18 +168,25 @@ class ForkopNode {
       label: json['label'] as String?,
       type: ProxyType.fromString(rawType),
       server: json['server'] as String?,
-      port: json['port'] as int?,
-      latencyMs: delay,
+      port: json['port'] is num ? (json['port'] as num).toInt() : null,
+      latencyMs: delay != null && delay > 0 ? delay : null,
       isActive: json['isActive'] as bool? ?? false,
-      group: json['group'] as String? ?? 'PROXY',
+      group: json['group'] as String? ?? '',
+      hasLiveState: json['hasLiveState'] as bool? ?? false,
+      isOnActivePath: json['isOnActivePath'] as bool? ?? false,
+      canSelectMembers: json['canSelectMembers'] as bool? ?? false,
       udp: json['udp'] as bool? ?? true,
-      now: json['now'] as String?,
+      now: json['now'] is String ? json['now'] as String : null,
       all: allList,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'name': name,
+    'label': label,
+    'hasLiveState': hasLiveState,
+    'canSelectMembers': canSelectMembers,
+    'isOnActivePath': isOnActivePath,
     'type': type.name,
     'server': server,
     'port': port,

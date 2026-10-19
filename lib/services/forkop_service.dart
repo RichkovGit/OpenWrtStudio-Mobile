@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:luci_mobile/services/forkop_topology.dart';
 
 import 'package:dio/dio.dart';
 import 'package:luci_mobile/models/forkop_node.dart';
@@ -27,40 +28,6 @@ class ForkopService {
             ),
           );
 
-  static final Map<String, String> _knownGroupLabels = {
-    'main-priority-main_priority-out': 'Приоритет: Blanc -> Stealth -> Free',
-    'main-urltest-blanc_urltest-out': 'Авто Blanc (Основной)',
-    'main-urltest-stealth_urltest-out': 'Авто Stealth (Запасной)',
-    'main-urltest-free_urltest-out': 'Авто Фри (Резерв)',
-    'GLOBAL': 'GLOBAL (Общий)',
-    'main-out': 'Основной селектор',
-  };
-
-  List<ForkopNode> _parseProxiesMap(Map proxiesMap) {
-    final nodes = <ForkopNode>[];
-    proxiesMap.forEach((name, data) {
-      if (data is Map) {
-        final nodeName = name.toString();
-        var rawType = data['type']?.toString();
-        if (nodeName.contains('priority') ||
-            (rawType != null && rawType.toLowerCase().contains('priority'))) {
-          rawType = 'priority';
-        }
-        final label = _knownGroupLabels[nodeName];
-        final node = ForkopNode.fromJson({
-          ...Map<String, dynamic>.from(data),
-          'name': nodeName,
-          'label': label,
-          'type': ?rawType,
-        });
-        nodes.add(node);
-      }
-    });
-    return nodes;
-  }
-
-  /// Attempts to fetch nodes from Mihomo / Clash Meta External Controller REST API
-  /// or falls back to querying the router via forkop CLI or ubus systemExec.
   Future<List<ForkopNode>> fetchNodes({
     required String routerIp,
     required String sysauth,
@@ -68,225 +35,120 @@ class ForkopService {
     int controllerPort = 9090,
     String? secret,
   }) async {
-    // 1. Try Sing-box / Mihomo / Clash external controller API on port 9090 (always HTTP)
+    Map proxies = {};
+    Map config = {};
+    final caches = <Map<String, dynamic>>[];
     try {
-      final url = 'http://$routerIp:$controllerPort/proxies';
-      final headers = <String, dynamic>{};
-      if (secret != null && secret.isNotEmpty) {
-        headers['Authorization'] = 'Bearer $secret';
-      }
-
       final response = await dio.get<dynamic>(
-        url,
-        options: Options(headers: headers),
+        Uri(
+          scheme: 'http',
+          host: routerIp,
+          port: controllerPort,
+          path: '/proxies',
+        ).toString(),
+        options: Options(
+          headers: {
+            if (secret != null && secret.isNotEmpty)
+              'Authorization': 'Bearer $secret',
+          },
+        ),
       );
-
-      if (response.statusCode == 200 && response.data != null) {
-        final Map<String, dynamic> body = response.data is String
-            ? jsonDecode(response.data as String) as Map<String, dynamic>
-            : Map<String, dynamic>.from(response.data as Map);
-        final proxiesMap = body['proxies'];
-        if (proxiesMap is Map && proxiesMap.isNotEmpty) {
-          final nodes = _parseProxiesMap(proxiesMap);
-          if (nodes.isNotEmpty) {
-            Logger.info(
-              'Fetched ${nodes.length} nodes from external controller API',
-            );
-            return nodes;
+      final data = response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data;
+      if (response.statusCode == 200 && data is Map && data['proxies'] is Map) {
+        proxies = data['proxies'] as Map;
+      }
+    } catch (_) {
+      /* Controller may be bound to router loopback. Use authenticated rpcd below. */
+    }
+    if (proxies.isEmpty) {
+      try {
+        final response = await apiService.systemExec(
+          routerIp,
+          sysauth,
+          useHttps,
+          command: '/bin/sh',
+          params: ['-c', '/usr/bin/forkop clash_api get_proxies'],
+        );
+        if (_executionSucceeded(response)) {
+          final data = jsonDecode(response[1]['stdout'] as String? ?? '{}');
+          if (data is Map && data['proxies'] is Map) {
+            proxies = data['proxies'] as Map;
           }
         }
-      }
-    } catch (e) {
-      Logger.debug(
-        'External controller API unavailable on :$controllerPort ($e), trying router CLI',
-      );
+      } catch (_) {}
     }
-
-    // 2. Try native /usr/bin/forkop clash_api get_proxies on router via ubus
     try {
-      final res = await apiService.systemExec(
+      final response = await apiService.systemExec(
         routerIp,
         sysauth,
         useHttps,
         command: '/bin/sh',
         params: [
           '-c',
-          '[ -x /usr/bin/forkop ] && /usr/bin/forkop clash_api get_proxies',
+          r"printf '===CACHE===\n'; cat /var/run/forkop/section-cache/*.json 2>/dev/null || cat /etc/forkop/section-cache/*.json 2>/dev/null; printf '\n===CONFIG===\n'; cat /etc/sing-box/config.json 2>/dev/null",
         ],
       );
-      if (res is List && res.length > 1) {
-        final data = res[1] as Map<String, dynamic>?;
-        final stdout = (data?['stdout'] as String? ?? '').trim();
-        if (stdout.isNotEmpty && stdout.startsWith('{')) {
-          final body = jsonDecode(stdout) as Map<String, dynamic>;
-          final proxiesMap = body['proxies'];
-          if (proxiesMap is Map && proxiesMap.isNotEmpty) {
-            final nodes = _parseProxiesMap(proxiesMap);
-            if (nodes.isNotEmpty) {
-              Logger.info(
-                'Fetched ${nodes.length} nodes from router forkop clash_api CLI',
-              );
-              return nodes;
+      if (response is List &&
+          response.length == 2 &&
+          response[0] == 0 &&
+          response[1] is Map) {
+        final output = response[1]['stdout'] as String? ?? '';
+        final marker = output.indexOf('===CONFIG===');
+        if (marker >= 0) {
+          caches.addAll(
+            ForkopTopology.documents(
+              output.substring(0, marker).replaceFirst('===CACHE===', ''),
+            ),
+          );
+          final docs = ForkopTopology.documents(
+            output.substring(marker + '===CONFIG==='.length),
+          );
+          if (docs.isNotEmpty) config = docs.first;
+        }
+      }
+    } catch (_) {}
+    // Some rpcd accounts allow file.read but not file.exec.
+    if (caches.isEmpty || config.isEmpty) {
+      for (final path in [
+        '/var/run/forkop/section-cache/main.json',
+        '/etc/sing-box/config.json',
+      ]) {
+        if (path.endsWith('main.json') && caches.isNotEmpty ||
+            path.endsWith('config.json') && config.isNotEmpty) {
+          continue;
+        }
+        try {
+          final response = await apiService.call(
+            routerIp,
+            sysauth,
+            useHttps,
+            object: 'file',
+            method: 'read',
+            params: {'path': path},
+          );
+          if (response is List &&
+              response.length == 2 &&
+              response[0] == 0 &&
+              response[1] is Map) {
+            final docs = ForkopTopology.documents(
+              response[1]['data'] as String? ?? '',
+            );
+            if (path.endsWith('main.json')) {
+              caches.addAll(docs);
+            } else if (docs.isNotEmpty) {
+              config = docs.first;
             }
           }
-        }
+        } catch (_) {}
       }
-    } catch (e) {
-      Logger.debug(
-        'Router forkop clash_api CLI fetch failed ($e), trying cache',
-      );
     }
-
-    // 3. Try ForkOP section cache via ubus file.read (/var/run/forkop/section-cache/main.json)
-    try {
-      final res = await apiService.call(
-        routerIp,
-        sysauth,
-        useHttps,
-        object: 'file',
-        method: 'read',
-        params: {'path': '/var/run/forkop/section-cache/main.json'},
-      );
-
-      if (res is List && res.isNotEmpty && res[0] == 0 && res.length > 1) {
-        final fileData = res[1] as Map<String, dynamic>?;
-        final content = fileData?['data'] as String?;
-        if (content != null && content.isNotEmpty) {
-          final cacheJson = jsonDecode(content) as Map<String, dynamic>;
-          final servers = cacheJson['servers'];
-          final outMeta =
-              cacheJson['outboundMetadata'] as Map<String, dynamic>? ?? {};
-          final nodes = <ForkopNode>[];
-
-          if (servers is Map) {
-            servers.forEach((tag, srv) {
-              final tagName = tag.toString();
-              final meta = outMeta[tagName] is Map
-                  ? outMeta[tagName] as Map
-                  : null;
-              final nodeType = meta?['type']?.toString() ?? 'vless';
-              nodes.add(
-                ForkopNode(
-                  name: tagName,
-                  type: ProxyType.fromString(nodeType),
-                  server: srv?.toString(),
-                ),
-              );
-            });
-          }
-
-          // Add urltest and priority groups as selector groups
-          final urltestGroups =
-              cacheJson['urltestGroups'] as Map<String, dynamic>?;
-          if (urltestGroups != null) {
-            urltestGroups.forEach((groupName, _) {
-              final label = _knownGroupLabels[groupName];
-              nodes.insert(
-                0,
-                ForkopNode(
-                  name: groupName,
-                  label: label,
-                  type: ProxyType.urltest,
-                ),
-              );
-            });
-          }
-
-          final priorityGroups =
-              cacheJson['priorityGroups'] as Map<String, dynamic>?;
-          if (priorityGroups != null) {
-            priorityGroups.forEach((groupName, _) {
-              final label = _knownGroupLabels[groupName];
-              nodes.insert(
-                0,
-                ForkopNode(
-                  name: groupName,
-                  label: label,
-                  type: ProxyType.priority,
-                ),
-              );
-            });
-          }
-
-          if (nodes.isNotEmpty) {
-            Logger.info(
-              'Fetched ${nodes.length} nodes from ForkOP section cache',
-            );
-            return nodes;
-          }
-        }
-      }
-    } catch (e) {
-      Logger.debug(
-        'ForkOP section cache read failed ($e), falling back to ubus scan',
-      );
-    }
-
-    // 3. Fallback: query router via ubus / shell
-    try {
-      const script = r'''
-if [ -f /etc/mihomo/config.yaml ]; then
-  cat /etc/mihomo/config.yaml | grep -E "^\s*-\s*name:" | head -n 30
-elif [ -f /etc/sing-box/config.json ]; then
-  cat /etc/sing-box/config.json | grep -o '"tag":\s*"[^"]*"' | head -n 30
-elif [ -f /etc/config/passwall ]; then
-  uci show passwall | grep -E "\.remarks=" | head -n 30
-else
-  echo "none"
-fi
-''';
-      final res = await apiService.systemExec(
-        routerIp,
-        sysauth,
-        useHttps,
-        command: '/bin/sh',
-        params: ['-c', script],
-      );
-
-      final data = res is List && res.length > 1
-          ? res[1] as Map<String, dynamic>?
-          : null;
-      final stdout = data?['stdout'] as String? ?? '';
-      final lines = stdout
-          .split('\n')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      final resultNodes = <ForkopNode>[];
-      for (final line in lines) {
-        if (line == 'none') break;
-        String name = line;
-        if (name.contains('name:')) {
-          name = name
-              .split('name:')
-              .last
-              .replaceAll("'", '')
-              .replaceAll('"', '')
-              .trim();
-        } else if (name.contains('"tag":')) {
-          name = name.replaceAll('"tag":', '').replaceAll('"', '').trim();
-        } else if (name.contains('remarks=')) {
-          name = name
-              .split('remarks=')
-              .last
-              .replaceAll("'", '')
-              .replaceAll('"', '')
-              .trim();
-        }
-
-        if (name.isNotEmpty) {
-          resultNodes.add(
-            ForkopNode(name: name, type: ProxyType.fromString(name)),
-          );
-        }
-      }
-
-      return resultNodes;
-    } catch (e) {
-      Logger.error('Failed to query router nodes via ubus', e);
-      return [];
-    }
+    return ForkopTopology.parse(
+      proxies: proxies,
+      config: config,
+      caches: caches,
+    );
   }
 
   /// Tests latency for a specific node via external controller or router ping
@@ -314,7 +176,7 @@ fi
 
       if (response.statusCode == 200 && response.data != null) {
         final delay = response.data!['delay'] as num?;
-        return delay?.toInt();
+        return delay != null && delay > 0 ? delay.toInt() : null;
       }
     } catch (e) {
       Logger.debug('Delay test failed for $nodeName: $e');
@@ -333,19 +195,35 @@ fi
     int controllerPort = 9090,
     String? secret,
   }) async {
-    final targetGroup =
-        (groupName == null ||
-            groupName.isEmpty ||
-            groupName.toUpperCase() == 'GLOBAL')
-        ? 'main-priority-main_priority-out'
-        : groupName;
+    if (sysauth == null || sysauth.isEmpty) return false;
+    final nodes = await fetchNodes(
+      routerIp: routerIp,
+      sysauth: sysauth,
+      useHttps: useHttps,
+      controllerPort: controllerPort,
+      secret: secret,
+    );
+    final target = nodes.where((n) => n.name == nodeName).firstOrNull;
+    final targetGroup = groupName != null && groupName.isNotEmpty
+        ? groupName
+        : target?.group;
+    final parent = nodes.where((n) => n.name == targetGroup).firstOrNull;
+    if (target == null ||
+        parent == null ||
+        !parent.hasLiveState ||
+        !parent.canSelectMembers ||
+        !parent.all.contains(nodeName) ||
+        parent.name == nodeName) {
+      return false;
+    }
 
+    final groupTag = parent.name;
     bool success = false;
 
     // 1. Try external controller REST API on :9090
     try {
       final url =
-          'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(targetGroup)}';
+          'http://$routerIp:$controllerPort/proxies/${Uri.encodeComponent(groupTag)}';
       final headers = <String, dynamic>{'Content-Type': 'application/json'};
       if (secret != null && secret.isNotEmpty) {
         headers['Authorization'] = 'Bearer $secret';
@@ -365,19 +243,12 @@ fi
     }
 
     // 2. Fallback to native router CLI execution via ubus
-    if (!success && sysauth != null && sysauth.isNotEmpty) {
+    if (!success) {
       try {
         final safeTarget = nodeName.replaceAll("'", r"'\''");
-        final safeGroup = targetGroup.replaceAll("'", r"'\''");
-        // Only inferred groups may fall back to the legacy main-out selector.
-        // Recording a UCI value does not establish that a live selector changed.
-        final inferredGroup =
-            groupName == null ||
-            groupName.isEmpty ||
-            groupName.toUpperCase() == 'GLOBAL';
+        final safeGroup = groupTag.replaceAll("'", r"'\''");
         final script =
-            "/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget'"
-            '${inferredGroup ? " || /usr/bin/forkop clash_api set_group_proxy main-out '$safeTarget'" : ""}';
+            "/usr/bin/forkop clash_api set_group_proxy '$safeGroup' '$safeTarget'";
         final res = await apiService.systemExec(
           routerIp,
           sysauth,
@@ -389,7 +260,7 @@ fi
         if (_executionSucceeded(res)) {
           success = true;
           Logger.info(
-            'Successfully selected node $nodeName via router forkop CLI',
+            'Router accepted selection command for $nodeName; checking state',
           );
         }
       } catch (e) {
@@ -397,7 +268,25 @@ fi
       }
     }
 
-    return success;
+    if (!success) return false;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final confirmed = await fetchNodes(
+        routerIp: routerIp,
+        sysauth: sysauth,
+        useHttps: useHttps,
+        controllerPort: controllerPort,
+        secret: secret,
+      );
+      if (confirmed.any(
+        (n) => n.name == groupTag && n.now == nodeName && n.hasLiveState,
+      )) {
+        return true;
+      }
+      if (attempt < 2) {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+      }
+    }
+    return false;
   }
 
   /// Sets routing mode: 'Rule', 'Global', 'Direct'

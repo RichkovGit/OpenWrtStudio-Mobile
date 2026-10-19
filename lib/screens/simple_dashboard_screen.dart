@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/forkop_service.dart';
+import 'package:luci_mobile/services/forkop_topology.dart';
+import 'package:luci_mobile/models/forkop_node.dart';
+import 'package:luci_mobile/widgets/forkop_quick_choices.dart';
 import 'package:luci_mobile/services/protocol_service.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/services/ota_service.dart';
@@ -60,8 +63,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   bool _isSwitchingProtocol = false;
 
   // ForkOP state
-  List<String> _forkopPresets = [];
-  String? _selectedPreset;
+  List<ForkopNode> _forkopPresets = [];
+  int _protocolsGeneration = 0;
   bool _isLoadingForkopAction = false;
 
   // Wi-Fi state
@@ -241,6 +244,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   }
 
   Future<void> _loadProtocolsState() async {
+    final generation = ++_protocolsGeneration;
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
@@ -267,8 +271,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       final active = list.where((p) => p.isRunning).firstOrNull;
 
       final hasForkop = list.any((p) => p.id == 'forkop' || p.id == 'sing-box');
-      List<String> presets = [];
-      String? activeNode;
+      List<ForkopNode> presets = [];
 
       if (hasForkop) {
         try {
@@ -277,40 +280,29 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             sysauth: token,
             useHttps: appState.useHttps,
           );
-          presets = nodes
-              .where((n) => !n.isGroup)
-              .map((n) => n.displayTitle)
-              .where((s) => s.isNotEmpty)
-              .take(8)
-              .toList();
-
-          for (final n in nodes) {
-            if (n.isGroup && n.now != null && n.now!.isNotEmpty) {
-              activeNode = n.now;
-              break;
-            }
-          }
+          presets = ForkopTopology.quickChoices(nodes);
         } catch (_) {}
       }
 
       if (mounted) {
         setState(() {
+          if (generation != _protocolsGeneration ||
+              appState.activeIp != ip ||
+              appState.sysauth != token) {
+            return;
+          }
           _protocols = list;
           _selectedProtocol = active ?? _selectedProtocol ?? list.firstOrNull;
           _forkopPresets = presets;
-          if (activeNode != null) {
-            _selectedPreset = activeNode;
-          } else if (presets.isNotEmpty &&
-              (_selectedPreset == null ||
-                  !_forkopPresets.contains(_selectedPreset))) {
-            _selectedPreset = presets.first;
-          }
           _isLoadingProtocols = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && generation == _protocolsGeneration) {
         setState(() {
+          _forkopPresets = [];
+          _protocols = [];
+          _selectedProtocol = null;
           _isLoadingProtocols = false;
         });
       }
@@ -345,10 +337,12 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
     if (mounted) {
       setState(() {
         _isLoadingForkopAction = false;
-        if (success) _selectedPreset = name;
       });
+      await _loadProtocolsState();
       _showMessage(
-        success ? 'Выбран узел: $name' : 'Не удалось переключить узел $name',
+        success
+            ? 'Роутер подтвердил выбор узла'
+            : 'Роутер не подтвердил переключение',
       );
     }
   }
@@ -991,32 +985,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: _forkopPresets.map((nodeName) {
-                          final isCurrent = _selectedPreset == nodeName;
-                          return ChoiceChip(
-                            selected: isCurrent,
-                            selectedColor: const Color(
-                              0xFF00D2FF,
-                            ).withValues(alpha: 0.25),
-                            label: Text(
-                              nodeName,
-                              style: TextStyle(
-                                color: isCurrent
-                                    ? const Color(0xFF00D2FF)
-                                    : Colors.white,
-                                fontSize: 11,
-                              ),
-                            ),
-                            onSelected: (val) {
-                              if (val) {
-                                _selectForkopPreset(nodeName);
-                              }
-                            },
-                          );
-                        }).toList(),
+                      ForkopQuickChoices(
+                        nodes: _forkopPresets,
+                        busy: _isLoadingForkopAction,
+                        onSelect: _selectForkopPreset,
                       ),
                     ],
                   ],

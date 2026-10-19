@@ -64,58 +64,28 @@ void main() {
       });
     }
 
-    test(
-      'CLI success uses exit status, and does not change another group',
-      () async {
-        final api = _RecordingApi()
-          ..execResult = [
-            0,
-            {'code': 0, 'stdout': ''},
-          ];
-        final dio = _offlineController();
-        addTearDown(() => dio.close(force: true));
-        final service = ForkopService(apiService: api, dioClient: dio);
-        expect(
-          await service.selectNode(
-            routerIp: 'router',
-            sysauth: 'session',
-            nodeName: "one' ; reboot",
-            groupName: 'explicit-group',
+    test('transport success alone cannot select an unknown node', () async {
+      final api = _RecordingApi();
+      final dio = Dio()
+        ..interceptors.add(
+          InterceptorsWrapper(
+            onRequest: (o, h) =>
+                h.resolve(Response(requestOptions: o, statusCode: 204)),
           ),
-          isTrue,
         );
-        final command = api.executions.single.params.last;
-        expect(command, contains("'one'\\'' ; reboot'"));
-        expect(command, isNot(contains('main-out')));
-        expect(command, isNot(contains('|| true')));
-        expect(command, isNot(contains('uci set')));
-      },
-    );
-
-    test(
-      'successful external controller does not invoke router fallback',
-      () async {
-        final api = _RecordingApi();
-        final dio = Dio()
-          ..interceptors.add(
-            InterceptorsWrapper(
-              onRequest: (options, handler) => handler.resolve(
-                Response(requestOptions: options, statusCode: 204),
-              ),
-            ),
-          );
-        addTearDown(() => dio.close(force: true));
-        expect(
-          await ForkopService(apiService: api, dioClient: dio).selectNode(
-            routerIp: 'router',
-            sysauth: 'session',
-            nodeName: 'node',
-          ),
-          isTrue,
-        );
-        expect(api.executions, isEmpty);
-      },
-    );
+      addTearDown(() => dio.close(force: true));
+      expect(
+        await ForkopService(
+          apiService: api,
+          dioClient: dio,
+        ).selectNode(routerIp: 'router', sysauth: 'session', nodeName: 'node'),
+        isFalse,
+      );
+      expect(
+        api.executions.any((e) => e.params.last.contains('set_group_proxy')),
+        isFalse,
+      );
+    });
 
     test(
       'service actions reject successful transport with failing exit code',
