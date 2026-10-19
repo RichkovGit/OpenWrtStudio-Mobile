@@ -232,6 +232,10 @@ class ForkopTopology {
     int? latency(Map e, Set<String> seen) {
       if (!seen.add(e['name'] as String)) return null;
       final delay = ForkopNode.latestDelay(e['history'], e['delay']);
+      if ((e['history'] is List && (e['history'] as List).isNotEmpty) ||
+          e['delay'] is num) {
+        return delay;
+      }
       if (delay != null) return delay;
       final next = entries[e['now']];
       return next != null ? latency(next, seen) : null;
