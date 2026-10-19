@@ -15,7 +15,11 @@ import 'package:luci_mobile/utils/url_parser.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.attemptAutoLogin = true});
+
+  /// Explicit logout keeps saved profiles, but must wait for a manual login.
+  /// Startup still attempts the usual saved-router/reviewer connection.
+  final bool attemptAutoLogin;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -55,6 +59,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _checkReviewerModeAndAutoLogin() async {
+    if (!widget.attemptAutoLogin) {
+      _isCheckingAutoLogin = false;
+      return;
+    }
     // Check if reviewer mode is enabled
     final secureStorage = SecureStorageService();
     final reviewerModeEnabled = await secureStorage.readValue(
@@ -573,7 +581,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 6),
-                                          Row(
+                                          Wrap(
+                                            alignment:
+                                                WrapAlignment.spaceBetween,
                                             children: [
                                               if (!_showAlternateAddress)
                                                 TextButton.icon(
@@ -601,7 +611,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                         ),
                                                   ),
                                                 ),
-                                              const Spacer(),
                                               TextButton.icon(
                                                 onPressed: _isDiscovering
                                                     ? null

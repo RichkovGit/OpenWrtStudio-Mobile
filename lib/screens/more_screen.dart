@@ -143,7 +143,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   unawaited(
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
+                        builder: (context) =>
+                            const LoginScreen(attemptAutoLogin: false),
                       ),
                       (Route<dynamic> route) => false,
                     ),

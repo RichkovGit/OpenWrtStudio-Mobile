@@ -114,7 +114,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   unawaited(
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
+                        builder: (context) =>
+                            const LoginScreen(attemptAutoLogin: false),
                       ),
                       (Route<dynamic> route) => false,
                     ),

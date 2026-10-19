@@ -332,7 +332,10 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           height: 6,
                                                         ),
                                                         if (!showAlternate)
-                                                          Row(
+                                                          Wrap(
+                                                            alignment:
+                                                                WrapAlignment
+                                                                    .spaceBetween,
                                                             children: [
                                                               TextButton.icon(
                                                                 onPressed: () =>
@@ -363,7 +366,6 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                       ),
                                                                 ),
                                                               ),
-                                                              const Spacer(),
                                                               TextButton.icon(
                                                                 onPressed:
                                                                     isDiscovering
