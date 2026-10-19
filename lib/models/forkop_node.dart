@@ -179,6 +179,10 @@ class ForkopNode {
 
   Map<String, dynamic> toJson() => {
     'name': name,
+    'label': label,
+    'hasLiveState':hasLiveState,
+    'canSelectMembers':canSelectMembers,
+    'isOnActivePath':isOnActivePath,
     'type': type.name,
     'server': server,
     'port': port,

@@ -7,6 +7,7 @@ import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/forkop_service.dart';
 import 'package:luci_mobile/services/forkop_topology.dart';
 import 'package:luci_mobile/models/forkop_node.dart';
+import 'package:luci_mobile/widgets/forkop_quick_choices.dart';
 import 'package:luci_mobile/services/protocol_service.dart';
 import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/services/ota_service.dart';
@@ -979,33 +980,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                         ],
                       ),
                       const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: _forkopPresets.map((node) {
-                          final isCurrent = node.isActive;
-                          return ChoiceChip(
-                            selected: isCurrent,
-                            selectedColor: const Color(
-                              0xFF00D2FF,
-                            ).withValues(alpha: 0.25),
-                            label: Text(
-                              node.displayTitle,
-                              style: TextStyle(
-                                color: isCurrent
-                                    ? const Color(0xFF00D2FF)
-                                    : Colors.white,
-                                fontSize: 11,
-                              ),
-                            ),
-                            onSelected: (val) {
-                              if (val) {
-                                _selectForkopPreset(node.name);
-                              }
-                            },
-                          );
-                        }).toList(),
-                      ),
+                      ForkopQuickChoices(nodes:_forkopPresets,busy:_isLoadingForkopAction,onSelect:_selectForkopPreset),
                     ],
                   ],
                 ),
