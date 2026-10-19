@@ -19,7 +19,10 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed .
+      - name: Verify formatting with actionable diff
+        run: |
+          dart format .
+          git diff --exit-code -- '*.dart'
       - run: flutter analyze --fatal-infos
       - run: flutter test --reporter expanded
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
