@@ -77,3 +77,63 @@ jobs:
             release/SHA256SUMS.txt
             LINUX_INSTALL.md
           compression-level: 0
+  distro-smoke:
+    needs: check-and-build
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['debian:12', 'fedora:43']
+    runs-on: ubuntu-24.04
+    container: ${{ matrix.image }}
+    timeout-minutes: 15
+    steps:
+      - name: Install GUI test prerequisites in the target distribution
+        shell: bash
+        run: |
+          if command -v apt-get >/dev/null; then
+            apt-get update -q
+            apt-get install -y ca-certificates xvfb dbus-x11 gnome-keyring xdotool imagemagick x11-apps libgtk-3-0 libsecret-1-0 libgl1-mesa-dri libegl1 libjsoncpp25
+          else
+            dnf install -y ca-certificates bash tar gzip findutils which xorg-x11-server-Xvfb dbus-daemon gnome-keyring xdotool ImageMagick xorg-x11-apps gtk3 libsecret jsoncpp mesa-libGL mesa-libEGL mesa-dri-drivers
+          fi
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: OpenWrtStudio-linux-x86_64
+          path: download
+      - name: Verify and launch the extracted AppImage
+        shell: bash
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          set -euo pipefail
+          cd download/release
+          sha256sum -c SHA256SUMS.txt
+          image=$(find . -maxdepth 1 -name '*.AppImage' -print -quit)
+          chmod +x "$image"
+          "$image" --appimage-extract >/dev/null
+          cat > smoke.sh <<'SCRIPT'
+          set -eu
+          eval "$(gnome-keyring-daemon --start --components=secrets)"
+          ./squashfs-root/AppRun > startup.log 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          found=0
+          for attempt in {1..25}; do
+            kill -0 "$app_pid"
+            if xdotool search --onlyvisible --name 'OpenWrt Studio' >/dev/null; then found=1; break; fi
+            sleep 1
+          done
+          test "$found" = 1
+          sleep 5
+          kill -0 "$app_pid"
+          ! grep -E 'Unhandled Exception|Failed to load dynamic library|error while loading shared libraries' startup.log
+          xwd -root -silent | convert xwd:- screenshot.png
+          SCRIPT
+          xvfb-run -a dbus-run-session -- bash smoke.sh
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: smoke-${{ strategy.job-index }}
+          path: |
+            download/release/startup.log
+            download/release/screenshot.png
