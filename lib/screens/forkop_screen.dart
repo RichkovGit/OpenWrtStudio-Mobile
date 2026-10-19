@@ -85,7 +85,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
 
       if (!mounted ||
           generation != _loadGeneration ||
-          appState.selectedRouter?.activeAddress != router.activeAddress) {
+          appState.selectedRouter?.activeAddress != router.activeAddress || appState.sysauth != sysauth) {
         return;
       }
       final activeName = nodes
@@ -459,7 +459,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(group.displayTitle),
+        title: Text(group.canSelectMembers ? group.displayTitle : '${group.displayTitle} · автовыбор'),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView.builder(
@@ -487,12 +487,10 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                   color: isCurrent ? Colors.green : Colors.grey,
                   size: 18,
                 ),
-                onTap: () {
+                onTap: group.canSelectMembers ? () {
                   Navigator.pop(ctx);
-                  if (group.canSelectMembers) {
-                    _selectNode(candidate, groupName: group.name);
-                  }
-                },
+                  _selectNode(candidate, groupName: group.name);
+                } : null,
               );
             },
           ),
@@ -959,8 +957,7 @@ class _ForkopScreenState extends ConsumerState<ForkopScreen>
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(12),
                                         onTap: () {
-                                          if (group.canSelectMembers &&
-                                              group.all.isNotEmpty) {
+                                          if (group.group.isEmpty) {
                                             _showCandidatesDialog(group);
                                           } else {
                                             _selectNode(group.name);

@@ -286,7 +286,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
       if (mounted) {
         setState(() {
-          if (generation != _protocolsGeneration || appState.activeIp != ip) {
+          if (generation != _protocolsGeneration || appState.activeIp != ip || appState.sysauth != token) {
             return;
           }
           _protocols = list;
@@ -296,10 +296,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
         });
       }
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isLoadingProtocols = false;
-        });
+      if (mounted && generation == _protocolsGeneration) {
+        setState(() { _forkopPresets = []; _protocols = []; _selectedProtocol = null; _isLoadingProtocols = false; });
       }
     }
   }
