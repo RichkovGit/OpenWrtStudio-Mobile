@@ -6,7 +6,7 @@
     <application
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="true"
-        android:label="LuCI Mobile"
+        android:label="OpenWrt Studio"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher">
