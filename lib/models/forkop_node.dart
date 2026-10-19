@@ -72,6 +72,7 @@ class ForkopNode {
   final String group;
   final bool udp;
   final bool hasLiveState;
+  final bool isOnActivePath;
   final bool canSelectMembers;
   final String? now; // Selected node if this is a selector group
   final List<String> all; // Candidate node names for groups
@@ -86,6 +87,7 @@ class ForkopNode {
     this.isActive = false,
     this.group = '',
     this.hasLiveState = false,
+    this.isOnActivePath = false,
     this.canSelectMembers = false,
     this.udp = true,
     this.now,
@@ -127,6 +129,7 @@ class ForkopNode {
       isActive: isActive ?? this.isActive,
       group: group ?? this.group,
       hasLiveState: hasLiveState,
+      isOnActivePath: isOnActivePath,
       canSelectMembers: canSelectMembers,
       udp: udp ?? this.udp,
       now: now ?? this.now,
@@ -134,18 +137,23 @@ class ForkopNode {
     );
   }
 
+  static int? latestDelay(dynamic history, dynamic fallback) {
+    dynamic value=fallback;
+    if(history is List && history.isNotEmpty) {
+      dynamic latest=history.last; DateTime? newest;
+      for(final entry in history) {
+        if(entry is! Map) continue;
+        final time=DateTime.tryParse(entry['time']?.toString()??'');
+        if(time!=null&&(newest==null||!time.isBefore(newest))) { newest=time; latest=entry; }
+      }
+      value=latest is Map ? latest['delay'] : null;
+    }
+    return value is num && value>0 ? value.toInt() : null;
+  }
+
   factory ForkopNode.fromJson(Map<String, dynamic> json) {
     final rawType = json['type']?.toString();
-    final history = json['history'] is List ? json['history'] as List : null;
-    int? delay;
-    if (history != null && history.isNotEmpty) {
-      final last = history.last;
-      if (last is Map && last['delay'] is num) {
-        delay = (last['delay'] as num).toInt();
-      }
-    } else if (json['delay'] is num) {
-      delay = (json['delay'] as num).toInt();
-    }
+    final delay = latestDelay(json['history'], json['delay']);
 
     final allList =
         (json['all'] as List<dynamic>?)?.map((e) => e.toString()).toList() ??
@@ -161,6 +169,7 @@ class ForkopNode {
       isActive: json['isActive'] as bool? ?? false,
       group: json['group'] as String? ?? '',
       hasLiveState: json['hasLiveState'] as bool? ?? false,
+      isOnActivePath: json['isOnActivePath'] as bool? ?? false,
       canSelectMembers: json['canSelectMembers'] as bool? ?? false,
       udp: json['udp'] as bool? ?? true,
       now: json['now'] is String ? json['now'] as String : null,

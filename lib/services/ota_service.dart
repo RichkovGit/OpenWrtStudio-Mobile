@@ -161,6 +161,7 @@ class OtaService {
     required void Function(double progress, int received, int total) onProgress,
     CancelToken? cancelToken,
   }) async {
+    if (defaultTargetPlatform != TargetPlatform.android) return const OtaInstallResult(OtaInstallStatus.installError, 'Для Linux используйте AppImage или архив новой версии.');
     Directory? stagingDirectory;
     var keepDownload = false;
     try {

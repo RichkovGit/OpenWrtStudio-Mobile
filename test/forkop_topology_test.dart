@@ -26,7 +26,7 @@ void main() {
         nodes.map((n) => n.displayTitle),
         contains('Авто Hella (Запасной 3)'),
       );
-      expect(nodes.where((n) => n.isActive).map((n) => n.name).toSet(), {
+      expect(nodes.where((n) => n.isOnActivePath).map((n) => n.name).toSet(), {
         'main-out',
         'priority-route',
         'auto-shrimp',
@@ -53,6 +53,7 @@ void main() {
         containsAll(['priority-route', 'auto-shrimp', 'auto-hella', 'node-b']),
       );
       expect(quick.every((n) => n.group.isNotEmpty), true);
+      expect(nodes.where((n)=>n.isGroup&&n.isActive).map((n)=>n.name), ['priority-route']);
     },
   );
   test('all concatenated caches parse without splitting strings on braces', () {
@@ -78,6 +79,16 @@ void main() {
       expect(ForkopNode.fromJson({'name': 'n', 'delay': 0}).latencyMs, isNull);
     },
   );
+  test('newest timestamp wins regardless of history order and zero is unavailable', () {
+    expect(ForkopNode.fromJson({'name':'n','history':[{'time':'2026-10-19T01:00:00Z','delay':7},{'time':'2026-10-18T01:00:00Z','delay':99}]}).latencyMs,7);
+    expect(ForkopNode.fromJson({'name':'n','history':[{'time':'2026-10-19T01:00:00Z','delay':0},{'time':'2026-10-18T01:00:00Z','delay':99}]}).latencyMs,isNull);
+  });
+  test('hundreds of nodes are not truncated and cycles do not invent an active leaf', () {
+    final proxies={for(var i=0;i<300;i++) 'node-$i':{'type':'VLESS'}};
+    expect(ForkopTopology.parse(proxies:proxies).length,300);
+    final f=fixture(); ((f['proxies'] as Map)['priority-route'] as Map)['now']='main-out';
+    expect(parse(f).where((n)=>!n.isGroup&&n.isActive),isEmpty);
+  });
   for (final apply in [true, false]) {
     test(
       'REST selection requires read-back confirmation (applied=$apply)',
