@@ -9,9 +9,7 @@ import 'package:luci_mobile/state/app_state.dart';
 
 void main() {
   for (final scale in [1.0, 1.5]) {
-    testWidgets('long Wi-Fi names fit mobile cards at scale $scale', (
-      tester,
-    ) async {
+    testWidgets('Wi-Fi cards fit at scale $scale', (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 1000);
       addTearDown(tester.view.resetDevicePixelRatio);
