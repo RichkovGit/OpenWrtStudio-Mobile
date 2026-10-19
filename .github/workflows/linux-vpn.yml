@@ -104,7 +104,7 @@ jobs:
           eval "$(gnome-keyring-daemon --start --components=secrets)"
           ./squashfs-root/AppRun > startup.log 2>&1 &
           app_pid=$!
-          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          trap 'result=$?; cat startup.log; kill "$app_pid" 2>/dev/null || true; exit "$result"' EXIT
           found=0
           for attempt in {1..25}; do
             kill -0 "$app_pid"
