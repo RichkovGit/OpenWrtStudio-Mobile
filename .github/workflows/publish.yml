@@ -121,7 +121,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p previous-release
-          gh release download v2.5.24-mobile --repo "$GITHUB_REPOSITORY" --pattern app-arm64-v8a-release.apk --dir previous-release
+          gh release download v2.5.24-mobile --repo "$GITHUB_REPOSITORY" --pattern 'app-*-release.apk' --dir previous-release
           python3 - <<'PYTHON'
           import re, subprocess
           from pathlib import Path
@@ -145,7 +145,9 @@ jobs:
           for apk in Path('build/app/outputs/flutter-apk').glob('app-*-release.apk'):
               assert certificate(apk) == expected_cert, 'APK signature differs from published version'
               name, code = package(apk)
-              assert name == expected_name and code > previous_code, 'APK cannot update the published app'
+              old_name, old_code = package(previous.with_name(apk.name))
+              print(f'{apk.name}: {old_name} ({old_code}) -> {name} ({code})')
+              assert name == expected_name == old_name and code > old_code, 'APK cannot update the published app of this ABI'
           print('Release signatures, package ID and increasing version codes match the published app.')
           PYTHON
 
