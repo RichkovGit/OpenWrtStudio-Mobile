@@ -1,0 +1,229 @@
+name: Publish Android and Linux release
+on:
+  push:
+    branches: [codex/release-2.5.25]
+    tags: ['v*-mobile']
+permissions:
+  contents: read
+concurrency:
+  group: publish-mobile-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+jobs:
+  android:
+    name: Check and build signed Android packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v2.5.25-mobile' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Check out the requested tag
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+
+      - name: Verify tag and prevent overwriting a release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-mobile)?$ ]]; then
+            echo "::error::Use an existing vMAJOR.MINOR.PATCH or vMAJOR.MINOR.PATCH-mobile tag."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          manifest = Path("pubspec.yaml").read_text(encoding="utf-8")
+          match = re.search(r"^version:\s*(\d+\.\d+\.\d+)\+\d+\s*$", manifest, re.M)
+          tag_version = os.environ["RELEASE_TAG"][1:].removesuffix("-mobile")
+          if match is None or match.group(1) != tag_version:
+              raise SystemExit("Release tag must match the version in pubspec.yaml.")
+          if not Path("RELEASE_NOTES.md").is_file():
+              raise SystemExit("RELEASE_NOTES.md is required.")
+          PY
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::A release already exists for this tag. This workflow never updates releases."
+            exit 1
+          fi
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@6cfc8b8e8bb586cc164bef1c478c1eea3a4d6a19 # v3
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
+        with:
+          flutter-version: '3.47.7'
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze source
+        run: flutter analyze --fatal-infos
+
+      - name: Run regression tests
+        run: flutter test
+
+      - name: Retain existing jni GNU build-id workaround when applicable
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          cache = Path(os.environ.get("PUB_CACHE") or Path.home() / ".pub-cache")
+          for path in cache.glob("hosted/*/jni-*/src/CMakeLists.txt"):
+              source = path.read_text(encoding="utf-8")
+              if "-Wl,--build-id=none," not in source:
+                  path.write_text(source.replace("-Wl,", "-Wl,--build-id=none,"), encoding="utf-8")
+          PY
+
+      - name: Configure the existing release key
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_PROPERTIES_BASE64: ${{ secrets.ANDROID_KEY_PROPERTIES_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEY_PROPERTIES_BASE64" ]]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/luci_mobile_keystore.jks
+            printf '%s' "$ANDROID_KEY_PROPERTIES_BASE64" | base64 --decode > android/key.properties
+          elif [[ -n "$ANDROID_KEYSTORE_BASE64" || -n "$ANDROID_KEY_PROPERTIES_BASE64" ]]; then
+            echo 'Both signing secrets must be configured together.'
+            exit 1
+          else
+            test -s android/app/openwrt_studio_release.jks
+          fi
+
+      - name: Build APKs for supported ABIs
+        run: flutter build apk --split-per-abi --release
+
+      - name: Build Android App Bundle
+        run: flutter build appbundle --release
+
+      - name: Verify update compatibility against the published APK
+        run: |
+          set -euo pipefail
+          mkdir -p previous-release
+          gh release download v2.5.24-mobile --repo "$GITHUB_REPOSITORY" --pattern 'app-*-release.apk' --dir previous-release
+          python3 - <<'PYTHON'
+          import re, subprocess
+          from pathlib import Path
+          import os
+          tools = sorted(Path(os.environ['ANDROID_HOME']).glob('build-tools/*/apksigner'))[-1].parent
+          def certificate(path):
+              output = subprocess.check_output([str(tools / 'apksigner'), 'verify', '--print-certs', str(path)], text=True)
+              assert 'CN=Android Debug' not in output, 'Debug signing is not a release key'
+              digests = re.findall(r'certificate SHA-256 digest: ([0-9a-fA-F]+)', output)
+              assert digests
+              return sorted(digests)
+          def package(path):
+              output = subprocess.check_output([str(tools / 'aapt'), 'dump', 'badging', str(path)], text=True)
+              assert 'application-debuggable' not in output
+              name = re.search(r"package: name='([^']+)'", output).group(1)
+              code = int(re.search(r"versionCode='([0-9]+)'", output).group(1))
+              return name, code
+          previous = Path('previous-release/app-arm64-v8a-release.apk')
+          expected_cert = certificate(previous)
+          expected_name, previous_code = package(previous)
+          for apk in Path('build/app/outputs/flutter-apk').glob('app-*-release.apk'):
+              assert certificate(apk) == expected_cert, 'APK signature differs from published version'
+              name, code = package(apk)
+              old_name, old_code = package(previous.with_name(apk.name))
+              print(f'{apk.name}: {old_name} ({old_code}) -> {name} ({code})')
+              assert name == expected_name == old_name and code > old_code, 'APK cannot update the published app of this ABI'
+          print('Release signatures, package ID and increasing version codes match the published app.')
+          PYTHON
+
+      - name: Collect complete artifacts and checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          for name in app-arm64-v8a-release.apk app-armeabi-v7a-release.apk app-x86_64-release.apk; do
+            test -s "build/app/outputs/flutter-apk/$name"
+            cp "build/app/outputs/flutter-apk/$name" release/
+          done
+          test -s build/app/outputs/bundle/release/app-release.aab
+          cp build/app/outputs/bundle/release/app-release.aab release/
+          (cd release && sha256sum *.apk *.aab > SHA256SUMS.txt)
+
+      - name: Save build artifacts for review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Android-${{ env.RELEASE_TAG }}
+          path: release/
+          if-no-files-found: error
+
+      - name: Remove temporary signing files
+        if: always()
+        run: rm -f android/app/luci_mobile_keystore.jks android/key.properties
+
+  linux:
+    uses: ./.github/workflows/linux-vpn.yml
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [android, linux]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: Android-${{ github.ref_name }}
+          path: download/android
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: OpenWrtStudio-linux-x86_64
+          path: download/linux
+      - name: Gather complete packages and checksums
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import hashlib, os, re, shutil
+          from pathlib import Path
+          version = re.search(r'^version: ([^+]+)', Path('pubspec.yaml').read_text(), re.M).group(1)
+          assert os.environ['RELEASE_TAG'] == 'v' + version + '-mobile'
+          expected = ['app-arm64-v8a-release.apk', 'app-armeabi-v7a-release.apk', 'app-x86_64-release.apk', 'app-release.aab', f'OpenWrtStudio-{version}-linux-x86_64.tar.gz', f'OpenWrtStudio-{version}-x86_64.AppImage', 'LINUX_INSTALL.md']
+          output = Path('release-assets')
+          output.mkdir()
+          for name in expected:
+              matches = list(Path('download').rglob(name))
+              assert len(matches) == 1 and matches[0].stat().st_size > 0, name
+              shutil.copy2(matches[0], output / name)
+          sums = [hashlib.sha256((output / name).read_bytes()).hexdigest() + '  ' + name for name in sorted(expected)]
+          (output / 'SHA256SUMS.txt').write_text('\n'.join(sums) + '\n')
+          Path('release-notes.txt').write_text(Path('RELEASE_NOTES.md').read_text().split('\n---\n', 1)[0])
+          PYTHON
+          (cd release-assets && sha256sum -c SHA256SUMS.txt)
+      - name: Publish only the complete release
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to overwrite it.'
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "OpenWrt Studio Mobile / Linux ${RELEASE_TAG#v}" --notes-file release-notes.txt --draft
+          test "$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')" = 8
+          gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

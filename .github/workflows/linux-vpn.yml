@@ -3,6 +3,7 @@ on:
   push:
     branches: [codex/fix-vpn-selection, codex/sync-upstream-2, main]
   workflow_dispatch:
+  workflow_call:
 permissions:
   contents: read
 concurrency:
