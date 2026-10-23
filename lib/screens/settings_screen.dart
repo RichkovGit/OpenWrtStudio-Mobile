@@ -232,6 +232,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(height: 16),
                 Text(context.l10n.openSourceDescription),
                 const SizedBox(height: 16),
+                TextButton.icon(
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Тема программы на 4PDA'),
+                  onPressed: () async {
+                    final opened = await launchUrlString(
+                      AppConfig.forumTopicUrl,
+                      mode: LaunchMode.externalApplication,
+                    );
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Не удалось открыть тему 4PDA'),
+                        ),
+                      );
+                    }
+                  },
+                ),
                 InkWell(
                   onTap: () async {
                     final url = AppConfig.githubRepositoryUrl;

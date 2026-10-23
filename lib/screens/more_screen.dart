@@ -348,6 +348,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   ),
                   _buildAboutLink(
                     context,
+                    icon: Icons.forum_outlined,
+                    iconColor: const Color(0xFF38BDF8),
+                    title: 'Тема программы на 4PDA',
+                    url: AppConfig.forumTopicUrl,
+                  ),
+                  _buildAboutLink(
+                    context,
                     icon: Icons.person_outline,
                     iconColor: const Color(0xFF38BDF8),
                     title: 'Автор: RichkovGit',
