@@ -7,7 +7,7 @@ permissions:
   contents: read
 concurrency:
   group: publish-mobile-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 jobs:
   android:
     name: Check and build signed Android packages
