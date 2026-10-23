@@ -16,6 +16,10 @@ class AppConfig {
   // Program Telegram Channel
   static const String appTelegramUrl = 'https://t.me/OpenWrtStudio';
 
+  // Program discussion on 4PDA
+  static const String forumTopicUrl =
+      'https://4pda.to/forum/index.php?showtopic=1128057';
+
   // Reviewer mode configuration
   static const String reviewerModeKey = 'reviewer_mode_enabled';
   static const String mockDataPath = 'assets/mock/';

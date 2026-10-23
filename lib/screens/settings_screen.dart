@@ -1,456 +1,480 @@
+import 'package:luci_mobile/screens/more_screen.dart';
+import 'package:luci_mobile/screens/studio_preferences_screen.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/screens/login_screen.dart';
+import 'package:luci_mobile/screens/app_preferences_screen.dart';
+import 'package:luci_mobile/screens/notifications_screen.dart';
+import 'package:luci_mobile/screens/services_screen.dart';
+import 'package:luci_mobile/screens/system_settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/screens/dashboard_settings_list_screen.dart';
+import 'package:luci_mobile/design/luci_design_system.dart';
+import 'package:luci_mobile/widgets/luci_hub_tile.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+import 'package:luci_mobile/config/app_config.dart';
+import 'package:luci_mobile/screens/manage_routers_screen.dart';
+import 'package:luci_mobile/screens/wifi_scan_screen.dart';
+import 'package:luci_mobile/utils/http_client_manager.dart';
+import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
-  void _showReviewerModeResetDialog(BuildContext context, WidgetRef ref) {
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  AppState? _appState;
+
+  @override
+  void initState() {
+    super.initState();
+    // Do not use context here
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _appState = ref.read(appStateProvider);
+    _appState!.onRouterBackOnline = _showRouterBackOnlineMessage;
+  }
+
+  @override
+  void dispose() {
+    // Clear the callback before calling super.dispose()
+    _appState?.onRouterBackOnline = null;
+    super.dispose();
+  }
+
+  void _showRouterBackOnlineMessage() {
+    if (mounted) {
+      final theme = Theme.of(context);
+      final colorScheme = theme.colorScheme;
+      // Dismiss the warning snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: colorScheme.onPrimary, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  context.l10n.routerBackOnline,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: colorScheme.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.symmetric(
+            horizontal: LuciSpacing.lg,
+            vertical: LuciSpacing.md,
+          ),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showLogoutDialog(BuildContext context) async {
     final appState = ref.read(appStateProvider);
-    // Capture the root navigator before any awaits: the dialog's context is
-    // dead once popped, so a later context.mounted check would skip the
-    // navigation and leave the user on a stale screen.
-    final navigator = Navigator.of(context);
-    showDialog(
+    return showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.l10n.exitReviewerModeQuestion),
-        content: Text(context.l10n.exitReviewerModeDescription),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(context.l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              Navigator.of(dialogContext).pop();
-              await appState.setReviewerMode(false);
-              await appState.logout();
-              unawaited(
-                navigator.pushNamedAndRemoveUntil('/login', (route) => false),
-              );
-            },
-            child: Text(context.l10n.exit),
-          ),
-        ],
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(context.l10n.logoutQuestion),
+          content: Text(context.l10n.logoutConfirmation),
+          actions: <Widget>[
+            TextButton(
+              child: Text(context.l10n.cancel),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text(context.l10n.logout),
+              onPressed: () async {
+                await appState.logout();
+                // Clear all accepted certificates on logout
+                await HttpClientManager().clearAcceptedCertificates();
+                if (context.mounted) {
+                  unawaited(
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const LoginScreen(attemptAutoLogin: false),
+                      ),
+                      (Route<dynamic> route) => false,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRebootDialog(BuildContext context) async {
+    final appState = ref.read(appStateProvider);
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(context.l10n.rebootRouterQuestion),
+          content: Text(context.l10n.rebootRouterConfirmation),
+          actions: <Widget>[
+            TextButton(
+              child: Text(context.l10n.cancel),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text(context.l10n.reboot),
+              onPressed: () async {
+                // Captured before the pop: afterwards this dialog's context
+                // is unmounted, so every `context.mounted` guard below the
+                // await fails and the result snackbar never appears.
+                final theme = Theme.of(context);
+                final colorScheme = theme.colorScheme;
+                final messenger = ScaffoldMessenger.of(context);
+                final l10n = context.l10n;
+                Navigator.of(context).pop();
+                // Show persistent warning snackbar
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          color: colorScheme.onPrimary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            context.l10n.rebootingConnectionInterrupted,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    backgroundColor: colorScheme.primary,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 16,
+                    ),
+                    duration: const Duration(days: 1), // effectively indefinite
+                  ),
+                );
+                final success = await appState.reboot();
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      success
+                          ? l10n.rebootCommandSent
+                          : l10n.rebootCommandFailed,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showAboutDialog(BuildContext context) async {
+    final info = await PackageInfo.fromPlatform();
+    if (!context.mounted) return;
+
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.router, size: 32),
+                const SizedBox(width: 12),
+                Text(context.l10n.appTitle),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(context.l10n.version(info.version)),
+                const SizedBox(height: 16),
+                Text(context.l10n.aboutDescription),
+                const SizedBox(height: 16),
+                Text(context.l10n.openSourceDescription),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Тема программы на 4PDA'),
+                  onPressed: () async {
+                    final opened = await launchUrlString(
+                      AppConfig.forumTopicUrl,
+                      mode: LaunchMode.externalApplication,
+                    );
+                    if (!opened && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Не удалось открыть тему 4PDA'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                InkWell(
+                  onTap: () async {
+                    final url = AppConfig.githubRepositoryUrl;
+                    final success = await launchUrlString(
+                      url,
+                      mode: LaunchMode.externalApplication,
+                    );
+                    if (!success && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(context.l10n.couldNotOpenRepository),
+                          backgroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                      );
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.link,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          context.l10n.githubRepository,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(context.l10n.close),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return Scaffold(
-      appBar: LuciAppBar(title: context.l10n.settings, showBack: true),
-      body: SafeArea(
-        top: false,
-        bottom: true,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 36),
+      appBar: LuciAppBar(title: context.l10n.settings),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: LuciSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            LuciHubSection(
+              tiles: [
+                LuciHubTile(
+                  icon: Icons.extension_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'OpenWrt Studio',
+                  subtitle: 'VPN, ForkOP, Mihomo, USB',
+                  onTap: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const MoreScreen())),
+                ),
+                LuciHubTile(
+                  icon: Icons.palette_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: 'Оформление Studio',
+                  subtitle: 'Цветовая схема и масштаб интерфейса',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const StudioPreferencesScreen(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            LuciSectionHeader(context.l10n.deviceManagement),
             Builder(
               builder: (context) {
-                final appState = ref.watch(appStateProvider);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 28, 16, 8),
-                      child: Text(
-                        context.l10n.theme,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    RadioGroup<ThemeMode>(
-                      groupValue: appState.themeMode,
-                      onChanged: (mode) {
-                        if (mode != null) appState.setThemeMode(mode);
+                final isRebooting = ref.watch(
+                  appStateProvider.select((state) => state.isRebooting),
+                );
+                final canReboot = ref.watch(
+                  appStateProvider.select((state) => state.canReboot),
+                );
+                final accessUnknown = ref.watch(
+                  appStateProvider.select((state) => state.rebootAccessUnknown),
+                );
+                final rebootEnabled = canReboot == true && !isRebooting;
+                return LuciHubSection(
+                  tiles: [
+                    LuciHubTile(
+                      icon: Icons.wifi_find,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.wifiScanner,
+                      subtitle: context.l10n.wifiScannerDescription,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const WifiScanScreen(),
+                          ),
+                        );
                       },
-                      child: Column(
-                        children: [
-                          RadioListTile<ThemeMode>(
-                            title: Text(context.l10n.systemDefault),
-                            value: ThemeMode.system,
-                          ),
-                          RadioListTile<ThemeMode>(
-                            title: Text(context.l10n.light),
-                            value: ThemeMode.light,
-                          ),
-                          RadioListTile<ThemeMode>(
-                            title: Text(context.l10n.dark),
-                            value: ThemeMode.dark,
-                          ),
-                        ],
-                      ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                      child: Text(
-                        'Цветовая схема (OpenWrt Studio)',
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    LuciHubTile(
+                      icon: Icons.tune,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.systemSettings,
+                      subtitle: context.l10n.systemSettingsDescription,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const SystemSettingsScreen(),
+                          ),
+                        );
+                      },
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: Wrap(
-                        spacing: 12,
-                        runSpacing: 12,
-                        children: AppState.accentPalettes.entries.map((entry) {
-                          final name = entry.value.$1;
-                          final color = entry.value.$2;
-                          final isSelected =
-                              appState.accentColor.toARGB32() ==
-                              color.toARGB32();
-                          return InkWell(
-                            onTap: () => appState.setAccentColor(color),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: color.withAlpha(isSelected ? 50 : 20),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? color
-                                      : Colors.transparent,
-                                  width: 2,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: BoxDecoration(
-                                      color: color,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    name,
-                                    style: TextStyle(
-                                      fontWeight: isSelected
-                                          ? FontWeight.bold
-                                          : FontWeight.normal,
-                                      color: isSelected ? color : null,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
+                    LuciHubTile(
+                      icon: Icons.miscellaneous_services_outlined,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.services,
+                      subtitle: context.l10n.servicesHubSubtitle,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const ServicesScreen(),
+                          ),
+                        );
+                      },
                     ),
-                    const Divider(height: 32),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Масштаб интерфейса и шрифта',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          if ((appState.uiScale - 1.0).abs() > 0.01)
-                            TextButton.icon(
-                              onPressed: () => appState.setUiScale(1.0),
-                              icon: const Icon(Icons.refresh, size: 16),
-                              label: const Text(
-                                '100%',
-                                style: TextStyle(fontSize: 12),
-                              ),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                        ],
-                      ),
+                    LuciHubTile(
+                      icon: accessUnknown
+                          ? Icons.error_outline
+                          : canReboot == false
+                          ? Icons.lock_outline
+                          : Icons.restart_alt,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.rebootRouter,
+                      subtitle: accessUnknown
+                          ? context.l10n.rebootAccessUnknown
+                          : switch (canReboot) {
+                              false => context.l10n.administratorAccessRequired,
+                              null => context.l10n.checkingAdministratorAccess,
+                              true => context.l10n.rebootRouterDescription,
+                            },
+                      onTap: rebootEnabled
+                          ? () => _showRebootDialog(context)
+                          : null,
+                      enabled: rebootEnabled,
+                      showSpinner: isRebooting,
                     ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Регулирует размер текста и элементов приложения (${(appState.uiScale * 100).round()}%)',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              'A',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Slider(
-                              value: appState.uiScale,
-                              min: 0.80,
-                              max: 1.25,
-                              divisions: 9,
-                              label: '${(appState.uiScale * 100).round()}%',
-                              onChanged: (val) => appState.setUiScale(
-                                double.parse(val.toStringAsFixed(2)),
-                              ),
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Text(
-                              'A',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildScaleChip(
-                            context,
-                            appState,
-                            0.85,
-                            '85% Мелкий',
-                          ),
-                          _buildScaleChip(
-                            context,
-                            appState,
-                            0.90,
-                            '90% Компакт',
-                          ),
-                          _buildScaleChip(
-                            context,
-                            appState,
-                            1.00,
-                            '100% Стандарт',
-                          ),
-                          _buildScaleChip(
-                            context,
-                            appState,
-                            1.15,
-                            '115% Крупный',
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest.withAlpha(80),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.outlineVariant.withAlpha(80),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.preview_outlined,
-                              size: 20,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Предпросмотр масштаба',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    'Шрифт адаптируется на всех экранах устройства.',
-                                    style: Theme.of(context).textTheme.bodySmall
-                                        ?.copyWith(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const Divider(height: 32),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                      child: Text(
-                        context.l10n.dashboard,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    Card(
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(
-                            Icons.dashboard_customize,
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onPrimaryContainer,
-                            size: 24,
-                          ),
-                        ),
-                        title: Text(
-                          context.l10n.customizeDashboard,
-                          style: TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        subtitle: Text(
-                          context.l10n.customizeDashboardDescription,
-                        ),
-                        trailing: Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  const DashboardSettingsListScreen(),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    if (appState.reviewerModeEnabled) ...[
-                      const Divider(height: 32),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                        child: Text(
-                          context.l10n.reviewerMode,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.info_outline,
-                          color: Colors.orange,
-                        ),
-                        title: Text(context.l10n.reviewerModeActive),
-                        subtitle: Text(
-                          context.l10n.reviewerModeActiveDescription,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: FilledButton.icon(
-                          onPressed: () =>
-                              _showReviewerModeResetDialog(context, ref),
-                          icon: const Icon(Icons.exit_to_app),
-                          label: Text(context.l10n.exitReviewerMode),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
-                            foregroundColor: Theme.of(
-                              context,
-                            ).colorScheme.onError,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 );
               },
             ),
+            LuciSectionHeader(context.l10n.application),
+            LuciHubSection(
+              tiles: [
+                LuciHubTile(
+                  icon: Icons.router,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: context.l10n.manageRouters,
+                  subtitle: context.l10n.manageRoutersDescription,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ManageRoutersScreen(),
+                      ),
+                    );
+                  },
+                ),
+                LuciHubTile(
+                  icon: Icons.settings_outlined,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: context.l10n.appPreferences,
+                  subtitle: context.l10n.settingsDescription,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AppPreferencesScreen(),
+                      ),
+                    );
+                  },
+                ),
+                LuciHubTile(
+                  icon: Icons.notifications_none,
+                  iconColor: Theme.of(context).colorScheme.primary,
+                  title: context.l10n.notifications,
+                  subtitle: context.l10n.notificationsHubSubtitle,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationsScreen(),
+                      ),
+                    );
+                  },
+                ),
+                LuciHubTile(
+                  icon: Icons.info_outline,
+                  iconColor: Theme.of(context).colorScheme.secondary,
+                  title: context.l10n.about,
+                  subtitle: context.l10n.aboutAppDescription,
+                  onTap: () => _showAboutDialog(context),
+                ),
+                LuciHubTile(
+                  icon: Icons.logout,
+                  iconColor: Theme.of(context).colorScheme.error,
+                  title: context.l10n.logout,
+                  subtitle: context.l10n.logoutDescription,
+                  titleColor: Theme.of(context).colorScheme.error,
+                  subtitleColor: Theme.of(
+                    context,
+                  ).colorScheme.error.withValues(alpha: 0.7),
+                  onTap: () => _showLogoutDialog(context),
+                ),
+              ],
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildScaleChip(
-    BuildContext context,
-    AppState appState,
-    double targetScale,
-    String label,
-  ) {
-    final isSelected = (appState.uiScale - targetScale).abs() < 0.02;
-    final color = Theme.of(context).colorScheme.primary;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      onSelected: (_) => appState.setUiScale(targetScale),
-      selectedColor: color.withAlpha(50),
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected ? color : null,
       ),
     );
   }

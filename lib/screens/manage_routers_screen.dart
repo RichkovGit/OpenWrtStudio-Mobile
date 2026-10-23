@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/navigation/luci_tab.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/utils/url_parser.dart';
@@ -110,7 +111,7 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                       context: context,
                                     );
                                     if (!context.mounted) return;
-                                    appState.requestTab(0);
+                                    appState.requestTab(LuciTab.dashboard);
                                     // Pop all the way back to MainScreen
                                     Navigator.of(
                                       context,
@@ -178,6 +179,11 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                 );
                                 if (!context.mounted) return;
                                 if (confirm == true) {
+                                  // Deleting the monitored router switches
+                                  // the poll off in storage; the settings
+                                  // notifier follows that write itself, so
+                                  // it no longer matters whether this
+                                  // screen outlives the call.
                                   await appState.removeRouter(router.id);
                                   if (!context.mounted) return;
                                   if (appState.routers.isEmpty) {
@@ -326,7 +332,10 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                           height: 6,
                                                         ),
                                                         if (!showAlternate)
-                                                          Row(
+                                                          Wrap(
+                                                            alignment:
+                                                                WrapAlignment
+                                                                    .spaceBetween,
                                                             children: [
                                                               TextButton.icon(
                                                                 onPressed: () =>
@@ -357,7 +366,6 @@ class _ManageRoutersScreenState extends ConsumerState<ManageRoutersScreen> {
                                                                       ),
                                                                 ),
                                                               ),
-                                                              const Spacer(),
                                                               TextButton.icon(
                                                                 onPressed:
                                                                     isDiscovering

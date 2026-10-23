@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
+import 'package:luci_mobile/state/app_state_provider.dart';
 import 'package:luci_mobile/models/client.dart';
-import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/screens/client_detail_screen.dart';
+import 'package:luci_mobile/state/event_feed_notifier.dart';
 import 'package:luci_mobile/services/api_service.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
@@ -30,6 +34,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
   bool _aggregateAllRouters = true;
   Future<List<Client>>? _clientsFuture;
   String? _lastSelectedRouterId;
+  int _lastRouterCount = 0;
 
   @override
   void initState() {
@@ -46,14 +51,74 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
     final initState = ref.read(appStateProvider);
     _aggregateAllRouters = initState.clientsAggregateAllRouters;
     _lastSelectedRouterId = initState.selectedRouter?.id;
+    _lastRouterCount = initState.routers.length;
     _computeClientsFuture();
   }
 
+  /// Whether there is actually a choice to make.
+  ///
+  /// With one saved router "All" and "Selected" return the same clients, so
+  /// the control is a switch between a thing and itself.
+  bool get _canAggregate => ref.read(appStateProvider).routers.length > 1;
+
   void _computeClientsFuture() {
     final appState = ref.read(appStateProvider);
-    _clientsFuture = _aggregateAllRouters
-        ? appState.fetchAggregatedClients()
-        : appState.fetchClientsForSelectedRouter();
+    // The router this fetch belongs to, so an answer that arrives after a
+    // switch is not folded into the next router's feed.
+    final routerId = ref.read(sessionProvider)?.routerId;
+    // Falls back to the cheaper single-router path when there is nothing to
+    // aggregate. The stored preference is left alone, so adding a second
+    // router later restores the user's choice rather than resetting it.
+    final aggregate = _aggregateAllRouters && appState.routers.length > 1;
+    if (aggregate) {
+      // The feed is per router, and the aggregated list mixes every router's
+      // clients (and loses provenance for wireless-only entries). A baseline
+      // built from it would report the other routers' clients as having left
+      // the moment the user switches back to "Selected", so it is not fed.
+      _clientsFuture = appState.fetchAggregatedClients();
+      return;
+    }
+
+    // The activity feed is derived from this poll rather than one of its own:
+    // it should cost the router nothing extra to know what changed.
+    _clientsFuture = appState
+        .fetchClientsForSelectedRouter()
+        .then((clients) {
+          // The screen may have been left while the fetch was in flight;
+          // `ref` is unusable then, and the list itself is still wanted.
+          if (!mounted) return clients;
+          unawaited(
+            ref
+                .read(eventFeedProvider.notifier)
+                .observe(
+                  reachable: true,
+                  dashboardData: appState.dashboardData,
+                  clients: clients,
+                  routerId: routerId,
+                ),
+          );
+          return clients;
+        })
+        .onError<Object>((error, stack) {
+          // A failed connection is itself information: the router is not
+          // answering, which is exactly what the feed exists to record. A
+          // router that answered and refused (a permission error, say) is
+          // reachable, and says nothing about its clients — so no
+          // observation at all rather than a false "unreachable".
+          if (mounted && isRouterUnreachable(error)) {
+            unawaited(
+              ref
+                  .read(eventFeedProvider.notifier)
+                  .observe(
+                    reachable: false,
+                    dashboardData: appState.dashboardData,
+                    clients: const [],
+                    routerId: routerId,
+                  ),
+            );
+          }
+          Error.throwWithStackTrace(error, stack);
+        });
   }
 
   @override
@@ -70,8 +135,10 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
     // Recompute future only when selected router changes
     Future<List<Client>>? future = _clientsFuture;
     final currentId = watchedAppState.selectedRouter?.id;
-    if (currentId != _lastSelectedRouterId) {
+    final routerCount = watchedAppState.routers.length;
+    if (currentId != _lastSelectedRouterId || routerCount != _lastRouterCount) {
       _lastSelectedRouterId = currentId;
+      _lastRouterCount = routerCount;
       _computeClientsFuture();
       future = _clientsFuture;
     }
@@ -87,9 +154,10 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                 onRefresh: () async {
                   // Trigger a refresh by re-fetching dashboard data for selected router
                   await ref.read(appStateProvider).fetchDashboardData();
-                  setState(() {
-                    _computeClientsFuture();
-                  });
+                  // The tab may have been left while the fetch ran; this
+                  // State is disposed then, and `ref` with it.
+                  if (!mounted) return;
+                  setState(_computeClientsFuture);
                 },
                 child: Builder(
                   builder: (context) {
@@ -97,7 +165,10 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                     final isLoading =
                         snapshot.connectionState == ConnectionState.waiting &&
                         (aggregatedClients.isEmpty);
-                    final dashboardError = appState.dashboardError;
+                    final failure = appState.appFailure;
+                    final dashboardError = failure == null
+                        ? null
+                        : appFailureText(context, failure);
 
                     if (isLoading) {
                       return Padding(
@@ -135,7 +206,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                     }
 
                     final loadError = snapshot.hasError
-                        ? userFacingApiError(snapshot.error!)
+                        ? apiErrorText(context, snapshot.error!)
                         : dashboardError;
                     if (loadError != null && aggregatedClients.isEmpty) {
                       return LuciErrorDisplay(
@@ -303,6 +374,48 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                               ],
                             ),
                           ),
+                        if (_canAggregate)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16.0,
+                              vertical: 4.0,
+                            ),
+                            child: SegmentedButton<bool>(
+                              segments: [
+                                ButtonSegment<bool>(
+                                  value: true,
+                                  label: Text(context.l10n.all),
+                                  icon: const Icon(Icons.apartment),
+                                ),
+                                ButtonSegment<bool>(
+                                  value: false,
+                                  label: Text(context.l10n.selected),
+                                  icon: const Icon(Icons.router),
+                                ),
+                              ],
+                              selected: {_aggregateAllRouters},
+                              showSelectedIcon: false,
+                              style: SegmentedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                              ),
+                              onSelectionChanged: (s) {
+                                setState(() {
+                                  _aggregateAllRouters = s.first;
+                                  _computeClientsFuture();
+                                });
+                                // Persist selection
+                                ref
+                                    .read(appStateProvider)
+                                    .setClientsAggregateAllRouters(
+                                      _aggregateAllRouters,
+                                    );
+                              },
+                            ),
+                          ),
+
                         Expanded(
                           child: filteredClients.isEmpty
                               ? LuciEmptyState(
@@ -356,6 +469,15 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
                                           onRefresh: () {
                                             setState(_computeClientsFuture);
                                           },
+                                          onOpenDetails: () =>
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ClientDetailScreen(
+                                                        client: client,
+                                                      ),
+                                                ),
+                                              ),
                                         ),
                                       ),
                                     );
@@ -373,8 +495,6 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
       },
     );
   }
-
-  String normalizeMac(String mac) => mac.toUpperCase().replaceAll('-', ':');
 }
 
 class _UnifiedClientCard extends ConsumerStatefulWidget {
@@ -382,12 +502,14 @@ class _UnifiedClientCard extends ConsumerStatefulWidget {
   final bool isExpanded;
   final VoidCallback onTap;
   final VoidCallback? onRefresh;
+  final VoidCallback onOpenDetails;
 
   const _UnifiedClientCard({
     required this.client,
     required this.isExpanded,
     required this.onTap,
     this.onRefresh,
+    required this.onOpenDetails,
   });
 
   @override
@@ -451,7 +573,7 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
         child: Column(
           children: [
             InkWell(
-              onTap: widget.onTap,
+              onTap: widget.onOpenDetails,
               borderRadius: BorderRadius.circular(18.0),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -597,11 +719,16 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                     ],
                     _buildConnectionTypeChip(context, widget.client),
                     const SizedBox(width: 8),
-                    Icon(
-                      widget.isExpanded ? Icons.expand_less : Icons.expand_more,
-                      color: colorScheme.onSurfaceVariant,
-                      size: 26,
-                      semanticLabel: widget.isExpanded
+                    IconButton(
+                      onPressed: widget.onTap,
+                      icon: Icon(
+                        widget.isExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 26,
+                      ),
+                      tooltip: widget.isExpanded
                           ? context.l10n.collapseDetails
                           : context.l10n.expandDetails,
                     ),
@@ -728,10 +855,10 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
           detailRow(
             context.l10n.ipAddress,
             client.ipAddress,
-            onTap: () => _copyToClipboard(
+            onTap: () => copyToClipboard(
               context,
               client.ipAddress,
-              context.l10n.ipAddress,
+              label: context.l10n.ipAddress,
             ),
             semanticsLabel: context.l10n.detailSemantics(
               context.l10n.ipAddress,
@@ -743,8 +870,11 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
               (ipv6) => detailRow(
                 context.l10n.ipv6Address,
                 ipv6,
-                onTap: () =>
-                    _copyToClipboard(context, ipv6, context.l10n.ipv6Address),
+                onTap: () => copyToClipboard(
+                  context,
+                  ipv6,
+                  label: context.l10n.ipv6Address,
+                ),
                 semanticsLabel: context.l10n.detailSemantics(
                   context.l10n.ipv6Address,
                   ipv6,
@@ -754,10 +884,10 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
           detailRow(
             context.l10n.macAddress,
             client.macAddress,
-            onTap: () => _copyToClipboard(
+            onTap: () => copyToClipboard(
               context,
               client.macAddress,
-              context.l10n.macAddress,
+              label: context.l10n.macAddress,
             ),
             semanticsLabel: context.l10n.detailSemantics(
               context.l10n.macAddress,
@@ -864,6 +994,8 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
 
   Future<void> _handleKick(BuildContext context, Client client) async {
     final appState = ref.read(appStateProvider);
+    final session = appState.currentSession;
+    if (session == null || client.routerId != session.routerId) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -887,7 +1019,7 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
         ],
       ),
     );
-    if (confirmed == true) {
+    if (confirmed == true && mounted && appState.currentSession == session) {
       final success = await appState.kickClient(
         client.macAddress,
         banTimeSeconds: 30,
@@ -909,6 +1041,8 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
 
   Future<void> _handleStaticLease(BuildContext context, Client client) async {
     final appState = ref.read(appStateProvider);
+    final session = appState.currentSession;
+    if (session == null || client.routerId != session.routerId) return;
     final nameCtrl = TextEditingController(
       text: client.hostname != '*' ? client.hostname : 'Device',
     );
@@ -953,7 +1087,7 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
       ),
     );
 
-    if (save == true) {
+    if (save == true && mounted && appState.currentSession == session) {
       final ok = await appState.setStaticLease(
         client.macAddress,
         ipCtrl.text,
@@ -975,6 +1109,8 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
 
   Future<void> _handleBlock(BuildContext context, Client client) async {
     final appState = ref.read(appStateProvider);
+    final session = appState.currentSession;
+    if (session == null || client.routerId != session.routerId) return;
     final isCurrentlyBlocked = client.isBlocked;
     final block = await showDialog<bool>(
       context: context,
@@ -1016,7 +1152,7 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
       ),
     );
 
-    if (block != null) {
+    if (block != null && mounted && appState.currentSession == session) {
       final ok = await appState.blockClientInternet(client.macAddress, block);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1075,15 +1211,5 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
     if (seconds == null || seconds == 0) return context.l10n.unlimited;
     if (seconds < 0) return context.l10n.expired;
     return Client.formatDuration(seconds);
-  }
-
-  void _copyToClipboard(BuildContext context, String text, String label) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(context.l10n.copiedToClipboard(label)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 }

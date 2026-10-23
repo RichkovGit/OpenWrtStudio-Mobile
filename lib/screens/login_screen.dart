@@ -3,6 +3,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:luci_mobile/state/app_state.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
@@ -13,7 +15,11 @@ import 'package:luci_mobile/utils/url_parser.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.attemptAutoLogin = true});
+
+  /// Explicit logout keeps saved profiles, but must wait for a manual login.
+  /// Startup still attempts the usual saved-router/reviewer connection.
+  final bool attemptAutoLogin;
 
   @override
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
@@ -53,6 +59,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _checkReviewerModeAndAutoLogin() async {
+    if (!widget.attemptAutoLogin) {
+      _isCheckingAutoLogin = false;
+      return;
+    }
     // Check if reviewer mode is enabled
     final secureStorage = SecureStorageService();
     final reviewerModeEnabled = await secureStorage.readValue(
@@ -321,6 +331,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  /// What to show above the form: a message the screen itself produced, or
+  /// a failure `login` recorded, which is worded here where there is a
+  /// `BuildContext` to look it up with.
+  String? _loginError(BuildContext context, AppState appState) {
+    final failure = appState.loginFailure;
+    if (failure != null) return appFailureText(context, failure);
+    return appState.errorMessage;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isCheckingAutoLogin) {
@@ -562,7 +581,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                             ),
                                           ),
                                           const SizedBox(height: 6),
-                                          Row(
+                                          Wrap(
+                                            alignment:
+                                                WrapAlignment.spaceBetween,
                                             children: [
                                               if (!_showAlternateAddress)
                                                 TextButton.icon(
@@ -590,7 +611,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                         ),
                                                   ),
                                                 ),
-                                              const Spacer(),
                                               TextButton.icon(
                                                 onPressed: _isDiscovering
                                                     ? null
@@ -773,7 +793,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                             duration: const Duration(
                                               milliseconds: 300,
                                             ),
-                                            child: appState.errorMessage != null
+                                            child:
+                                                _loginError(
+                                                      context,
+                                                      appState,
+                                                    ) !=
+                                                    null
                                                 ? Padding(
                                                     key: const ValueKey(
                                                       'error',
@@ -810,8 +835,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                                           ),
                                                           Expanded(
                                                             child: Text(
-                                                              appState
-                                                                  .errorMessage!,
+                                                              _loginError(
+                                                                context,
+                                                                appState,
+                                                              )!,
                                                               style: textTheme
                                                                   .bodyMedium
                                                                   ?.copyWith(

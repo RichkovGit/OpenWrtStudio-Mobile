@@ -23,6 +23,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // flutter_local_notifications uses java.time, which needs
+        // desugaring to run on the minSdk this app supports.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -73,6 +76,8 @@ android {
             )
         }
         getByName("debug") {
+            applicationIdSuffix = ".upstreamtest"
+            versionNameSuffix = "-upstream-test"
             // Debug builds use the default debug signing config
             // No custom keystore required for debug builds
         }
@@ -95,6 +100,7 @@ kotlin {
 dependencies {
     implementation("androidx.core:core:1.12.0")
     implementation("androidx.activity:activity:1.8.2")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 flutter {

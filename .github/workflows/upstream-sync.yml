@@ -1,0 +1,54 @@
+name: Validate upstream sync
+on:
+  push:
+    branches: [codex/sync-upstream-2]
+permissions:
+  contents: read
+concurrency:
+  group: upstream-sync-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
+        with:
+          flutter-version: '3.47.7'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Verify formatting with actionable diff
+        run: |
+          dart format .
+          git diff --exit-code -- '*.dart'
+      - run: flutter analyze --fatal-infos
+      - run: flutter test --reporter expanded
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Retain jni linker workaround
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          cache = Path(os.environ.get('PUB_CACHE') or Path.home() / '.pub-cache')
+          for path in cache.glob('hosted/*/jni-*/src/CMakeLists.txt'):
+              source = path.read_text()
+              if '-Wl,--build-id=none,' not in source:
+                  path.write_text(source.replace('-Wl,', '-Wl,--build-id=none,'))
+          PY
+      - name: Build standalone Android test APK after checks pass
+        run: |
+          flutter build apk --debug --target-platform android-arm64
+          mkdir -p android-test
+          cp build/app/outputs/flutter-apk/app-debug.apk android-test/OpenWrtStudio-2.5.25-upstream-test-arm64.apk
+          cp UPSTREAM_SYNC.md android-test/
+          (cd android-test && sha256sum *.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: OpenWrtStudio-Android-upstream-test
+          path: android-test/
+          if-no-files-found: error

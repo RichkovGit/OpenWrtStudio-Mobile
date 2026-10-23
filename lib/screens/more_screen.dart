@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
-import 'package:luci_mobile/screens/settings_screen.dart';
+import 'package:luci_mobile/screens/studio_preferences_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -23,7 +23,7 @@ import 'package:luci_mobile/screens/processes_screen.dart';
 import 'package:luci_mobile/screens/system_logs_screen.dart';
 import 'package:luci_mobile/screens/thermal_screen.dart';
 import 'package:luci_mobile/screens/startup_services_screen.dart';
-import 'package:luci_mobile/screens/diagnostics_screen.dart';
+import 'package:luci_mobile/screens/studio_diagnostics_screen.dart';
 import 'package:luci_mobile/screens/usb_config_screen.dart';
 import 'package:luci_mobile/services/ota_service.dart';
 import 'package:luci_mobile/widgets/ota_update_dialog.dart';
@@ -143,7 +143,8 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   unawaited(
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(
-                        builder: (context) => const LoginScreen(),
+                        builder: (context) =>
+                            const LoginScreen(attemptAutoLogin: false),
                       ),
                       (Route<dynamic> route) => false,
                     ),
@@ -344,6 +345,13 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     iconColor: const Color(0xFF10B981),
                     title: 'GitHub: RichkovGit/OpenWrtStudio',
                     url: AppConfig.githubRepositoryUrl,
+                  ),
+                  _buildAboutLink(
+                    context,
+                    icon: Icons.forum_outlined,
+                    iconColor: const Color(0xFF38BDF8),
+                    title: 'Тема программы на 4PDA',
+                    url: AppConfig.forumTopicUrl,
                   ),
                   _buildAboutLink(
                     context,
@@ -587,7 +595,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const DiagnosticsScreen(),
+                        builder: (context) => const StudioDiagnosticsScreen(),
                       ),
                     );
                   },
@@ -604,7 +612,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   appStateProvider.select((state) => state.canReboot),
                 );
                 final accessError = ref.watch(
-                  appStateProvider.select((state) => state.rebootAccessError),
+                  appStateProvider.select((state) => state.rebootAccessUnknown),
                 );
                 final rebootEnabled = canReboot == true && !isRebooting;
                 return _MoreScreenSection(
@@ -625,20 +633,20 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                     ),
                     _buildMoreTile(
                       context,
-                      icon: accessError != null
+                      icon: accessError
                           ? Icons.error_outline
                           : canReboot == false
                           ? Icons.lock_outline
                           : Icons.restart_alt,
                       iconColor: Theme.of(context).colorScheme.primary,
                       title: context.l10n.rebootRouter,
-                      subtitle:
-                          accessError ??
-                          switch (canReboot) {
-                            false => context.l10n.administratorAccessRequired,
-                            null => context.l10n.checkingAdministratorAccess,
-                            true => context.l10n.rebootRouterDescription,
-                          },
+                      subtitle: accessError
+                          ? context.l10n.rebootAccessUnknown
+                          : switch (canReboot) {
+                              false => context.l10n.administratorAccessRequired,
+                              null => context.l10n.checkingAdministratorAccess,
+                              true => context.l10n.rebootRouterDescription,
+                            },
                       onTap: rebootEnabled
                           ? () => _showRebootDialog(context)
                           : null,
@@ -718,7 +726,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
+                        builder: (context) => const StudioPreferencesScreen(),
                       ),
                     );
                   },

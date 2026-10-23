@@ -1,23 +1,25 @@
 import 'dart:io';
-
-import 'package:flutter/material.dart';
-import 'package:luci_mobile/screens/dashboard_screen.dart';
-import 'package:luci_mobile/screens/clients_screen.dart';
-import 'package:luci_mobile/screens/interfaces_screen.dart';
-import 'package:luci_mobile/screens/more_screen.dart';
 import 'package:luci_mobile/screens/simple_dashboard_screen.dart';
 import 'package:luci_mobile/services/router_watchdog_service.dart';
-import 'package:luci_mobile/main.dart';
-import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
-import 'package:luci_mobile/l10n/luci_localizations.dart';
 import 'package:luci_mobile/utils/url_parser.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class MainScreen extends ConsumerStatefulWidget {
-  final int? initialTab;
-  final String? interfaceToScroll;
+import 'package:luci_mobile/l10n/luci_localizations.dart';
+import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/navigation/luci_tab.dart';
+import 'package:luci_mobile/screens/clients_screen.dart';
+import 'package:luci_mobile/screens/dashboard_screen.dart';
+import 'package:luci_mobile/screens/insights_screen.dart';
+import 'package:luci_mobile/screens/network_screen.dart';
+import 'package:luci_mobile/screens/settings_screen.dart';
+import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
 
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, this.initialTab, this.interfaceToScroll});
+
+  final LuciTab? initialTab;
+  final String? interfaceToScroll;
 
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
@@ -25,12 +27,7 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen>
     with WidgetsBindingObserver {
-  int _selectedIndex = 0;
-  String? _currentInterfaceToScroll;
   bool _isForeground = true;
-
-  int _validTab(int index) => index >= 0 && index < 4 ? index : 0;
-
   String? _routerEndpoint(String address, bool useHttps) {
     var input = address.trim();
     if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(input)) {
@@ -57,23 +54,6 @@ class _MainScreenState extends ConsumerState<MainScreen>
         : '${addressValue.type == InternetAddressType.IPv6 ? 'ip6' : 'ip4'}/'
               '${addressValue.rawAddress.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join()}';
     return '${parsed.useHttps}:[$host]:${parsed.port}';
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    final lifecycleState = WidgetsBinding.instance.lifecycleState;
-    _isForeground =
-        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
-    if (widget.initialTab != null) {
-      _selectedIndex = _validTab(widget.initialTab!);
-    }
-    _currentInterfaceToScroll = widget.interfaceToScroll;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _syncWatchdog();
-    });
   }
 
   void _syncWatchdog() {
@@ -122,154 +102,185 @@ class _MainScreenState extends ConsumerState<MainScreen>
     super.dispose();
   }
 
+  LuciTab _selected = LuciTab.dashboard;
+  String? _pendingInterface;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    _isForeground =
+        lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncWatchdog();
+    });
+    if (widget.initialTab != null) _selected = widget.initialTab!;
+    _pendingInterface = widget.interfaceToScroll;
+  }
+
   @override
   void didUpdateWidget(MainScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // Handle parameter changes (important for iOS navigation)
     if (widget.interfaceToScroll != oldWidget.interfaceToScroll) {
-      _currentInterfaceToScroll = widget.interfaceToScroll;
+      _pendingInterface = widget.interfaceToScroll;
     }
-
-    // Handle initial tab changes
     if (widget.initialTab != oldWidget.initialTab &&
         widget.initialTab != null) {
-      _selectedIndex = _validTab(widget.initialTab!);
+      _selected = widget.initialTab!;
     }
   }
 
-  void _clearInterfaceToScroll() {
-    if (_currentInterfaceToScroll != null) {
-      setState(() {
-        _currentInterfaceToScroll = null;
-      });
-    }
+  void _clearPendingInterface() {
+    if (_pendingInterface == null) return;
+    setState(() => _pendingInterface = null);
   }
 
-  List<Widget> get _widgetOptions => [
-    const DashboardScreen(),
-    const ClientsScreen(),
-    InterfacesScreen(
-      scrollToInterface: _currentInterfaceToScroll,
-      onScrollComplete: _clearInterfaceToScroll,
+  Widget _bodyFor(LuciTab tab) => switch (tab) {
+    LuciTab.dashboard => const DashboardScreen(),
+    LuciTab.network => NetworkScreen(
+      pendingInterface: _pendingInterface,
+      onConsumed: _clearPendingInterface,
     ),
-    const MoreScreen(),
-  ];
+    LuciTab.clients => const ClientsScreen(),
+    LuciTab.insights => const InsightsScreen(),
+    LuciTab.settings => const SettingsScreen(),
+  };
 
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+  void _select(LuciTab tab) {
+    setState(() => _selected = tab);
+    if (tab != LuciTab.network) _clearPendingInterface();
+  }
 
-    // Clear interface scroll state when navigating away from Interfaces tab
-    if (_selectedIndex != 2 && _currentInterfaceToScroll != null) {
-      _clearInterfaceToScroll();
-    }
+  ({IconData filled, IconData outlined, String label}) _destination(
+    LuciTab tab,
+    BuildContext context,
+  ) {
+    final l10n = context.l10n;
+    return switch (tab) {
+      LuciTab.dashboard => (
+        filled: Icons.dashboard,
+        outlined: Icons.dashboard_outlined,
+        label: l10n.dashboard,
+      ),
+      LuciTab.network => (
+        filled: Icons.lan,
+        outlined: Icons.lan_outlined,
+        label: l10n.network,
+      ),
+      LuciTab.clients => (
+        filled: Icons.people,
+        outlined: Icons.people_outline,
+        label: l10n.clients,
+      ),
+      LuciTab.insights => (
+        // `insights` is a chart with a sparkle on it, which now reads as
+        // "AI" rather than "logs, traffic and diagnostics". A vitals line
+        // says what this tab actually holds.
+        filled: Icons.monitor_heart,
+        outlined: Icons.monitor_heart_outlined,
+        label: l10n.insights,
+      ),
+      LuciTab.settings => (
+        filled: Icons.settings,
+        outlined: Icons.settings_outlined,
+        label: l10n.settings,
+      ),
+    };
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(appStateProvider, (_, _) => _syncWatchdog());
-    // Listen for requestedTab in AppState
     final appState = ref.watch(appStateProvider);
-    if (appState.requestedTab != null) {
-      // Store the values before the callback to avoid null reference issues
-      final requestedTab = appState.requestedTab!;
-      final requestedInterface = appState.requestedInterfaceToScroll;
 
+    // The dashboard asks for a tab by name; honour it after this frame so the
+    // request can be cleared without rebuilding mid-build.
+    if (appState.requestedTab != null) {
+      final requested = appState.requestedTab!;
+      final requestedInterface = appState.requestedInterfaceToScroll;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted ||
-            appState.requestedTab != requestedTab ||
+        // Cleared whatever happens: a request left standing replays on the
+        // next mount, jumping the user to a tab they asked for before
+        // logging out - or latches when it names the tab already showing.
+        if (appState.requestedTab != requested ||
             appState.requestedInterfaceToScroll != requestedInterface) {
           return;
         }
         appState.requestedTab = null;
         appState.requestedInterfaceToScroll = null;
+        if (!mounted) return;
         setState(() {
-          _selectedIndex = _validTab(requestedTab);
-          // Update interface to scroll if provided
+          _selected = requested;
           if (requestedInterface != null) {
-            _currentInterfaceToScroll = requestedInterface;
+            _pendingInterface = requestedInterface;
           }
         });
       });
     }
+
     if (!appState.isExpertMode) {
       return SimpleDashboardScreen(
         onSwitchToExpert: () => appState.setExpertMode(true),
       );
     }
     return Scaffold(
-      body: Center(
-        child: LuciTabTransition(
-          transitionKey: 'tab_$_selectedIndex',
-          child: _widgetOptions.elementAt(_selectedIndex),
-        ),
+      body: LuciTabTransition(
+        transitionKey: 'tab_${_selected.name}',
+        child: _bodyFor(_selected),
       ),
       bottomNavigationBar: Builder(
         builder: (context) {
           final isRebooting = ref.watch(
             appStateProvider.select((state) => state.isRebooting),
           );
-          Color? getTabColor(int index) =>
-              (isRebooting && index != 3) ? Colors.grey.withAlpha(128) : null;
-          double getTabOpacity(int index) =>
-              (isRebooting && index != 3) ? 0.5 : 1.0;
+          final scheme = Theme.of(context).colorScheme;
+
           return NavigationBar(
+            // Five labels overflow in German and Russian at narrow widths;
+            // showing only the selected one keeps them readable without
+            // truncating.
+            labelBehavior: MediaQuery.sizeOf(context).width < 400
+                ? NavigationDestinationLabelBehavior.onlyShowSelected
+                : NavigationDestinationLabelBehavior.alwaysShow,
+            selectedIndex: _selected.index,
             onDestinationSelected: (index) {
-              if (isRebooting && index != 3) return; // Only allow 'More' tab
-              _onItemTapped(index);
+              final tab = LuciTab.fromIndex(index);
+              if (isRebooting && !tab.allowedDuringReboot) return;
+              _select(tab);
             },
-            selectedIndex: _selectedIndex,
             destinations: [
-              NavigationDestination(
-                selectedIcon: Opacity(
-                  opacity: getTabOpacity(0),
-                  child: Icon(Icons.dashboard, color: getTabColor(0)),
-                ),
-                icon: Opacity(
-                  opacity: getTabOpacity(0),
-                  child: Icon(Icons.dashboard_outlined, color: getTabColor(0)),
-                ),
-                label: context.l10n.dashboard,
-              ),
-              NavigationDestination(
-                selectedIcon: Opacity(
-                  opacity: getTabOpacity(1),
-                  child: Icon(Icons.people, color: getTabColor(1)),
-                ),
-                icon: Opacity(
-                  opacity: getTabOpacity(1),
-                  child: Icon(Icons.people_outline, color: getTabColor(1)),
-                ),
-                label: context.l10n.clients,
-              ),
-              NavigationDestination(
-                selectedIcon: Opacity(
-                  opacity: getTabOpacity(2),
-                  child: Icon(Icons.lan, color: getTabColor(2)),
-                ),
-                icon: Opacity(
-                  opacity: getTabOpacity(2),
-                  child: Icon(Icons.lan_outlined, color: getTabColor(2)),
-                ),
-                label: context.l10n.interfaces,
-              ),
-              NavigationDestination(
-                selectedIcon: Opacity(
-                  opacity: getTabOpacity(3),
-                  child: Icon(Icons.more_horiz),
-                ),
-                icon: Opacity(
-                  opacity: getTabOpacity(3),
-                  child: Icon(Icons.more_horiz_outlined),
-                ),
-                label: context.l10n.more,
-              ),
+              for (final tab in LuciTab.values)
+                _buildDestination(context, tab, isRebooting, scheme),
             ],
           );
         },
       ),
+    );
+  }
+
+  NavigationDestination _buildDestination(
+    BuildContext context,
+    LuciTab tab,
+    bool isRebooting,
+    ColorScheme scheme,
+  ) {
+    final d = _destination(tab, context);
+    final locked = isRebooting && !tab.allowedDuringReboot;
+    // Grey is only correct in a light theme; the disabled tone has to come
+    // from the scheme or the bar looks broken in dark mode.
+    final lockedColor = scheme.onSurface.withValues(alpha: 0.38);
+
+    Widget wrap(IconData icon) => Opacity(
+      opacity: locked ? 0.5 : 1.0,
+      child: Icon(icon, color: locked ? lockedColor : null),
+    );
+
+    return NavigationDestination(
+      selectedIcon: wrap(d.filled),
+      icon: wrap(d.outlined),
+      label: d.label,
+      tooltip: locked ? context.l10n.rebootingConnectionInterrupted : d.label,
     );
   }
 }

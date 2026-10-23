@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
+import 'package:luci_mobile/utils/uci_values.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/navigation/luci_tab.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/widgets/luci_animation_system.dart';
 import 'package:luci_mobile/models/glinet_data.dart';
@@ -67,8 +70,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(appStateProvider).fetchDashboardData();
+      final appState = ref.read(appStateProvider);
+      // Logging in has just fetched, or is still fetching; coming back to
+      // this tab later still refreshes.
+      if (!appState.dashboardFetchIsFresh) appState.fetchDashboardData();
       _loadProtocolsQuietly();
+
       // Initialize arrows after layout
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _updateWirelessArrows();
@@ -683,8 +690,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               horizontal: 16.0,
               vertical: 8.0,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+            child: Wrap(
+              alignment: WrapAlignment.spaceAround,
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 _buildSpeedIndicator(
                   Icons.arrow_downward,
@@ -1102,12 +1111,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               size: 20,
             ),
             const SizedBox(width: 8),
-            Text(
-              ssid,
-              style: textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
+            Flexible(
+              child: Text(
+                ssid,
+                style: textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -1130,7 +1142,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 3),
-                  Text('$signal dBm', style: textTheme.bodySmall),
+                  Flexible(
+                    child: Text(
+                      '$signal dBm',
+                      style: textTheme.bodySmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
             Row(
@@ -1142,7 +1161,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   color: Colors.grey.shade600,
                 ),
                 const SizedBox(width: 3),
-                Text('кан. $channel', style: textTheme.bodySmall),
+                Flexible(
+                  child: Text(
+                    'кан. $channel',
+                    style: textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
           ],
@@ -1214,7 +1240,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   onLongPress: () {
                     // Navigate to interfaces tab with the specific interface name
                     final appState = ref.read(appStateProvider);
-                    appState.requestTab(2, interfaceToScroll: uciName);
+                    appState.requestTab(
+                      LuciTab.network,
+                      interfaceToScroll: uciName,
+                    );
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(6.0),
@@ -1236,74 +1265,69 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     // Now add disabled interfaces from UCI config that aren't in runtime data
     if (uciWirelessConfig != null) {
-      final uciValues = uciWirelessConfig['values'] as Map?;
-      if (uciValues != null) {
-        final uciRadios = <String, Map>{};
-        final uciInterfaces = <String, Map>{};
+      final uciValues = uciSectionsOf(uciWirelessConfig, config: 'wireless');
+      final uciRadios = <String, Map>{
+        for (final e in uciSections(uciValues, 'wifi-device')) e.key: e.value,
+      };
+      final uciInterfaces = <String, Map>{
+        for (final e in uciSections(uciValues, 'wifi-iface')) e.key: e.value,
+      };
 
-        // Categorize UCI entries
-        uciValues.forEach((key, value) {
-          final typedValue = value as Map?;
-          if (typedValue?['.type'] == 'wifi-device') {
-            uciRadios[key] = typedValue!;
-          } else if (typedValue?['.type'] == 'wifi-iface') {
-            uciInterfaces[key] = typedValue!;
+      // Add interfaces that aren't in runtime data
+      uciInterfaces.forEach((uciName, config) {
+        if (!addedInterfaces.contains(uciName)) {
+          final ssid = config['ssid'] ?? 'Unnamed';
+          final device = uciString(config['device']);
+          final interfaceId = '$ssid ($device)';
+
+          // Check if this interface should be shown based on preferences
+          if (prefs.enabledWirelessInterfaces.isNotEmpty &&
+              !prefs.enabledWirelessInterfaces.contains(interfaceId)) {
+            return; // Skip this interface
           }
-        });
 
-        // Add interfaces that aren't in runtime data
-        uciInterfaces.forEach((uciName, config) {
-          if (!addedInterfaces.contains(uciName)) {
-            final ssid = config['ssid'] ?? 'Unnamed';
-            final device = uciString(config['device']);
-            final interfaceId = '$ssid ($device)';
+          final isRadioEnabled = !uciBool(uciRadios[device]?['disabled']);
+          final isIfaceEnabled = !uciBool(config['disabled']);
+          final isEnabled = isRadioEnabled && isIfaceEnabled;
+          final glInetRadio = glInetData?.radioForDevice(device);
+          final channel = resolveWifiChannel(
+            actual: glInetRadio?.channel,
+            configured: uciRadios[device]?['channel'],
+          );
 
-            // Check if this interface should be shown based on preferences
-            if (prefs.enabledWirelessInterfaces.isNotEmpty &&
-                !prefs.enabledWirelessInterfaces.contains(interfaceId)) {
-              return; // Skip this interface
-            }
-
-            final isRadioEnabled = uciRadios[device]?['disabled'] != '1';
-            final isIfaceEnabled = config['disabled'] != '1';
-            final isEnabled = isRadioEnabled && isIfaceEnabled;
-            final glInetRadio = glInetData?.radioForDevice(device);
-            final channel = resolveWifiChannel(
-              actual: glInetRadio?.channel,
-              configured: uciRadios[device]?['channel'],
-            );
-
-            networkCardWidgets.add(
-              Card(
-                margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onLongPress: () {
-                    // Navigate to interfaces tab with the specific interface name
-                    final appState = ref.read(appStateProvider);
-                    appState.requestTab(2, interfaceToScroll: uciName);
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(6.0),
-                    child: _buildWirelessInfoCardContent(
-                      context,
-                      ssid: ssid,
-                      isEnabled: isEnabled,
-                      signal: null, // No signal for disabled interfaces
-                      channel: channel,
-                    ),
+          networkCardWidgets.add(
+            Card(
+              margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onLongPress: () {
+                  // Navigate to interfaces tab with the specific interface name
+                  final appState = ref.read(appStateProvider);
+                  appState.requestTab(
+                    LuciTab.network,
+                    interfaceToScroll: uciName,
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(6.0),
+                  child: _buildWirelessInfoCardContent(
+                    context,
+                    ssid: ssid,
+                    isEnabled: isEnabled,
+                    signal: null, // No signal for disabled interfaces
+                    channel: channel,
                   ),
                 ),
               ),
-            );
-          }
-        });
-      }
+            ),
+          );
+        }
+      });
     }
 
     if (networkCardWidgets.isEmpty) {
@@ -1505,7 +1529,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onLongPress: () {
               // Navigate to interfaces tab with the specific interface name
               final appState = ref.read(appStateProvider);
-              appState.requestTab(2, interfaceToScroll: name);
+              appState.requestTab(LuciTab.network, interfaceToScroll: name);
             },
             child: Padding(
               padding: const EdgeInsets.symmetric(
@@ -1945,10 +1969,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildBody(AppState appState) {
-    if (appState.dashboardError != null) {
+    final failure = appState.appFailure;
+    if (failure != null) {
       return LuciErrorDisplay(
         title: context.l10n.unableToLoadDashboard,
-        message: appState.dashboardError!,
+        // Worded here, where there is a BuildContext to look it up with.
+        message: appFailureText(context, failure),
         actionLabel: context.l10n.retryConnection,
         onAction: () => appState.fetchDashboardData(),
         icon: Icons.wifi_off_rounded,
