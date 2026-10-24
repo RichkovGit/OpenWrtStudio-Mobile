@@ -33,48 +33,65 @@ void main() {
     state.dispose();
   });
 
-  testWidgets('sensor polling refreshes values and clears them after read failure', (
-    tester,
-  ) async {
-    final state = _State(_Api([
-      '/sys/class/thermal/thermal_zone0/temp|soc|42000',
-      '/sys/class/thermal/thermal_zone0/temp|soc|43000',
-      null,
-    ]));
-    await _show(tester, state);
-    expect(find.text('42.0 °C'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 10));
-    await tester.pumpAndSettle();
-    expect(find.text('43.0 °C'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 10));
-    await tester.pumpAndSettle();
-    expect(find.text('43.0 °C'), findsNothing);
-    expect(find.textContaining('Не удалось прочитать температуру'), findsOneWidget);
-    await tester.pumpWidget(const SizedBox.shrink());
-    state.dispose();
-  });
+  testWidgets(
+    'sensor polling refreshes values and clears them after read failure',
+    (tester) async {
+      final state = _State(
+        _Api([
+          '/sys/class/thermal/thermal_zone0/temp|soc|42000',
+          '/sys/class/thermal/thermal_zone0/temp|soc|43000',
+          null,
+        ]),
+      );
+      await _show(tester, state);
+      expect(find.text('42.0 °C'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(find.text('43.0 °C'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pumpAndSettle();
+      expect(find.text('43.0 °C'), findsNothing);
+      expect(
+        find.textContaining('Не удалось прочитать температуру'),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      state.dispose();
+    },
+  );
 }
 
 Future<void> _show(WidgetTester tester, _State state) async {
-  await tester.pumpWidget(ProviderScope(
-    overrides: [appStateProvider.overrideWith((ref) => state)],
-    child: const MaterialApp(home: ThermalScreen()),
-  ));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [appStateProvider.overrideWith((ref) => state)],
+      child: const MaterialApp(home: ThermalScreen()),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
 class _State extends AppState {
-  _State(_Api api) : super.forTesting(apiService: api, authService: MockAuthService());
+  _State(_Api api)
+    : super.forTesting(apiService: api, authService: MockAuthService());
 }
 
 class _Api extends MockApiService {
   final List<String?> outputs;
   _Api(this.outputs);
   @override
-  Future<dynamic> systemExec(String ipAddress, String sysauth, bool useHttps, {
-    required String command, List<String> params = const [], BuildContext? context,
+  Future<dynamic> systemExec(
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required String command,
+    List<String> params = const [],
+    BuildContext? context,
   }) async {
     final output = outputs.length > 1 ? outputs.removeAt(0) : outputs.single;
-    return [0, {'code': output == null ? 1 : 0, 'stdout': output ?? ''}];
+    return [
+      0,
+      {'code': output == null ? 1 : 0, 'stdout': output ?? ''},
+    ];
   }
 }

@@ -44,16 +44,38 @@ class ProtocolItem {
   /// Required runtime groups. Names within a group are alternatives.
   /// Detection aliases and optional LuCI frontends are not installation lists.
   List<List<String>> get installPackageGroups => switch (id) {
-    'forkop' => [['forkop']],
-    'amneziawg' => [['kmod-amneziawg'], ['amneziawg-tools']],
-    'wireguard' => [['kmod-wireguard'], ['wireguard-tools']],
-    'sing-box' => [['sing-box']],
-    'mihomo' => [['mihomo', 'openwrt-mihomo']],
-    'passwall' => [['luci-app-passwall2', 'luci-app-passwall']],
-    'openvpn' => [['openvpn-openssl', 'openvpn-mbedtls']],
-    'tailscale' => [['tailscale']],
-    'zerotier' => [['zerotier']],
-    'xray' => [['xray-core', 'xray']],
+    'forkop' => [
+      ['forkop'],
+    ],
+    'amneziawg' => [
+      ['kmod-amneziawg'],
+      ['amneziawg-tools'],
+    ],
+    'wireguard' => [
+      ['kmod-wireguard'],
+      ['wireguard-tools'],
+    ],
+    'sing-box' => [
+      ['sing-box'],
+    ],
+    'mihomo' => [
+      ['mihomo', 'openwrt-mihomo'],
+    ],
+    'passwall' => [
+      ['luci-app-passwall2', 'luci-app-passwall'],
+    ],
+    'openvpn' => [
+      ['openvpn-openssl', 'openvpn-mbedtls'],
+    ],
+    'tailscale' => [
+      ['tailscale'],
+    ],
+    'zerotier' => [
+      ['zerotier'],
+    ],
+    'xray' => [
+      ['xray-core', 'xray'],
+    ],
     _ => [],
   };
 

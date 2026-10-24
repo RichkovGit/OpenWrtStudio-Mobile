@@ -8,16 +8,21 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test('OpenVPN and Xray aliases are alternatives, not required together', () {
     final list = ProtocolItem.defaultList();
-    expect(list.singleWhere((p) => p.id == 'openvpn').installPackageGroups,
-      [['openvpn-openssl', 'openvpn-mbedtls']]);
-    expect(list.singleWhere((p) => p.id == 'xray').installPackageGroups,
-      [['xray-core', 'xray']]);
+    expect(list.singleWhere((p) => p.id == 'openvpn').installPackageGroups, [
+      ['openvpn-openssl', 'openvpn-mbedtls'],
+    ]);
+    expect(list.singleWhere((p) => p.id == 'xray').installPackageGroups, [
+      ['xray-core', 'xray'],
+    ]);
   });
   test('background installation polls to a confirmed success', () async {
     final api = _Api(['__OWS_RUNNING__\nfetching', '__OWS_DONE__=0\nverified']);
     final result = await _install(api);
     expect(result.success, isTrue);
-    expect(api.scripts.first, contains('mktemp -d /tmp/openwrt-studio-install.'));
+    expect(
+      api.scripts.first,
+      contains('mktemp -d /tmp/openwrt-studio-install.'),
+    );
     expect(api.scripts.last, startsWith('rm -rf '));
   });
   test('package error ending in zero is not treated as success', () async {
@@ -31,28 +36,40 @@ void main() {
     expect(result.success, isFalse);
     expect(api.scripts, hasLength(1));
   });
-  test('poll timeout reports an uncertain running job and keeps its log', () async {
-    final api = _Api(['__OWS_RUNNING__\nfetching']);
-    final result = await _install(api);
-    expect(result.success, isFalse);
-    expect(result.message, contains('может продолжаться'));
-    expect(api.scripts.any((s) => s.startsWith('rm -rf')), isFalse);
-  });
+  test(
+    'poll timeout reports an uncertain running job and keeps its log',
+    () async {
+      final api = _Api(['__OWS_RUNNING__\nfetching']);
+      final result = await _install(api);
+      expect(result.success, isFalse);
+      expect(result.message, contains('может продолжаться'));
+      expect(api.scripts.any((s) => s.startsWith('rm -rf')), isFalse);
+    },
+  );
   test('invalid package names never reach file.exec', () async {
     final api = _Api([]);
     final result = await ProtocolInstaller(api).install(
-      routerIp: 'router', sysauth: 'token', useHttps: false,
-      groups: [['openvpn; reboot']],
+      routerIp: 'router',
+      sysauth: 'token',
+      useHttps: false,
+      groups: [
+        ['openvpn; reboot'],
+      ],
     );
     expect(result.success, isFalse);
     expect(api.scripts, isEmpty);
   });
 }
 
-Future<ProtocolInstallResult> _install(_Api api) => ProtocolInstaller(api,
-  pollInterval: Duration.zero, maxPolls: 2,
-).install(routerIp: 'router', sysauth: 'token', useHttps: false,
-  groups: [['openvpn-openssl', 'openvpn-mbedtls']]);
+Future<ProtocolInstallResult> _install(_Api api) =>
+    ProtocolInstaller(api, pollInterval: Duration.zero, maxPolls: 2).install(
+      routerIp: 'router',
+      sysauth: 'token',
+      useHttps: false,
+      groups: [
+        ['openvpn-openssl', 'openvpn-mbedtls'],
+      ],
+    );
 
 class _Api extends MockApiService {
   final List<String> outputs;
@@ -60,8 +77,13 @@ class _Api extends MockApiService {
   bool denied = false;
   _Api(this.outputs);
   @override
-  Future<dynamic> systemExec(String ipAddress, String sysauth, bool useHttps, {
-    required String command, List<String> params = const [], BuildContext? context,
+  Future<dynamic> systemExec(
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required String command,
+    List<String> params = const [],
+    BuildContext? context,
   }) async {
     scripts.add(params.last);
     if (denied) return [6];
@@ -73,6 +95,9 @@ class _Api extends MockApiService {
     } else {
       output = outputs.length > 1 ? outputs.removeAt(0) : outputs.single;
     }
-    return [0, {'code': 0, 'stdout': output}];
+    return [
+      0,
+      {'code': 0, 'stdout': output},
+    ];
   }
 }

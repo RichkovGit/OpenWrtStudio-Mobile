@@ -23,11 +23,13 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _foreground = WidgetsBinding.instance.lifecycleState == null ||
+    _foreground =
+        WidgetsBinding.instance.lifecycleState == null ||
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     _fetchTemps();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted && _foreground && (ModalRoute.of(context)?.isCurrent ?? true)) _fetchTemps();
+      if (mounted && _foreground && (ModalRoute.of(context)?.isCurrent ?? true))
+        _fetchTemps();
     });
   }
 
@@ -59,9 +61,13 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen>
     List<ThermalReading> readings = [];
     String? error;
     try {
-      if (session == null || api == null) throw StateError('Нет подключения к роутеру');
-      readings = await ThermalService(api).read(ip: session.ipAddress,
-        token: session.sysauth, useHttps: session.useHttps);
+      if (session == null || api == null)
+        throw StateError('Нет подключения к роутеру');
+      readings = await ThermalService(api).read(
+        ip: session.ipAddress,
+        token: session.sysauth,
+        useHttps: session.useHttps,
+      );
     } catch (e) {
       error = 'Не удалось прочитать температуру: $e';
     }
@@ -79,35 +85,56 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(appStateProvider.select((state) => state.currentSession), (_, _) {
+    ref.listen(appStateProvider.select((state) => state.currentSession), (
+      _,
+      _,
+    ) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _fetchTemps(newSession: true);
       });
     });
     return Scaffold(
-      appBar: AppBar(title: const Text('Датчики температуры'), actions: [
-        IconButton(icon: const Icon(Icons.refresh),
-          onPressed: _loading ? null : () => _fetchTemps()),
-      ]),
-      body: SafeArea(child: _loading && _readings.isEmpty
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(onRefresh: () => _fetchTemps(), child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_loading) const LinearProgressIndicator(),
-            if (_error != null) SelectableText(_error!),
-            if (_error == null && _readings.isEmpty)
-              const Text('Прошивка не предоставляет датчики температуры через thermal/hwmon. Значения недоступны.'),
-            for (final sensor in _readings) Card(child: ListTile(
-              leading: const Icon(Icons.thermostat),
-              title: Text(sensor.label),
-              subtitle: Text(sensor.path),
-              trailing: Text(sensor.celsius == null ? 'N/A'
-                : '${sensor.celsius!.toStringAsFixed(1)} °C'),
-            )),
-          ],
-        ))),
+      appBar: AppBar(
+        title: const Text('Датчики температуры'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loading ? null : () => _fetchTemps(),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: _loading && _readings.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: () => _fetchTemps(),
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    if (_loading) const LinearProgressIndicator(),
+                    if (_error != null) SelectableText(_error!),
+                    if (_error == null && _readings.isEmpty)
+                      const Text(
+                        'Прошивка не предоставляет датчики температуры через thermal/hwmon. Значения недоступны.',
+                      ),
+                    for (final sensor in _readings)
+                      Card(
+                        child: ListTile(
+                          leading: const Icon(Icons.thermostat),
+                          title: Text(sensor.label),
+                          subtitle: Text(sensor.path),
+                          trailing: Text(
+                            sensor.celsius == null
+                                ? 'N/A'
+                                : '${sensor.celsius!.toStringAsFixed(1)} °C',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }

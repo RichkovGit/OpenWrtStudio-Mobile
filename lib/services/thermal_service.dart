@@ -36,8 +36,13 @@ exit 0
       final raw = double.tryParse(fields[2].trim());
       // Both thermal_zone/temp and hwmon/tempN_input use millidegrees.
       final value = raw == null ? null : raw / 1000;
-      final valid = value != null && value.isFinite && value >= -100 && value <= 200;
-      readings[fields[0]] = ThermalReading(fields[0], fields[1].trim(), valid ? value : null);
+      final valid =
+          value != null && value.isFinite && value >= -100 && value <= 200;
+      readings[fields[0]] = ThermalReading(
+        fields[0],
+        fields[1].trim(),
+        valid ? value : null,
+      );
     }
     return readings.values.toList();
   }
@@ -47,10 +52,18 @@ exit 0
     required String token,
     required bool useHttps,
   }) async {
-    final result = await api.systemExec(ip, token, useHttps,
-      command: '/bin/sh', params: ['-c', script]);
-    if (result is! List || result.length < 2 || result[0] != 0 ||
-        result[1] is! Map || result[1]['code'] != 0) {
+    final result = await api.systemExec(
+      ip,
+      token,
+      useHttps,
+      command: '/bin/sh',
+      params: ['-c', script],
+    );
+    if (result is! List ||
+        result.length < 2 ||
+        result[0] != 0 ||
+        result[1] is! Map ||
+        result[1]['code'] != 0) {
       throw StateError('Не удалось прочитать датчики через file.exec');
     }
     return parse((result[1]['stdout'] ?? '').toString());

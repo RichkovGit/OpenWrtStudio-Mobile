@@ -159,9 +159,18 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(result.success ? '${item.name}: установлено' : '${item.name}: установка не подтверждена'),
+          title: Text(
+            result.success
+                ? '${item.name}: установлено'
+                : '${item.name}: установка не подтверждена',
+          ),
           content: SingleChildScrollView(child: SelectableText(result.message)),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Закрыть'))],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Закрыть'),
+            ),
+          ],
         ),
       );
       if (mounted && appState.currentSession == session) await _scanProtocols();
