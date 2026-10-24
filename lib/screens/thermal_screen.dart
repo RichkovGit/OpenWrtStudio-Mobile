@@ -28,7 +28,9 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen>
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     _fetchTemps();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
-      if (mounted && _foreground && (ModalRoute.of(context)?.isCurrent ?? true)) {
+      if (mounted &&
+          _foreground &&
+          (ModalRoute.of(context)?.isCurrent ?? true)) {
         _fetchTemps();
       }
     });

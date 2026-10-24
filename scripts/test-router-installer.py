@@ -19,13 +19,13 @@ case "$1" in
     shift
     printf '%s\n' "$*" >> "$TRACE"
     [ "${INSTALL_CODE:-0}" = 0 ] || { echo 'kernel ABI mismatch 10' >&2; exit "$INSTALL_CODE"; }
-    printf '%s\n' "$@" >> "$STATE";;
+    [ "${SKIP_WRITE:-0}" = 1 ] || printf '%s\n' "$@" >> "$STATE";;
   *) exit 2;;
 esac
 '''
 
 class InstallerTests(unittest.TestCase):
-    def run_case(self, manager, groups, available='', installed='', update=0, install=0):
+    def run_case(self, manager, groups, available='', installed='', update=0, install=0, confirm=True):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             stub = root / manager
@@ -35,7 +35,7 @@ class InstallerTests(unittest.TestCase):
             state.write_text(installed)
             trace = root / 'trace'
             env = dict(os.environ, PATH=f'{root}:/usr/bin:/bin', STATE=str(state),
-                       TRACE=str(trace), AVAILABLE=available, UPDATE_CODE=str(update), INSTALL_CODE=str(install))
+                       TRACE=str(trace), AVAILABLE=available, UPDATE_CODE=str(update), INSTALL_CODE=str(install), SKIP_WRITE='0' if confirm else '1')
             result = subprocess.run(['/bin/sh', str(SCRIPT), *groups], env=env,
                                     text=True, capture_output=True, timeout=10)
             return result, trace.read_text().strip() if trace.exists() else ''
@@ -77,6 +77,12 @@ class InstallerTests(unittest.TestCase):
             result, trace = self.run_case(pm, ['kmod-wireguard', 'wireguard-tools'], 'wireguard-tools')
             self.assertEqual(result.returncode, 4)
             self.assertEqual(trace, '')
+
+    def test_zero_exit_without_installed_packages_is_not_success(self):
+        for pm in ['apk', 'opkg']:
+            result, _ = self.run_case(pm, ['wireguard-tools'], 'wireguard-tools', confirm=False)
+            self.assertEqual(result.returncode, 5)
+            self.assertIn('could not be verified', result.stderr)
 
     def test_invalid_names_do_not_start_package_manager(self):
         result, trace = self.run_case('apk', ['openvpn;reboot'])
