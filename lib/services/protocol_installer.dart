@@ -74,8 +74,9 @@ printf 'OWS_JOB=%s\\n' "\$job"
         r'^OWS_JOB=(/tmp/openwrt-studio-install\.[a-zA-Z0-9]+)$',
         multiLine: true,
       ).firstMatch(submission.trim());
-      if (match == null)
+      if (match == null) {
         throw StateError('Роутер не подтвердил запуск установки');
+      }
       job = match.group(1)!;
       final path = quote(job);
       for (var attempt = 0; attempt < maxPolls; attempt++) {
