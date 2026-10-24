@@ -30,7 +30,6 @@ void main() {
     expect(find.textContaining('61.3'), findsNothing);
     expect(find.textContaining('MediaTek'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
-    state.dispose();
   });
 
   testWidgets(
@@ -56,8 +55,7 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox.shrink());
-      state.dispose();
-    },
+      },
   );
 }
 
