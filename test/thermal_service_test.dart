@@ -55,7 +55,7 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox.shrink());
-      },
+    },
   );
 }
 
