@@ -74,3 +74,4 @@ flutter:
   # Include mock data files for reviewer mode
   assets:
     - assets/mock/
+    - assets/router/

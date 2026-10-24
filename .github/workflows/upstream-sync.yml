@@ -1,7 +1,7 @@
 name: Validate upstream sync
 on:
   push:
-    branches: [codex/sync-upstream-2]
+    branches: [codex/sync-upstream-2, codex/fix-2512-device-report]
 permissions:
   contents: read
 concurrency:

@@ -5,6 +5,13 @@
   <p>Все возможности стокового LuCI Mobile + мощный арсенал OpenWrt Studio прямо на вашем смартфоне.</p>
 </div>
 
+## Скачать
+
+- [Android APK и Linux-пакеты — последний выпуск](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest).
+- [Windows EXE и Portable — отдельный репозиторий](https://github.com/RichkovGit/OpenWrtStudio/releases/latest).
+
+Исправления по отчёту SmartBox Giga/OpenWrt 25.12.6 описаны в [DEVICE_REPORT_2512.md](DEVICE_REPORT_2512.md). Проверка на самом SmartBox ещё требуется; температура зависит от датчиков, доступных в прошивке.
+
 ---
 
 ## Обновление 2.5.24

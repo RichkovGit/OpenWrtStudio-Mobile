@@ -562,7 +562,7 @@ class _MoreScreenState extends ConsumerState<MoreScreen> {
                   icon: Icons.thermostat,
                   iconColor: const Color(0xFFF87171),
                   title: 'Датчики температуры',
-                  subtitle: 'Температура CPU и чипов Wi-Fi (mt7915 phy0/phy1)',
+                  subtitle: 'Датчики, доступные в прошивке роутера',
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(

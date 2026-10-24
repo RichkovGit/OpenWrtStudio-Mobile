@@ -1,3 +1,4 @@
+import 'package:luci_mobile/services/protocol_installer.dart';
 import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/utils/logger.dart';
@@ -8,7 +9,7 @@ class ProtocolService {
   ProtocolService({required this.apiService});
 
   /// Scans the router for installed protocols, active processes, and services.
-  /// Supports both OpenWrt 24/25 (apk) and OpenWrt 23 (opkg).
+  /// Detects apk/opkg at runtime rather than inferring it from the release.
   Future<List<ProtocolItem>> scanProtocols({
     required String routerIp,
     required String sysauth,
@@ -20,7 +21,7 @@ class ProtocolService {
     const scanScript = r'''
 echo "===PKGS==="
 if command -v apk >/dev/null 2>&1; then
-  apk info -e forkop* luci-app-forkop* amneziawg* wireguard* sing-box* mihomo* passwall* openvpn* tailscale* zerotier* xray* 2>/dev/null
+  apk info 2>/dev/null
 elif command -v opkg >/dev/null 2>&1; then
   opkg list-installed 2>/dev/null | grep -E "(forkop|amneziawg|wireguard|sing-box|mihomo|passwall|openvpn|tailscale|zerotier|xray)" | awk '{print $1}'
 fi
@@ -251,45 +252,15 @@ ps -w 2>/dev/null | grep -E "(forkop|sing-box|mihomo|passwall|openvpn|tailscaled
     }
   }
 
-  /// Installs protocol packages using apk (OpenWrt 24/25) or opkg
   Future<bool> installProtocol({
     required String routerIp,
     required String sysauth,
     required bool useHttps,
     required List<String> packageNames,
-  }) async {
-    final safePkgs = packageNames
-        .map((p) => p.trim())
-        .where((p) => RegExp(r'^[a-zA-Z0-9_\-\.\+@:]+$').hasMatch(p))
-        .toList();
-    if (safePkgs.isEmpty) return false;
-    final pkgs = safePkgs.join(' ');
-    final script =
-        '''
-if command -v apk >/dev/null 2>&1; then
-  apk add $pkgs
-elif command -v opkg >/dev/null 2>&1; then
-  opkg update && opkg install $pkgs
-fi
-echo \$?
-''';
-
-    try {
-      final res = await apiService.systemExec(
-        routerIp,
-        sysauth,
-        useHttps,
-        command: '/bin/sh',
-        params: ['-c', script],
-      );
-      final data = res is List && res.length > 1
-          ? res[1] as Map<String, dynamic>?
-          : null;
-      final stdout = (data?['stdout'] as String? ?? '').trim();
-      return stdout.endsWith('0');
-    } catch (e) {
-      Logger.error('Failed to install packages $pkgs', e);
-      return false;
-    }
-  }
+  }) async => (await ProtocolInstaller(apiService).install(
+    routerIp: routerIp,
+    sysauth: sysauth,
+    useHttps: useHttps,
+    groups: packageNames.map((p) => [p]).toList(),
+  )).success;
 }

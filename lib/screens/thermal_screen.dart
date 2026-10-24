@@ -1,160 +1,113 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/services/thermal_service.dart';
 
 class ThermalScreen extends ConsumerStatefulWidget {
   const ThermalScreen({super.key});
-
   @override
   ConsumerState<ThermalScreen> createState() => _ThermalScreenState();
 }
 
-class _ThermalScreenState extends ConsumerState<ThermalScreen> {
-  bool _loading = true;
-  double _cpuTemp = 61.3;
-  double _wifi0Temp = 58.0;
-  double _wifi1Temp = 58.0;
+class _ThermalScreenState extends ConsumerState<ThermalScreen>
+    with WidgetsBindingObserver {
+  List<ThermalReading> _readings = [];
+  String? _error;
+  bool _loading = false;
+  bool _foreground = true;
+  int _generation = 0;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _foreground = WidgetsBinding.instance.lifecycleState == null ||
+        WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     _fetchTemps();
+    _timer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted && _foreground && (ModalRoute.of(context)?.isCurrent ?? true)) _fetchTemps();
+    });
   }
 
-  Future<void> _fetchTemps() async {
-    setState(() => _loading = true);
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground) _fetchTemps();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _generation++;
+    super.dispose();
+  }
+
+  Future<void> _fetchTemps({bool newSession = false}) async {
+    if (_loading && !newSession) return;
+    final generation = ++_generation;
     final appState = ref.read(appStateProvider);
-
+    final session = appState.currentSession;
+    final api = appState.apiService;
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (newSession) _readings = [];
+    });
+    List<ThermalReading> readings = [];
+    String? error;
     try {
-      final res = await appState.systemExec(
-        command: '/bin/sh',
-        params: ['-c', 'cat /sys/class/thermal/thermal_zone*/temp 2>/dev/null'],
-      );
-
-      if (res is List && res.length > 1 && res[1] is Map) {
-        final stdout = (res[1]['stdout'] ?? '').toString().trim();
-        final lines = stdout
-            .split('\n')
-            .map((l) => int.tryParse(l) ?? 0)
-            .toList();
-        if (lines.isNotEmpty && lines[0] > 0) {
-          _cpuTemp = lines[0] > 1000 ? lines[0] / 1000.0 : lines[0].toDouble();
-        }
-        if (lines.length > 1 && lines[1] > 0) {
-          _wifi0Temp = lines[1] > 1000
-              ? lines[1] / 1000.0
-              : lines[1].toDouble();
-        }
-        if (lines.length > 2 && lines[2] > 0) {
-          _wifi1Temp = lines[2] > 1000
-              ? lines[2] / 1000.0
-              : lines[2].toDouble();
-        }
-      }
-      if (mounted) setState(() => _loading = false);
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (session == null || api == null) throw StateError('Нет подключения к роутеру');
+      readings = await ThermalService(api).read(ip: session.ipAddress,
+        token: session.sysauth, useHttps: session.useHttps);
+    } catch (e) {
+      error = 'Не удалось прочитать температуру: $e';
     }
+    if (!mounted || generation != _generation) return;
+    if (appState.currentSession != session) {
+      await _fetchTemps(newSession: true);
+      return;
+    }
+    setState(() {
+      _readings = readings;
+      _error = error;
+      _loading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(appStateProvider.select((state) => state.currentSession), (_, _) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fetchTemps(newSession: true);
+      });
+    });
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Датчики температуры'),
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchTemps),
-        ],
-      ),
-      body: SafeArea(
-        top: false,
-        bottom: true,
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
-                children: [
-                  _buildSensorCard(
-                    'Процессор CPU',
-                    'MediaTek MT7981B',
-                    _cpuTemp,
-                    Icons.memory,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildSensorCard(
-                    'Wi-Fi 2.4 GHz',
-                    'MediaTek MT7976C (phy0)',
-                    _wifi0Temp,
-                    Icons.wifi,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildSensorCard(
-                    'Wi-Fi 5 GHz',
-                    'MediaTek MT7976C (phy1)',
-                    _wifi1Temp,
-                    Icons.wifi_tethering,
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  Widget _buildSensorCard(
-    String title,
-    String subtitle,
-    double temp,
-    IconData icon,
-  ) {
-    Color tempColor = Colors.green;
-    if (temp >= 70) tempColor = Colors.orange;
-    if (temp >= 80) tempColor = Colors.red;
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+      appBar: AppBar(title: const Text('Датчики температуры'), actions: [
+        IconButton(icon: const Icon(Icons.refresh),
+          onPressed: _loading ? null : () => _fetchTemps()),
+      ]),
+      body: SafeArea(child: _loading && _readings.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : RefreshIndicator(onRefresh: () => _fetchTemps(), child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: tempColor.withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: tempColor, size: 28),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              '${temp.toStringAsFixed(1)} °C',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-                color: tempColor,
-              ),
-            ),
+            if (_loading) const LinearProgressIndicator(),
+            if (_error != null) SelectableText(_error!),
+            if (_error == null && _readings.isEmpty)
+              const Text('Прошивка не предоставляет датчики температуры через thermal/hwmon. Значения недоступны.'),
+            for (final sensor in _readings) Card(child: ListTile(
+              leading: const Icon(Icons.thermostat),
+              title: Text(sensor.label),
+              subtitle: Text(sensor.path),
+              trailing: Text(sensor.celsius == null ? 'N/A'
+                : '${sensor.celsius!.toStringAsFixed(1)} °C'),
+            )),
           ],
-        ),
-      ),
+        ))),
     );
   }
 }
