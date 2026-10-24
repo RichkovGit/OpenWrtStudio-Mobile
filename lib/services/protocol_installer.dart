@@ -57,9 +57,10 @@ class ProtocolInstaller {
     }
 
     try {
-      final source = await rootBundle.loadString(
+      final rawSource = await rootBundle.loadString(
         'assets/router/install_packages.sh',
       );
+      final source = rawSource.replaceAll('\r\n', '\n');
       final arguments = groups.map((g) => quote(g.join(' '))).join(' ');
       // rpcd file.exec is short-lived. Close inherited pipes and poll an owned
       // temporary job instead of keeping a package-manager RPC open for minutes.
