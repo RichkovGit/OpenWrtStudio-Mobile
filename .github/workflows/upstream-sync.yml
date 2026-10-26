@@ -44,11 +44,12 @@ jobs:
         run: |
           flutter build apk --debug --target-platform android-arm64
           mkdir -p android-test
-          cp build/app/outputs/flutter-apk/app-debug.apk android-test/OpenWrtStudio-2.5.25-upstream-test-arm64.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk android-test/OpenWrtStudio-2.5.25-permission-test-arm64.apk
           cp UPSTREAM_SYNC.md android-test/
+          cp DEVICE_REPORT_2512.md android-test/
           (cd android-test && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: OpenWrtStudio-Android-upstream-test
+          name: OpenWrtStudio-Android-permission-test
           path: android-test/
           if-no-files-found: error

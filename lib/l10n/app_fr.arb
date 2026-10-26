@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "La modification a été faite, mais le rechargement du sans-fil a échoué.",
   "errorSessionRejected": "Le routeur a rejeté cette session. Reconnectez-vous et vérifiez les autorisations RPC du compte.",
   "errorNoPermission": "Ce compte n’a pas l’autorisation pour {call}. Connectez-vous en administrateur ou accordez l’accès RPC nécessaire.",
+  "errorShellPermission": "Le routeur a refusé file.exec. La session doit autoriser la méthode ubus et la commande (/bin/sh pour les scripts Studio). Même une connexion root à LuCI ne garantit pas ces droits ACL. Reconnectez-vous comme administrateur du routeur et vérifiez les droits rpcd sur le routeur. Le root Android est inutile ; réinstaller le fichier APK ne donne aucun droit sur le routeur.",
   "errorMissingPackage": "{call} est indisponible. Installez {package}, redémarrez rpcd, puis reconnectez-vous.",
   "errorHttpStatus": "Le routeur a répondu HTTP {status}.",
   "errorUnreachable": "Connexion au routeur impossible. Vérifiez son adresse et votre réseau, puis réessayez.",

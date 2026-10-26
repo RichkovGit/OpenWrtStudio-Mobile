@@ -1,4 +1,5 @@
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
+import 'package:luci_mobile/services/api_service.dart';
 
 class ThermalReading {
   final String path;
@@ -52,13 +53,22 @@ exit 0
     required String token,
     required bool useHttps,
   }) async {
-    final result = await api.systemExec(
-      ip,
-      token,
-      useHttps,
-      command: '/bin/sh',
-      params: ['-c', script],
-    );
+    dynamic result;
+    try {
+      result = await api.systemExec(
+        ip,
+        token,
+        useHttps,
+        command: '/bin/sh',
+        params: ['-c', script],
+      );
+      result = validateRpcResult(result, object: 'file', method: 'exec');
+    } on RpcException catch (error) {
+      if (!error.isAccessDenied) rethrow;
+      // Reading a sensor does not require a general shell. Respect each
+      // file.list/read ACL instead; never grant access or retry a write.
+      return _readFiles(ip, token, useHttps);
+    }
     if (result is! List ||
         result.length < 2 ||
         result[0] != 0 ||
@@ -67,5 +77,119 @@ exit 0
       throw StateError('Не удалось прочитать датчики через file.exec');
     }
     return parse((result[1]['stdout'] ?? '').toString());
+  }
+
+  Future<List<ThermalReading>> _readFiles(
+    String ip,
+    String token,
+    bool useHttps,
+  ) async {
+    Future<Map> call(String method, String path) async {
+      final result = validateRpcResult(
+        await api.call(
+          ip,
+          token,
+          useHttps,
+          object: 'file',
+          method: method,
+          params: {'path': path},
+        ),
+        object: 'file',
+        method: method,
+      );
+      if (result.length != 2 || result[1] is! Map) {
+        throw RpcException(
+          object: 'file',
+          method: method,
+          detail: 'invalid response',
+        );
+      }
+      return result[1] as Map;
+    }
+
+    Future<List<String>> list(String path) async {
+      final entries = (await call('list', path))['entries'];
+      if (entries is! List ||
+          entries.any((entry) => entry is! Map || entry['name'] is! String)) {
+        throw const RpcException(
+          object: 'file',
+          method: 'list',
+          detail: 'invalid response',
+        );
+      }
+      return entries.map((entry) => entry['name'] as String).toList();
+    }
+
+    Future<String> read(String path) async {
+      final data = (await call('read', path))['data'];
+      if (data is! String) {
+        throw const RpcException(
+          object: 'file',
+          method: 'read',
+          detail: 'invalid response',
+        );
+      }
+      return data.trim().replaceAll(RegExp(r'[|\r\n]'), ' ');
+    }
+
+    final output = <String>[];
+    Object? firstError;
+    var enumerated = false;
+    for (final root in ['/sys/class/thermal', '/sys/class/hwmon']) {
+      try {
+        final thermal = root.endsWith('/thermal');
+        final names = await list(root);
+        enumerated = true;
+        final directoryPattern = RegExp(
+          thermal ? r'^thermal_zone\d+$' : r'^hwmon\d+$',
+        );
+        for (final name in names.where(directoryPattern.hasMatch).take(64)) {
+          final directory = '$root/$name';
+          try {
+            final inputs = thermal
+                ? ['temp']
+                : (await list(
+                    directory,
+                  )).where(RegExp(r'^temp\d+_input$').hasMatch).take(128);
+            for (final input in inputs) {
+              try {
+                final value = await read('$directory/$input');
+                var label = name;
+                // Driver labels are optional; denied/missing labels must not
+                // discard an independently permitted temperature value.
+                for (final labelPath
+                    in thermal
+                        ? ['$directory/type']
+                        : [
+                            '$directory/${input.replaceFirst('_input', '_label')}',
+                            '$directory/name',
+                          ]) {
+                  try {
+                    final text = await read(labelPath);
+                    if (text.isNotEmpty) {
+                      label = text;
+                      break;
+                    }
+                  } catch (_) {
+                    /* Use the directory name. */
+                  }
+                }
+                output.add('$directory/$input|$label|$value');
+              } catch (error) {
+                firstError ??= error;
+              }
+            }
+          } catch (error) {
+            firstError ??= error;
+          }
+        }
+      } catch (error) {
+        firstError ??= error;
+      }
+    }
+    if (output.isEmpty && (firstError != null || !enumerated)) {
+      throw firstError ?? StateError('Не удалось перечислить датчики');
+    }
+    return parse(output.join('\n'));
   }
 }

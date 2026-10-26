@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "變更已生效，但重新載入無線失敗。",
   "errorSessionRejected": "路由器拒絕了此工作階段。請重新連線並檢查該帳戶的 RPC 權限。",
   "errorNoPermission": "此帳戶沒有 {call} 的權限。請使用管理員帳戶登入，或授予所需的 RPC 存取權。",
+  "errorShellPermission": "路由器拒絕了 file.exec。工作階段需要 ubus 方法和特定命令的權限（Studio 指令碼使用 /bin/sh）。即使以 root 登入 LuCI，也不保證擁有這些 ACL 權限。請以路由器管理員身分重新連線，並檢查路由器上的 rpcd 權限。Android 不需要 root；重新安裝 APK 無法授予路由器權限。",
   "errorMissingPackage": "{call} 無法使用。請安裝 {package}，重新啟動 rpcd，然後重新連線。",
   "errorHttpStatus": "路由器回傳了 HTTP {status}。",
   "errorUnreachable": "無法連線到路由器。請檢查其位址與你的網路，然後重試。",

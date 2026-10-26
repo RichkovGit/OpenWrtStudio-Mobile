@@ -21,7 +21,10 @@ String apiErrorText(BuildContext context, Object error) {
   final info = describeApiError(error);
   return switch (info.kind) {
     ApiErrorKind.sessionRejected => l10n.errorSessionRejected,
-    ApiErrorKind.noPermission => l10n.errorNoPermission(info.call ?? '?'),
+    ApiErrorKind.noPermission =>
+      info.call == 'file.exec'
+          ? l10n.errorShellPermission
+          : l10n.errorNoPermission(info.call ?? '?'),
     ApiErrorKind.missingPackage => l10n.errorMissingPackage(
       info.call ?? '?',
       info.package ?? '?',

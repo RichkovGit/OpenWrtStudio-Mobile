@@ -1,4 +1,5 @@
 import 'package:luci_mobile/services/protocol_installer.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
@@ -164,7 +165,15 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                 ? '${item.name}: установлено'
                 : '${item.name}: установка не подтверждена',
           ),
-          content: SingleChildScrollView(child: SelectableText(result.message)),
+          content: SingleChildScrollView(
+            child: SelectableText(
+              result.error == null
+                  ? result.message
+                  : result.mayStillBeRunning
+                  ? '${apiErrorText(context, result.error!)}\n${result.message}'
+                  : apiErrorText(context, result.error!),
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),

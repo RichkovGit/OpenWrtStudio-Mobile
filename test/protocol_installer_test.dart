@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/mock_api_service.dart';
 import 'package:luci_mobile/services/protocol_installer.dart';
+import 'package:luci_mobile/services/api_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +35,11 @@ void main() {
     final api = _Api([])..denied = true;
     final result = await _install(api);
     expect(result.success, isFalse);
+    expect(
+      result.error,
+      isA<RpcException>().having((e) => e.isAccessDenied, 'denial', true),
+    );
+    expect(result.mayStillBeRunning, isFalse);
     expect(api.scripts, hasLength(1));
   });
   test(

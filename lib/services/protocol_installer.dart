@@ -1,10 +1,18 @@
 import 'package:flutter/services.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
+import 'package:luci_mobile/services/api_service.dart';
 
 class ProtocolInstallResult {
   final bool success;
   final String message;
-  const ProtocolInstallResult(this.success, this.message);
+  final Object? error;
+  final bool mayStillBeRunning;
+  const ProtocolInstallResult(
+    this.success,
+    this.message, {
+    this.error,
+    this.mayStillBeRunning = false,
+  });
 }
 
 class ProtocolInstaller {
@@ -20,6 +28,7 @@ class ProtocolInstaller {
   static String quote(String value) => "'${value.replaceAll("'", "'\\''")}'";
 
   static Map<dynamic, dynamic> _data(dynamic response) {
+    validateRpcResult(response, object: 'file', method: 'exec');
     if (response is! List ||
         response.length < 2 ||
         response[0] != 0 ||
@@ -122,6 +131,8 @@ exit 0
       return ProtocolInstallResult(
         false,
         'Не удалось выполнить установку: $error$status',
+        error: error,
+        mayStillBeRunning: job != null,
       );
     }
   }

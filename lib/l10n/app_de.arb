@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "Die Änderung wurde vorgenommen, das Neuladen des WLANs schlug jedoch fehl.",
   "errorSessionRejected": "Der Router hat diese Sitzung abgelehnt. Verbinde dich neu und prüfe die RPC-Berechtigungen des Kontos.",
   "errorNoPermission": "Dieses Konto hat keine Berechtigung für {call}. Melde dich als Administrator an oder erteile den nötigen RPC-Zugriff.",
+  "errorShellPermission": "Der Router hat file.exec verweigert. Die Sitzung benötigt Rechte für die ubus-Methode und den Befehl (/bin/sh für Studio-Skripte). Auch eine LuCI-Anmeldung als root garantiert diese ACL-Rechte nicht. Melden Sie sich erneut als Router-Administrator an und prüfen Sie die rpcd-Rechte auf dem Router. Android-Root ist nicht nötig; eine APK-Neuinstallation erteilt keine Router-Rechte.",
   "errorMissingPackage": "{call} ist nicht verfügbar. Installiere {package}, starte rpcd neu und verbinde dich erneut.",
   "errorHttpStatus": "Der Router antwortete mit HTTP {status}.",
   "errorUnreachable": "Keine Verbindung zum Router. Prüfe seine Adresse und dein Netzwerk und versuche es erneut.",

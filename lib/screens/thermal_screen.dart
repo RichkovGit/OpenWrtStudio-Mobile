@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/services/thermal_service.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
 
 class ThermalScreen extends ConsumerStatefulWidget {
   const ThermalScreen({super.key});
@@ -73,7 +74,8 @@ class _ThermalScreenState extends ConsumerState<ThermalScreen>
         useHttps: session.useHttps,
       );
     } catch (e) {
-      error = 'Не удалось прочитать температуру: $e';
+      if (!mounted) return;
+      error = 'Не удалось прочитать температуру: ${apiErrorText(context, e)}';
     }
     if (!mounted || generation != _generation) return;
     if (appState.currentSession != session) {
