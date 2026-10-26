@@ -33,10 +33,12 @@ flutter run -d ID_ТЕЛЕФОНА
 
 После проверки восстановите исходный VPN и изменённые настройки. Результаты аппаратной проверки 19 октября 2026 и оставшиеся ограничения описаны в [HARDWARE_VALIDATION.md](HARDWARE_VALIDATION.md); автоматические тесты её не заменяют.
 
-Тестовый APK из workflow **Validate upstream sync** имеет отдельный applicationId `com.cogwheel.LuCIMobile.upstreamtest` и debug-подпись. Он устанавливается рядом со стабильной версией; сохранённые роутеры и пароли стабильного приложения в него не переносятся. Это сборка для локальной проверки, не APK для обновления стабильного выпуска. Введите подключение к роутеру вручную. На USB-телефоне:
+Тестовый APK из workflow **Validate upstream sync** имеет отдельный applicationId `com.cogwheel.LuCIMobile.permissiontest` и debug-подпись. Он устанавливается рядом со стабильной версией; сохранённые роутеры и пароли стабильного приложения в него не переносятся. Это сборка для локальной проверки, не APK для обновления стабильного выпуска. Введите подключение к роутеру вручную. На USB-телефоне:
 
 ```sh
-adb install -r OpenWrtStudio-2.5.25-upstream-test-arm64.apk
+adb install -r OpenWrtStudio-2.5.25-permission-test-arm64.apk
 ```
 
 APK предназначен для ARM64. Для других архитектур соберите локально `flutter build apk --debug`.
+
+Для кандидата проверки прав из ветки codex/fix-2512-device-report workflow использует отдельный applicationId com.cogwheel.LuCIMobile.permissiontest. Подробности повторного отчёта и ограничения — в DEVICE_REPORT_2512.md. Локальная сборка: flutter build apk --debug --target-platform android-arm64.

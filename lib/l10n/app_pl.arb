@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "Zmiana została wprowadzona, ale przeładowanie sieci bezprzewodowej nie powiodło się.",
   "errorSessionRejected": "Router odrzucił tę sesję. Połącz się ponownie i sprawdź uprawnienia RPC konta.",
   "errorNoPermission": "To konto nie ma uprawnień do {call}. Zaloguj się jako administrator lub przyznaj wymagany dostęp RPC.",
+  "errorShellPermission": "Router odmówił file.exec. Sesja wymaga uprawnień do metody ubus i polecenia (/bin/sh dla skryptów Studio). Nawet logowanie root do LuCI nie gwarantuje tych uprawnień ACL. Zaloguj się ponownie jako administrator routera i sprawdź uprawnienia rpcd na routerze. Root w Androidzie nie jest potrzebny; ponowna instalacja APK nie nada uprawnień na routerze.",
   "errorMissingPackage": "{call} jest niedostępne. Zainstaluj {package}, zrestartuj rpcd i połącz się ponownie.",
   "errorHttpStatus": "Router odpowiedział HTTP {status}.",
   "errorUnreachable": "Nie można połączyć się z routerem. Sprawdź jego adres i sieć, a potem spróbuj ponownie.",

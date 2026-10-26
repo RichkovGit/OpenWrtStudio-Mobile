@@ -5,6 +5,7 @@ import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/services/commands_service.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
 
 class CommandsScreen extends ConsumerStatefulWidget {
   const CommandsScreen({super.key});
@@ -60,6 +61,7 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
         useHttps: router.activeUseHttps,
         command: command,
       );
+      if (!mounted) return;
 
       setState(() {
         if (res.stdout.isNotEmpty) {
@@ -67,7 +69,8 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
           if (!res.stdout.endsWith('\n')) _consoleOutput += '\n';
         }
         if (res.stderr.isNotEmpty) {
-          _consoleOutput += '[STDERR] ${res.stderr}\n';
+          _consoleOutput +=
+              '[STDERR] ${res.error == null ? res.stderr : apiErrorText(context, res.error!)}\n';
         }
         _consoleOutput +=
             '[exit: ${res.exitCode}, time: ${res.executionTime.inMilliseconds}ms]\n';
