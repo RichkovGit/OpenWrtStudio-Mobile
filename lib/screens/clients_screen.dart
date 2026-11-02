@@ -580,8 +580,12 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                     Stack(
                       alignment: Alignment.topRight,
                       children: [
@@ -632,57 +636,64 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                         ),
                       ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.client.hostname,
-                            style: LuciTextStyles.cardTitle(context),
-                            semanticsLabel: context.l10n
-                                .clientHostnameSemantics(
-                                  widget.client.hostname,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: LuciSpacing.xs),
-                          Container(
-                            margin: const EdgeInsets.only(right: 32),
-                            child: Divider(
-                              color: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.10),
-                              thickness: 1,
-                              height: 8,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              widget.client.hostname,
+                              style: LuciTextStyles.cardTitle(context),
+                              semanticsLabel: context.l10n
+                                  .clientHostnameSemantics(
+                                    widget.client.hostname,
+                                  ),
+                              softWrap: true,
                             ),
                           ),
-                          Text(
-                            _buildMinimalClientSubtitle(widget.client),
-                            style: LuciTextStyles.cardSubtitle(context),
-                            semanticsLabel: context.l10n.clientDetailsSemantics(
-                              _buildMinimalClientSubtitle(widget.client),
-                            ),
-                          ),
-                          if (widget.client.vendor != null &&
-                              widget.client.vendor!.isNotEmpty)
-                            Text(
-                              widget.client.vendor!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              semanticsLabel: context.l10n.vendorSemantics(
-                                widget.client.vendor!,
-                              ),
-                            ),
-                        ],
+                        ),
+                    IconButton(
+                      onPressed: widget.onTap,
+                      icon: Icon(
+                        widget.isExpanded
+                            ? Icons.expand_less
+                            : Icons.expand_more,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 26,
+                      ),
+                      tooltip: widget.isExpanded
+                          ? context.l10n.collapseDetails
+                          : context.l10n.expandDetails,
+                    ),
+                      ],
+                    ),
+                    // Connection badges must not squeeze the name or address.
+                    // Keep the complete identity visible even while collapsed.
+                    const SizedBox(height: LuciSpacing.xs),
+                    Text(
+                      _buildMinimalClientSubtitle(widget.client),
+                      style: LuciTextStyles.cardSubtitle(context),
+                      semanticsLabel: context.l10n.clientDetailsSemantics(
+                        _buildMinimalClientSubtitle(widget.client),
                       ),
                     ),
-                    if (widget.client.isBlocked) ...[
+                    if (widget.client.vendor != null &&
+                        widget.client.vendor!.isNotEmpty)
+                      Text(
+                        widget.client.vendor!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                        semanticsLabel: context.l10n.vendorSemantics(
+                          widget.client.vendor!,
+                        ),
+                      ),
+                    const SizedBox(height: LuciSpacing.xs),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (widget.client.isBlocked)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 7,
@@ -715,22 +726,8 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
-                    ],
-                    _buildConnectionTypeChip(context, widget.client),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: widget.onTap,
-                      icon: Icon(
-                        widget.isExpanded
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        color: colorScheme.onSurfaceVariant,
-                        size: 26,
-                      ),
-                      tooltip: widget.isExpanded
-                          ? context.l10n.collapseDetails
-                          : context.l10n.expandDetails,
+                        _buildConnectionTypeChip(context, widget.client),
+                      ],
                     ),
                   ],
                 ),
