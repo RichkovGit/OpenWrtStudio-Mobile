@@ -1,5 +1,6 @@
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/utils/logger.dart';
+import 'package:luci_mobile/services/api_service.dart';
 
 class QuickCommand {
   final String title;
@@ -59,12 +60,14 @@ class CommandResult {
   final String stdout;
   final String stderr;
   final Duration executionTime;
+  final Object? error;
 
   const CommandResult({
     required this.exitCode,
     required this.stdout,
     required this.stderr,
     required this.executionTime,
+    this.error,
   });
 
   bool get isSuccess => exitCode == 0;
@@ -84,21 +87,30 @@ class CommandsService {
   }) async {
     final sw = Stopwatch()..start();
     try {
-      final res = await apiService.systemExec(
-        routerIp,
-        sysauth,
-        useHttps,
-        command: '/bin/sh',
-        params: ['-c', command],
+      final res = validateRpcResult(
+        await apiService.systemExec(
+          routerIp,
+          sysauth,
+          useHttps,
+          command: '/bin/sh',
+          params: ['-c', command],
+        ),
+        object: 'file',
+        method: 'exec',
       );
       sw.stop();
 
-      final data = res is List && res.length > 1
-          ? res[1] as Map<String, dynamic>?
-          : null;
-      final code = (data?['code'] as num?)?.toInt() ?? 0;
-      final stdout = data?['stdout'] as String? ?? '';
-      final stderr = data?['stderr'] as String? ?? '';
+      final data = res.length > 1 ? res[1] : null;
+      if (data is! Map || data['code'] is! int) {
+        throw const RpcException(
+          object: 'file',
+          method: 'exec',
+          detail: 'invalid response',
+        );
+      }
+      final code = data['code'] as int;
+      final stdout = data['stdout'] as String? ?? '';
+      final stderr = data['stderr'] as String? ?? '';
 
       return CommandResult(
         exitCode: code,
@@ -114,6 +126,7 @@ class CommandsService {
         stdout: '',
         stderr: e.toString(),
         executionTime: sw.elapsed,
+        error: e,
       );
     }
   }

@@ -42,6 +42,7 @@
   "appFailureWirelessReload": "The change was made, but reloading wireless failed.",
   "errorSessionRejected": "The router rejected this session. Reconnect and check the account's RPC permissions.",
   "errorNoPermission": "This account does not have permission for {call}. Sign in with an administrator account or grant the required RPC access.",
+  "errorShellPermission": "The router denied file.exec. The session needs both the ubus method permission and permission to execute the requested command (/bin/sh for Studio scripts). A LuCI login, even as root, does not guarantee these ACL permissions. Reconnect with the router administrator account and check rpcd permissions on the router. Android root is not required; reinstalling the APK cannot grant router permissions.",
   "@errorNoPermission": {
     "placeholders": {
       "call": {

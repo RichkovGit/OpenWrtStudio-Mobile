@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "El cambio se aplicó, pero la recarga inalámbrica falló.",
   "errorSessionRejected": "El router rechazó esta sesión. Vuelve a conectarte y revisa los permisos RPC de la cuenta.",
   "errorNoPermission": "Esta cuenta no tiene permiso para {call}. Inicia sesión como administrador o concede el acceso RPC necesario.",
+  "errorShellPermission": "El router denegó file.exec. La sesión necesita permiso para el método ubus y el comando (/bin/sh para scripts de Studio). Incluso entrar en LuCI como root no garantiza estos permisos ACL. Vuelva a entrar como administrador del router y revise sus permisos rpcd. Android no necesita root; reinstalar el APK no concede permisos en el router.",
   "errorMissingPackage": "{call} no está disponible. Instala {package}, reinicia rpcd y vuelve a conectarte.",
   "errorHttpStatus": "El router respondió HTTP {status}.",
   "errorUnreachable": "No se pudo conectar con el router. Comprueba su dirección y tu red, y vuelve a intentarlo.",

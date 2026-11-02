@@ -580,157 +580,154 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Stack(
-                      alignment: Alignment.topRight,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer.withValues(
-                              alpha: 0.13,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: AnimatedScale(
-                            scale: widget.isExpanded ? 1.1 : 1.0,
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.elasticOut,
-                            child: Icon(
-                              Icons.person_outline,
-                              color: colorScheme.primary,
-                              size: 22,
-                              semanticLabel: context.l10n.clientIcon,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Tooltip(
-                            message: widget.client.isOnline == false
-                                ? context.l10n.clientOffline
-                                : _connectionLabel(context, widget.client),
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: BoxDecoration(
-                                color: widget.client.isOnline == false
-                                    ? Colors.grey
-                                    : widget.client.isOnline == true
-                                    ? Colors.green
-                                    : Colors.amber,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colorScheme.surface,
-                                  width: 1.5,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.client.hostname,
-                            style: LuciTextStyles.cardTitle(context),
-                            semanticsLabel: context.l10n
-                                .clientHostnameSemantics(
-                                  widget.client.hostname,
-                                ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: LuciSpacing.xs),
-                          Container(
-                            margin: const EdgeInsets.only(right: 32),
-                            child: Divider(
-                              color: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.10),
-                              thickness: 1,
-                              height: 8,
-                            ),
-                          ),
-                          Text(
-                            _buildMinimalClientSubtitle(widget.client),
-                            style: LuciTextStyles.cardSubtitle(context),
-                            semanticsLabel: context.l10n.clientDetailsSemantics(
-                              _buildMinimalClientSubtitle(widget.client),
-                            ),
-                          ),
-                          if (widget.client.vendor != null &&
-                              widget.client.vendor!.isNotEmpty)
-                            Text(
-                              widget.client.vendor!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.7,
-                                ),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              semanticsLabel: context.l10n.vendorSemantics(
-                                widget.client.vendor!,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (widget.client.isBlocked) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.redAccent.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
+                        Stack(
+                          alignment: Alignment.topRight,
                           children: [
-                            Icon(
-                              Icons.block,
-                              size: 12,
-                              color: Colors.redAccent,
+                            Container(
+                              padding: const EdgeInsets.all(8.0),
+                              decoration: BoxDecoration(
+                                color: colorScheme.primaryContainer.withValues(
+                                  alpha: 0.13,
+                                ),
+                                shape: BoxShape.circle,
+                              ),
+                              child: AnimatedScale(
+                                scale: widget.isExpanded ? 1.1 : 1.0,
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.elasticOut,
+                                child: Icon(
+                                  Icons.person_outline,
+                                  color: colorScheme.primary,
+                                  size: 22,
+                                  semanticLabel: context.l10n.clientIcon,
+                                ),
+                              ),
                             ),
-                            SizedBox(width: 4),
-                            Text(
-                              'БЛОК',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Tooltip(
+                                message: widget.client.isOnline == false
+                                    ? context.l10n.clientOffline
+                                    : _connectionLabel(context, widget.client),
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: widget.client.isOnline == false
+                                        ? Colors.grey
+                                        : widget.client.isOnline == true
+                                        ? Colors.green
+                                        : Colors.amber,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colorScheme.surface,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ],
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              widget.client.hostname,
+                              style: LuciTextStyles.cardTitle(context),
+                              semanticsLabel: context.l10n
+                                  .clientHostnameSemantics(
+                                    widget.client.hostname,
+                                  ),
+                              softWrap: true,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: widget.onTap,
+                          icon: Icon(
+                            widget.isExpanded
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            color: colorScheme.onSurfaceVariant,
+                            size: 26,
+                          ),
+                          tooltip: widget.isExpanded
+                              ? context.l10n.collapseDetails
+                              : context.l10n.expandDetails,
+                        ),
+                      ],
+                    ),
+                    // Connection badges must not squeeze the name or address.
+                    // Keep the complete identity visible even while collapsed.
+                    const SizedBox(height: LuciSpacing.xs),
+                    Text(
+                      _buildMinimalClientSubtitle(widget.client),
+                      style: LuciTextStyles.cardSubtitle(context),
+                      semanticsLabel: context.l10n.clientDetailsSemantics(
+                        _buildMinimalClientSubtitle(widget.client),
                       ),
-                      const SizedBox(width: 6),
-                    ],
-                    _buildConnectionTypeChip(context, widget.client),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: widget.onTap,
-                      icon: Icon(
-                        widget.isExpanded
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        color: colorScheme.onSurfaceVariant,
-                        size: 26,
+                    ),
+                    if (widget.client.vendor != null &&
+                        widget.client.vendor!.isNotEmpty)
+                      Text(
+                        widget.client.vendor!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                        semanticsLabel: context.l10n.vendorSemantics(
+                          widget.client.vendor!,
+                        ),
                       ),
-                      tooltip: widget.isExpanded
-                          ? context.l10n.collapseDetails
-                          : context.l10n.expandDetails,
+                    const SizedBox(height: LuciSpacing.xs),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (widget.client.isBlocked)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.redAccent.withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.block,
+                                  size: 12,
+                                  color: Colors.redAccent,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'БЛОК',
+                                  style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        _buildConnectionTypeChip(context, widget.client),
+                      ],
                     ),
                   ],
                 ),

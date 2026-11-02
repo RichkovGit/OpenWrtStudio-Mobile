@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "変更は適用されましたが、無線の再読み込みに失敗しました。",
   "errorSessionRejected": "ルーターがこのセッションを拒否しました。接続し直して、アカウントの RPC 権限を確認してください。",
   "errorNoPermission": "このアカウントには {call} の権限がありません。管理者アカウントでログインするか、必要な RPC アクセスを許可してください。",
+  "errorShellPermission": "ルーターが file.exec を拒否しました。セッションには ubus メソッドと実行コマンド（Studio では /bin/sh）の両方の権限が必要です。root で LuCI にログインしても、この ACL 権限は保証されません。ルーター管理者として再接続し、ルーター側の rpcd 権限を確認してください。Android の root は不要です。APK を再インストールしてもルーターの権限は付与されません。",
   "errorMissingPackage": "{call} は利用できません。{package} をインストールし、rpcd を再起動してから接続し直してください。",
   "errorHttpStatus": "ルーターが HTTP {status} を返しました。",
   "errorUnreachable": "ルーターに接続できませんでした。アドレスとネットワークを確認して、もう一度お試しください。",

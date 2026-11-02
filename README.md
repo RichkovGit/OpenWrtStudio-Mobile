@@ -5,6 +5,13 @@
   <p>Все возможности стокового LuCI Mobile + мощный арсенал OpenWrt Studio прямо на вашем смартфоне.</p>
 </div>
 
+## Скачать
+
+- [Android APK и Linux-пакеты — последний выпуск](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest).
+- [Windows EXE и Portable — отдельный репозиторий](https://github.com/RichkovGit/OpenWrtStudio/releases/latest).
+
+Исправления по отчёту SmartBox Giga/OpenWrt 25.12.6 описаны в [DEVICE_REPORT_2512.md](DEVICE_REPORT_2512.md). Проверка на самом SmartBox ещё требуется; температура зависит от датчиков, доступных в прошивке.
+
 ---
 
 ## Обновление 2.5.24
@@ -42,7 +49,7 @@
 
 2. **🛡️ VPN и Протоколы (Менеджер служб OpenWrt 24/25)**:
    - 7-уровневое сканирование установленных протоколов: AmneziaWG, WireGuard, Sing-box, Mihomo, PassWall 2, OpenVPN, Tailscale, ZeroTier, Xray.
-   - Поддержка пакетных менеджеров `apk` (OpenWrt 24/25) и `opkg` (OpenWrt 23 и старше).
+   - Поддержка `apk` и `opkg`: менеджер определяется по наличию на роутере, а не по номеру прошивки.
    - Просмотр статуса (Работает / Остановлен / Не установлен).
    - Быстрые кнопки управления: `Запустить`, `Остановить`, `Перезапуск`, `Установить`.
 

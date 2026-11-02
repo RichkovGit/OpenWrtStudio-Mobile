@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Router shell assets must also work when built on Windows.
+*.sh text eol=lf

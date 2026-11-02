@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "La modifica è stata applicata, ma il ricaricamento del wireless non è riuscito.",
   "errorSessionRejected": "Il router ha rifiutato questa sessione. Riconnettiti e controlla i permessi RPC dell’account.",
   "errorNoPermission": "Questo account non ha il permesso per {call}. Accedi come amministratore o concedi l’accesso RPC necessario.",
+  "errorShellPermission": "Il router ha negato file.exec. La sessione richiede il permesso per il metodo ubus e il comando (/bin/sh per gli script Studio). Anche accedere a LuCI come root non garantisce questi permessi ACL. Accedi di nuovo come amministratore del router e controlla i permessi rpcd sul router. Non serve il root su Android; reinstallare APK non concede permessi sul router.",
   "errorMissingPackage": "{call} non è disponibile. Installa {package}, riavvia rpcd e riconnettiti.",
   "errorHttpStatus": "Il router ha risposto HTTP {status}.",
   "errorUnreachable": "Impossibile connettersi al router. Controlla l’indirizzo e la rete, poi riprova.",

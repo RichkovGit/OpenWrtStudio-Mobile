@@ -45,5 +45,8 @@ jobs:
       - name: Analyze Project Source
         run: flutter analyze --fatal-infos
 
+      - name: Exercise router package-manager scripts
+        run: python3 scripts/test-router-installer.py
+
       - name: Run Tests
         run: flutter test

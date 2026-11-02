@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "Změna proběhla, ale znovunačtení bezdrátové sítě se nezdařilo.",
   "errorSessionRejected": "Router tuto relaci odmítl. Připojte se znovu a zkontrolujte oprávnění RPC u účtu.",
   "errorNoPermission": "Tento účet nemá oprávnění k {call}. Přihlaste se jako správce nebo udělte potřebný přístup RPC.",
+  "errorShellPermission": "Router odmítl file.exec. Relace potřebuje přístup k metodě ubus i k příkazu (/bin/sh pro skripty Studio). Ani přihlášení root do LuCI nezaručuje tato práva ACL. Přihlaste se znovu jako správce routeru a zkontrolujte oprávnění rpcd na routeru. Root v Androidu není potřeba; přeinstalování APK práva routeru neudělí.",
   "errorMissingPackage": "{call} není k dispozici. Nainstalujte {package}, restartujte rpcd a připojte se znovu.",
   "errorHttpStatus": "Router odpověděl HTTP {status}.",
   "errorUnreachable": "Nepodařilo se připojit k routeru. Zkontrolujte jeho adresu a síť a zkuste to znovu.",

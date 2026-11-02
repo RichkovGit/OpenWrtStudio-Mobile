@@ -16,6 +16,7 @@
   "appFailureWirelessReload": "De wijziging is doorgevoerd, maar het herladen van wifi is mislukt.",
   "errorSessionRejected": "De router heeft deze sessie geweigerd. Maak opnieuw verbinding en controleer de RPC-rechten van het account.",
   "errorNoPermission": "Dit account heeft geen toestemming voor {call}. Meld je aan als beheerder of verleen de vereiste RPC-toegang.",
+  "errorShellPermission": "De router heeft file.exec geweigerd. De sessie heeft rechten nodig voor de ubus-methode en het commando (/bin/sh voor Studio-scripts). Ook inloggen bij LuCI als root garandeert deze ACL-rechten niet. Meld u opnieuw aan als routerbeheerder en controleer de rpcd-rechten op de router. Android-root is niet nodig; de APK opnieuw installeren verleent geen routerrechten.",
   "errorMissingPackage": "{call} is niet beschikbaar. Installeer {package}, herstart rpcd en maak opnieuw verbinding.",
   "errorHttpStatus": "De router antwoordde met HTTP {status}.",
   "errorUnreachable": "Kan geen verbinding maken met de router. Controleer het adres en je netwerk en probeer het opnieuw.",

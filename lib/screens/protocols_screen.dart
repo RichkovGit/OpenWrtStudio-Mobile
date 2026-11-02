@@ -1,3 +1,5 @@
+import 'package:luci_mobile/services/protocol_installer.dart';
+import 'package:luci_mobile/l10n/failure_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
@@ -143,46 +145,46 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
 
   Future<void> _installProtocol(ProtocolItem item) async {
     final appState = ref.read(appStateProvider);
-    final router = appState.selectedRouter;
-    final sysauth = appState.sysauth;
-    if (router == null || sysauth == null) return;
-
-    setState(() {
-      _busyProtocolId = item.id;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Установка ${item.name}... Это может занять минуту.'),
-        duration: const Duration(seconds: 4),
-      ),
-    );
-
-    final success = await _protocolService.installProtocol(
-      routerIp: router.activeAddress,
-      sysauth: sysauth,
-      useHttps: router.activeUseHttps,
-      packageNames: item.packageNames,
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Пакет ${item.name} успешно установлен!'
-                : 'Ошибка установки ${item.name}',
+    final session = appState.currentSession;
+    final api = appState.apiService;
+    if (session == null || api == null || _busyProtocolId != null) return;
+    setState(() => _busyProtocolId = item.id);
+    try {
+      final result = await ProtocolInstaller(api).install(
+        routerIp: session.ipAddress,
+        sysauth: session.sysauth,
+        useHttps: session.useHttps,
+        groups: item.installPackageGroups,
+      );
+      if (!mounted || appState.currentSession != session) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(
+            result.success
+                ? '${item.name}: установлено'
+                : '${item.name}: установка не подтверждена',
           ),
-          backgroundColor: success ? Colors.green : Colors.red,
-          behavior: SnackBarBehavior.floating,
+          content: SingleChildScrollView(
+            child: SelectableText(
+              result.error == null
+                  ? result.message
+                  : result.mayStillBeRunning
+                  ? '${apiErrorText(context, result.error!)}\n${result.message}'
+                  : apiErrorText(context, result.error!),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Закрыть'),
+            ),
+          ],
         ),
       );
-      await _scanProtocols();
-      if (mounted) {
-        setState(() {
-          _busyProtocolId = null;
-        });
-      }
+      if (mounted && appState.currentSession == session) await _scanProtocols();
+    } finally {
+      if (mounted) setState(() => _busyProtocolId = null);
     }
   }
 
