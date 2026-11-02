@@ -81,7 +81,10 @@ void main() {
             // The full name must actually paint without ellipsis or clipping,
             // rather than merely exist in the Text widget's backing string.
             final name = tester.renderObject<RenderParagraph>(
-              find.text(client.hostname),
+              find.descendant(
+                of: find.text(client.hostname),
+                matching: find.byType(RichText),
+              ),
             );
             expect(name.maxLines, isNull);
             expect(name.didExceedMaxLines, isFalse);
@@ -98,7 +101,10 @@ void main() {
               expect(box.bottom, lessThanOrEqualTo(name.size.height + 0.1));
             }
             final address = tester.renderObject<RenderParagraph>(
-              find.text(client.ipAddress),
+              find.descendant(
+                of: find.text(client.ipAddress),
+                matching: find.byType(RichText),
+              ),
             );
             final addressBoxes = address.getBoxesForSelection(
               TextSelection(
