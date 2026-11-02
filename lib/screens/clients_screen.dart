@@ -586,56 +586,56 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    Stack(
-                      alignment: Alignment.topRight,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primaryContainer.withValues(
-                              alpha: 0.13,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: AnimatedScale(
-                            scale: widget.isExpanded ? 1.1 : 1.0,
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.elasticOut,
-                            child: Icon(
-                              Icons.person_outline,
-                              color: colorScheme.primary,
-                              size: 22,
-                              semanticLabel: context.l10n.clientIcon,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Tooltip(
-                            message: widget.client.isOnline == false
-                                ? context.l10n.clientOffline
-                                : _connectionLabel(context, widget.client),
-                            child: Container(
-                              width: 10,
-                              height: 10,
+                        Stack(
+                          alignment: Alignment.topRight,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8.0),
                               decoration: BoxDecoration(
-                                color: widget.client.isOnline == false
-                                    ? Colors.grey
-                                    : widget.client.isOnline == true
-                                    ? Colors.green
-                                    : Colors.amber,
+                                color: colorScheme.primaryContainer.withValues(
+                                  alpha: 0.13,
+                                ),
                                 shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: colorScheme.surface,
-                                  width: 1.5,
+                              ),
+                              child: AnimatedScale(
+                                scale: widget.isExpanded ? 1.1 : 1.0,
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.elasticOut,
+                                child: Icon(
+                                  Icons.person_outline,
+                                  color: colorScheme.primary,
+                                  size: 22,
+                                  semanticLabel: context.l10n.clientIcon,
                                 ),
                               ),
                             ),
-                          ),
+                            Positioned(
+                              right: 0,
+                              top: 0,
+                              child: Tooltip(
+                                message: widget.client.isOnline == false
+                                    ? context.l10n.clientOffline
+                                    : _connectionLabel(context, widget.client),
+                                child: Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: widget.client.isOnline == false
+                                        ? Colors.grey
+                                        : widget.client.isOnline == true
+                                        ? Colors.green
+                                        : Colors.amber,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: colorScheme.surface,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Padding(
@@ -651,19 +651,19 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                             ),
                           ),
                         ),
-                    IconButton(
-                      onPressed: widget.onTap,
-                      icon: Icon(
-                        widget.isExpanded
-                            ? Icons.expand_less
-                            : Icons.expand_more,
-                        color: colorScheme.onSurfaceVariant,
-                        size: 26,
-                      ),
-                      tooltip: widget.isExpanded
-                          ? context.l10n.collapseDetails
-                          : context.l10n.expandDetails,
-                    ),
+                        IconButton(
+                          onPressed: widget.onTap,
+                          icon: Icon(
+                            widget.isExpanded
+                                ? Icons.expand_less
+                                : Icons.expand_more,
+                            color: colorScheme.onSurfaceVariant,
+                            size: 26,
+                          ),
+                          tooltip: widget.isExpanded
+                              ? context.l10n.collapseDetails
+                              : context.l10n.expandDetails,
+                        ),
                       ],
                     ),
                     // Connection badges must not squeeze the name or address.
@@ -694,38 +694,38 @@ class _UnifiedClientCardState extends ConsumerState<_UnifiedClientCard>
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (widget.client.isBlocked)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Colors.redAccent.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.block,
-                              size: 12,
-                              color: Colors.redAccent,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 3,
                             ),
-                            SizedBox(width: 4),
-                            Text(
-                              'БЛОК',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.redAccent.withValues(alpha: 0.6),
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.block,
+                                  size: 12,
+                                  color: Colors.redAccent,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  'БЛОК',
+                                  style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         _buildConnectionTypeChip(context, widget.client),
                       ],
                     ),

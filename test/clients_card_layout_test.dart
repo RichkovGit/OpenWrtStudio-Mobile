@@ -41,71 +41,79 @@ void main() {
   for (final width in [320.0, 360.0, 600.0]) {
     for (final scale in [1.0, 1.6]) {
       for (final online in [true, false]) {
-        testWidgets('collapsed client at $width, scale $scale, online $online', (
-          tester,
-        ) async {
-          await tester.binding.setSurfaceSize(Size(width, 1100));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
-          final client = Client(
-            hostname: 'DESKTOP-LIVING-ROOM-Рабочий-компьютер-с-длинным-именем',
-            ipAddress: '192.168.1.138',
-            macAddress: '02:00:00:00:00:01',
-            connectionType: ConnectionType.wireless,
-            wifiBand: '5 GHz',
-            signal: -46,
-            isOnline: online,
-            isBlocked: online,
-          );
-          await tester.pumpWidget(
-            ProviderScope(
-              overrides: [
-                appStateProvider.overrideWith((ref) => _ClientsState(client)),
-              ],
-              child: MaterialApp(
-                locale: const Locale('ru'),
-                localizationsDelegates: luciLocalizationsDelegates,
-                supportedLocales: const [Locale('ru')],
-                builder: (context, child) => MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: TextScaler.linear(scale),
+        testWidgets(
+          'collapsed client at $width, scale $scale, online $online',
+          (tester) async {
+            await tester.binding.setSurfaceSize(Size(width, 1100));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            final client = Client(
+              hostname:
+                  'DESKTOP-LIVING-ROOM-Рабочий-компьютер-с-длинным-именем',
+              ipAddress: '192.168.1.138',
+              macAddress: '02:00:00:00:00:01',
+              connectionType: ConnectionType.wireless,
+              wifiBand: '5 GHz',
+              signal: -46,
+              isOnline: online,
+              isBlocked: online,
+            );
+            await tester.pumpWidget(
+              ProviderScope(
+                overrides: [
+                  appStateProvider.overrideWith((ref) => _ClientsState(client)),
+                ],
+                child: MaterialApp(
+                  locale: const Locale('ru'),
+                  localizationsDelegates: luciLocalizationsDelegates,
+                  supportedLocales: const [Locale('ru')],
+                  builder: (context, child) => MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.linear(scale)),
+                    child: child!,
                   ),
-                  child: child!,
+                  home: const ClientsScreen(),
                 ),
-                home: const ClientsScreen(),
               ),
-            ),
-          );
-          await tester.pumpAndSettle();
+            );
+            await tester.pumpAndSettle();
 
-          // The full name must actually paint without ellipsis or clipping,
-          // rather than merely exist in the Text widget's backing string.
-          final name = tester.renderObject<RenderParagraph>(
-            find.text(client.hostname),
-          );
-          expect(name.maxLines, isNull);
-          expect(name.didExceedMaxLines, isFalse);
-          final nameBoxes = name.getBoxesForSelection(
-            TextSelection(baseOffset: 0, extentOffset: client.hostname.length),
-          );
-          expect(nameBoxes, isNotEmpty);
-          for (final box in nameBoxes) {
-            expect(box.left, greaterThanOrEqualTo(-0.1));
-            expect(box.right, lessThanOrEqualTo(name.size.width + 0.1));
-            expect(box.bottom, lessThanOrEqualTo(name.size.height + 0.1));
-          }
-          final address = tester.renderObject<RenderParagraph>(
-            find.text(client.ipAddress),
-          );
-          final addressBoxes = address.getBoxesForSelection(
-            TextSelection(baseOffset: 0, extentOffset: client.ipAddress.length),
-          );
-          expect(addressBoxes.map((box) => box.top).toSet(), hasLength(1));
-          expect(find.byIcon(Icons.expand_more), findsOneWidget);
-          expect(find.byIcon(Icons.expand_less), findsNothing);
-          expect(find.text(client.macAddress), findsNothing);
-          expect(tester.takeException(), isNull);
-          await tester.pumpWidget(const SizedBox.shrink());
-        });
+            // The full name must actually paint without ellipsis or clipping,
+            // rather than merely exist in the Text widget's backing string.
+            final name = tester.renderObject<RenderParagraph>(
+              find.text(client.hostname),
+            );
+            expect(name.maxLines, isNull);
+            expect(name.didExceedMaxLines, isFalse);
+            final nameBoxes = name.getBoxesForSelection(
+              TextSelection(
+                baseOffset: 0,
+                extentOffset: client.hostname.length,
+              ),
+            );
+            expect(nameBoxes, isNotEmpty);
+            for (final box in nameBoxes) {
+              expect(box.left, greaterThanOrEqualTo(-0.1));
+              expect(box.right, lessThanOrEqualTo(name.size.width + 0.1));
+              expect(box.bottom, lessThanOrEqualTo(name.size.height + 0.1));
+            }
+            final address = tester.renderObject<RenderParagraph>(
+              find.text(client.ipAddress),
+            );
+            final addressBoxes = address.getBoxesForSelection(
+              TextSelection(
+                baseOffset: 0,
+                extentOffset: client.ipAddress.length,
+              ),
+            );
+            expect(addressBoxes.map((box) => box.top).toSet(), hasLength(1));
+            expect(find.byIcon(Icons.expand_more), findsOneWidget);
+            expect(find.byIcon(Icons.expand_less), findsNothing);
+            expect(find.text(client.macAddress), findsNothing);
+            expect(tester.takeException(), isNull);
+            await tester.pumpWidget(const SizedBox.shrink());
+          },
+        );
       }
     }
   }
