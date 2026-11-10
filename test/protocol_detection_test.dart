@@ -99,7 +99,7 @@ class _ProtocolState extends AppState {
   String? get activeIp => 'router';
 
   @override
-  Future<void> fetchDashboardData() async {}
+  Future<void> fetchDashboardData({bool isRetryAfterFallback = false}) async {}
 }
 
 class _ScanFactory extends ReviewerModeServiceFactory {
