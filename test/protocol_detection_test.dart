@@ -158,7 +158,10 @@ void main() {
     expect(find.text('🟢 Активен: Xray-core'), findsNothing);
     expect(find.text('РАБОТАЕТ'), findsNothing);
     expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-    expect(api.commands.where((c) => !c.contains('uci -q show wireless')), isEmpty);
+    expect(
+      api.commands.where((c) => !c.contains('uci -q show wireless')),
+      isEmpty,
+    );
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
