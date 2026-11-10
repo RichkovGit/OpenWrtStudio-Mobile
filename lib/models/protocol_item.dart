@@ -25,8 +25,10 @@ class ProtocolItem {
   final bool hasService;
   final bool isServiceRunning;
 
-  bool get isManuallyStarted => isRunning && serviceStateKnown && !isServiceRunning;
-  bool get canControlService => hasService && serviceStateKnown && !isManuallyStarted;
+  bool get isManuallyStarted =>
+      isRunning && serviceStateKnown && !isServiceRunning;
+  bool get canControlService =>
+      hasService && serviceStateKnown && !isManuallyStarted;
   final String serviceName;
   final List<String> packageNames;
   final List<String> binaryNames;

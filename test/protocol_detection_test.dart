@@ -48,9 +48,13 @@ class ScanApi extends MockApiService {
 
   @override
   Future<dynamic> call(
-    String ipAddress, String sysauth, bool useHttps, {
-    required String object, required String method,
-    Map<String, dynamic>? params, BuildContext? context,
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required String object,
+    required String method,
+    Map<String, dynamic>? params,
+    BuildContext? context,
   }) async => [6];
 
   @override
@@ -88,17 +92,29 @@ class _NativeApi extends ScanApi {
     controlResponse = [6];
   }
   final nativeCalls = <String>[];
-  dynamic processes = [0, {'result': [
-    {'PID': '1', 'COMMAND': '/sbin/procd'},
-    {'PID': '42', 'COMMAND': '/opt/bin/xray run -config /etc/proxy.json'},
-  ]}];
+  dynamic processes = [
+    0,
+    {
+      'result': [
+        {'PID': '1', 'COMMAND': '/sbin/procd'},
+        {'PID': '42', 'COMMAND': '/opt/bin/xray run -config /etc/proxy.json'},
+      ],
+    },
+  ];
   dynamic services = [0, <String, dynamic>{}];
-  dynamic action = [0, {'result': true}];
+  dynamic action = [
+    0,
+    {'result': true},
+  ];
   @override
   Future<dynamic> call(
-    String ipAddress, String sysauth, bool useHttps, {
-    required String object, required String method,
-    Map<String, dynamic>? params, BuildContext? context,
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required String object,
+    required String method,
+    Map<String, dynamic>? params,
+    BuildContext? context,
   }) async {
     nativeCalls.add('$object.$method');
     return switch ('$object.$method') {
@@ -254,97 +270,172 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  test('shell denied uses LuCI process permission without executing scripts', () async {
-    final api = _NativeApi();
-    final items = await scan(api);
-    final xray = items.singleWhere((p) => p.id == 'xray');
-    expect(xray.isRunning, isTrue);
-    expect(xray.isInstalled, isTrue);
-    expect(xray.isManuallyStarted, isTrue);
-    expect(xray.canControlService, isFalse);
-    final wg = items.singleWhere((p) => p.id == 'wireguard');
-    expect(wg.installationVerified, isFalse);
-    expect(ProtocolItem.fromJson(wg.toJson()).installationVerified, isFalse);
-    expect(api.nativeCalls, ['luci.getProcessList', 'rc.list']);
-    expect(api.commands, isEmpty);
-  });
+  test(
+    'shell denied uses LuCI process permission without executing scripts',
+    () async {
+      final api = _NativeApi();
+      final items = await scan(api);
+      final xray = items.singleWhere((p) => p.id == 'xray');
+      expect(xray.isRunning, isTrue);
+      expect(xray.isInstalled, isTrue);
+      expect(xray.isManuallyStarted, isTrue);
+      expect(xray.canControlService, isFalse);
+      final wg = items.singleWhere((p) => p.id == 'wireguard');
+      expect(wg.installationVerified, isFalse);
+      expect(ProtocolItem.fromJson(wg.toJson()).installationVerified, isFalse);
+      expect(api.nativeCalls, ['luci.getProcessList', 'rc.list']);
+      expect(api.commands, isEmpty);
+    },
+  );
 
-  test('denied service listing preserves processes without inventing service state', () async {
-    final api = _NativeApi()..services = [6];
-    final xray = (await scan(api)).singleWhere((p) => p.id == 'xray');
-    expect(xray.isRunning, isTrue);
-    expect(xray.serviceStateKnown, isFalse);
-    expect(xray.isManuallyStarted, isFalse);
-    expect(xray.canControlService, isFalse);
-  });
+  test(
+    'denied service listing preserves processes without inventing service state',
+    () async {
+      final api = _NativeApi()..services = [6];
+      final xray = (await scan(api)).singleWhere((p) => p.id == 'xray');
+      expect(xray.isRunning, isTrue);
+      expect(xray.serviceStateKnown, isFalse);
+      expect(xray.isManuallyStarted, isFalse);
+      expect(xray.canControlService, isFalse);
+    },
+  );
 
-  test('legacy PID maps and quoted paths use only the executable token', () async {
-    final api = _NativeApi()..processes = [0, {'result': {
-      '1': {'COMMAND': '"/opt/proxy apps/xray-core" run -c config.json'},
-      '2': {'COMMAND': '/bin/cat /etc/mihomo/config.yaml'},
-      '3': {'COMMAND': '/bin/sh -c xray'},
-    }}];
-    final running = (await scan(api)).where((p) => p.isRunning).map((p) => p.id);
-    expect(running, ['xray']);
-  });
+  test(
+    'legacy PID maps and quoted paths use only the executable token',
+    () async {
+      final api = _NativeApi()
+        ..processes = [
+          0,
+          {
+            'result': {
+              '1': {
+                'COMMAND': '"/opt/proxy apps/xray-core" run -c config.json',
+              },
+              '2': {'COMMAND': '/bin/cat /etc/mihomo/config.yaml'},
+              '3': {'COMMAND': '/bin/sh -c xray'},
+            },
+          },
+        ];
+      final running = (await scan(
+        api,
+      )).where((p) => p.isRunning).map((p) => p.id);
+      expect(running, ['xray']);
+    },
+  );
 
   test('managed state from rc.list survives a denied shell', () async {
-    final api = _NativeApi()..services = [0, {'xray': {'running': true}}];
+    final api = _NativeApi()
+      ..services = [
+        0,
+        {
+          'xray': {'running': true},
+        },
+      ];
     final xray = (await scan(api)).singleWhere((p) => p.id == 'xray');
     expect(xray.canControlService, isTrue);
     expect(xray.isManuallyStarted, isFalse);
-    api.services = [0, {'xray': {'enabled': true}}];
+    api.services = [
+      0,
+      {
+        'xray': {'enabled': true},
+      },
+    ];
     final unknown = (await scan(api)).singleWhere((p) => p.id == 'xray');
     expect(unknown.serviceStateKnown, isFalse);
     expect(unknown.canControlService, isFalse);
   });
 
-  test('denied, empty or malformed native process reads remain unknown', () async {
-    for (final response in <dynamic>[
-      [6], [0], [0, {}], [0, {'result': []}],
-      [0, {'result': [{'COMMAND': 42}]}],
-    ]) {
-      final api = _NativeApi()..processes = response;
-      await expectLater(scan(api), throwsA(anyOf(isA<RpcException>(), isA<StateError>())));
-      expect(api.nativeCalls, ['luci.getProcessList']);
-    }
-  });
+  test(
+    'denied, empty or malformed native process reads remain unknown',
+    () async {
+      for (final response in <dynamic>[
+        [6],
+        [0],
+        [0, {}],
+        [
+          0,
+          {'result': []},
+        ],
+        [
+          0,
+          {
+            'result': [
+              {'COMMAND': 42},
+            ],
+          },
+        ],
+      ]) {
+        final api = _NativeApi()..processes = response;
+        await expectLater(
+          scan(api),
+          throwsA(anyOf(isA<RpcException>(), isA<StateError>())),
+        );
+        expect(api.nativeCalls, ['luci.getProcessList']);
+      }
+    },
+  );
 
   test('transport and process errors do not retry another route', () async {
-    final api = _NativeApi()..response = [0, {'code': 1, 'stdout': ''}];
+    final api = _NativeApi()
+      ..response = [
+        0,
+        {'code': 1, 'stdout': ''},
+      ];
     await expectLater(scan(api), throwsStateError);
     expect(api.nativeCalls, isEmpty);
   });
 
-  test('native service actions require explicit success and are not retried after a process error', () async {
-    final api = _NativeApi();
-    final service = ProtocolService(apiService: api);
-    Future<bool> stop() => service.controlService(
-      routerIp: 'router', sysauth: 'session', useHttps: false,
-      serviceName: 'xray', action: 'stop',
-    );
-    expect(await stop(), isTrue);
-    for (final result in <dynamic>[[6], [0, {}], [0, {'result': false}]]) {
-      api.action = result;
+  test(
+    'native service actions require explicit success and are not retried after a process error',
+    () async {
+      final api = _NativeApi();
+      final service = ProtocolService(apiService: api);
+      Future<bool> stop() => service.controlService(
+        routerIp: 'router',
+        sysauth: 'session',
+        useHttps: false,
+        serviceName: 'xray',
+        action: 'stop',
+      );
+      expect(await stop(), isTrue);
+      for (final result in <dynamic>[
+        [6],
+        [0, {}],
+        [
+          0,
+          {'result': false},
+        ],
+      ]) {
+        api.action = result;
+        expect(await stop(), isFalse);
+      }
+      api.nativeCalls.clear();
+      api.controlResponse = [
+        0,
+        {'code': 1},
+      ];
       expect(await stop(), isFalse);
-    }
-    api.nativeCalls.clear();
-    api.controlResponse = [0, {'code': 1}];
-    expect(await stop(), isFalse);
-    expect(api.nativeCalls, isEmpty);
-  });
+      expect(api.nativeCalls, isEmpty);
+    },
+  );
 
-  testWidgets('shell-denied screen lists Xray without offering installs for unknown packages', (tester) async {
-    final api = _NativeApi();
-    await _pumpProtocols(tester, api);
-    expect(find.text('Не удалось проверить протоколы'), findsNothing);
-    expect(find.text('Установить'), findsNothing);
-    expect(find.text('Нет данных'), findsWidgets);
-    await tester.scrollUntilVisible(find.text('Xray-core'), 400);
-    expect(find.text('Запущен вручную на роутере. Управление — через консоль.'), findsOneWidget);
-    expect(api.commands, isEmpty);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  testWidgets(
+    'shell-denied screen lists Xray without offering installs for unknown packages',
+    (tester) async {
+      final api = _NativeApi();
+      await _pumpProtocols(tester, api);
+      expect(find.text('Не удалось проверить протоколы'), findsNothing);
+      expect(find.text('Установить'), findsNothing);
+      expect(find.text('Нет данных'), findsWidgets);
+      await tester.scrollUntilVisible(find.text('Xray-core'), 400);
+      expect(
+        find.text('Запущен вручную на роутере. Управление — через консоль.'),
+        findsOneWidget,
+      );
+      expect(api.commands, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   test(
     'standalone Xray needs no package, PATH binary, UCI or init script',

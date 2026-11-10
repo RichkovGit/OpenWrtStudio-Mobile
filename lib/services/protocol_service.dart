@@ -125,78 +125,78 @@ exit 0
     bool servicesComplete = true,
     Set<String> unknownServices = const {},
   }) {
-      final installedPkgs = <String>{};
-      final foundBins = <String>{};
-      final serviceStates = <String, String>{}; // 'running' or 'stopped'
-      final kernelModules = <String>{};
-      final runningProcs = <String>{};
+    final installedPkgs = <String>{};
+    final foundBins = <String>{};
+    final serviceStates = <String, String>{}; // 'running' or 'stopped'
+    final kernelModules = <String>{};
+    final runningProcs = <String>{};
 
-      String currentSection = '';
-      for (final line in stdout.split('\n').map((e) => e.trim())) {
-        if (line.isEmpty) continue;
-        if (line.startsWith('===') && line.endsWith('===')) {
-          currentSection = line;
-          continue;
-        }
-
-        switch (currentSection) {
-          case '===PKGS===':
-            installedPkgs.add(line.toLowerCase());
-            break;
-          case '===BINS===':
-            foundBins.add(line.split('/').last.toLowerCase());
-            break;
-          case '===SERVICES===':
-            final parts = line.split(':');
-            if (parts.length == 2) {
-              serviceStates[parts[0].toLowerCase()] = parts[1].toLowerCase();
-            }
-            break;
-          case '===MODULES===':
-            kernelModules.add(line.toLowerCase());
-            break;
-          case '===PROCS===':
-            runningProcs.add(line.toLowerCase());
-            break;
-        }
+    String currentSection = '';
+    for (final line in stdout.split('\n').map((e) => e.trim())) {
+      if (line.isEmpty) continue;
+      if (line.startsWith('===') && line.endsWith('===')) {
+        currentSection = line;
+        continue;
       }
 
-      final protocols = ProtocolItem.defaultList();
-      // Merge findings with protocols
-      return protocols.map((proto) {
-        final id = proto.id.toLowerCase();
+      switch (currentSection) {
+        case '===PKGS===':
+          installedPkgs.add(line.toLowerCase());
+          break;
+        case '===BINS===':
+          foundBins.add(line.split('/').last.toLowerCase());
+          break;
+        case '===SERVICES===':
+          final parts = line.split(':');
+          if (parts.length == 2) {
+            serviceStates[parts[0].toLowerCase()] = parts[1].toLowerCase();
+          }
+          break;
+        case '===MODULES===':
+          kernelModules.add(line.toLowerCase());
+          break;
+        case '===PROCS===':
+          runningProcs.add(line.toLowerCase());
+          break;
+      }
+    }
 
-        // 1. Check if package or module installed
-        final hasPkg = proto.packageNames.any(
-          (p) => installedPkgs.contains(p.toLowerCase()),
-        );
-        final hasBin = proto.binaryNames.any(
-          (b) => foundBins.contains(b.toLowerCase()),
-        );
-        final hasModule = kernelModules.contains(id);
-        final hasService = serviceStates.containsKey(id);
+    final protocols = ProtocolItem.defaultList();
+    // Merge findings with protocols
+    return protocols.map((proto) {
+      final id = proto.id.toLowerCase();
 
-        // 2. Check if running
-        final serviceStatus = serviceStates[id];
-        final procRunning = (_daemonNames[id] ?? const <String>{}).any(
-          runningProcs.contains,
-        );
-        final isRunning = (serviceStatus == 'running') || procRunning;
+      // 1. Check if package or module installed
+      final hasPkg = proto.packageNames.any(
+        (p) => installedPkgs.contains(p.toLowerCase()),
+      );
+      final hasBin = proto.binaryNames.any(
+        (b) => foundBins.contains(b.toLowerCase()),
+      );
+      final hasModule = kernelModules.contains(id);
+      final hasService = serviceStates.containsKey(id);
 
-        // An active service/process guarantees the protocol is installed
-        final isInstalled =
-            hasPkg || hasBin || hasModule || hasService || isRunning;
+      // 2. Check if running
+      final serviceStatus = serviceStates[id];
+      final procRunning = (_daemonNames[id] ?? const <String>{}).any(
+        runningProcs.contains,
+      );
+      final isRunning = (serviceStatus == 'running') || procRunning;
 
-        return proto.copyWith(
-          isInstalled: isInstalled,
-          isRunning: isRunning,
-          isEnabled: hasService,
-          hasService: hasService,
-          isServiceRunning: serviceStatus == 'running',
-          installationVerified: installationComplete || isInstalled,
-          serviceStateKnown: servicesComplete && !unknownServices.contains(id),
-        );
-      }).toList();
+      // An active service/process guarantees the protocol is installed
+      final isInstalled =
+          hasPkg || hasBin || hasModule || hasService || isRunning;
+
+      return proto.copyWith(
+        isInstalled: isInstalled,
+        isRunning: isRunning,
+        isEnabled: hasService,
+        hasService: hasService,
+        isServiceRunning: serviceStatus == 'running',
+        installationVerified: installationComplete || isInstalled,
+        serviceStateKnown: servicesComplete && !unknownServices.contains(id),
+      );
+    }).toList();
   }
 
   Future<List<ProtocolItem>> _scanViaLuci(
@@ -211,7 +211,11 @@ exit 0
         method: method,
       );
       if (result.length != 2 || result[1] is! Map) {
-        throw RpcException(object: object, method: method, detail: 'invalid response');
+        throw RpcException(
+          object: object,
+          method: method,
+          detail: 'invalid response',
+        );
       }
       return result[1] as Map;
     }
@@ -219,9 +223,14 @@ exit 0
     // The same read-only method used by LuCI Status -> Processes. Its ACL is
     // independent of file.exec; do not grant shell access or retry a write.
     final data = (await call('luci', 'getProcessList'))['result'];
-    final rows = data is List ? data : data is Map ? data.values.toList() : null;
-    if (rows == null || rows.isEmpty || rows.any((row) =>
-        row is! Map || row['COMMAND'] is! String)) {
+    final rows = data is List
+        ? data
+        : data is Map
+        ? data.values.toList()
+        : null;
+    if (rows == null ||
+        rows.isEmpty ||
+        rows.any((row) => row is! Map || row['COMMAND'] is! String)) {
       throw StateError('LuCI не вернул достоверный список процессов');
     }
     final running = <String>{};
@@ -229,8 +238,12 @@ exit 0
     for (final row in rows) {
       final match = executable.firstMatch(row['COMMAND'] as String);
       final name = (match?.group(1) ?? match?.group(2) ?? match?.group(3) ?? '')
-          .split('/').last.toLowerCase();
-      if (_daemonNames.values.any((names) => names.contains(name))) running.add(name);
+          .split('/')
+          .last
+          .toLowerCase();
+      if (_daemonNames.values.any((names) => names.contains(name))) {
+        running.add(name);
+      }
     }
     final services = <String>[];
     final unknown = <String>{};
@@ -245,7 +258,9 @@ exit 0
         final entry = entries[proto.serviceName];
         if (entry is! Map) continue;
         if (entry['running'] is! bool) unknown.add(proto.id);
-        services.add('${proto.id}:${entry['running'] == true ? 'running' : 'stopped'}');
+        services.add(
+          '${proto.id}:${entry['running'] == true ? 'running' : 'stopped'}',
+        );
       }
     } catch (_) {
       // A denied optional service read must not discard permitted process data.
@@ -318,13 +333,18 @@ exit 0
         try {
           final result = validateRpcResult(
             await apiService.call(
-              routerIp, sysauth, useHttps,
-              object: 'rc', method: 'init',
+              routerIp,
+              sysauth,
+              useHttps,
+              object: 'rc',
+              method: 'init',
               params: {'name': cleanService, 'action': cleanAction},
             ),
-            object: 'rc', method: 'init',
+            object: 'rc',
+            method: 'init',
           );
-          return result.length == 2 && result[1] is Map &&
+          return result.length == 2 &&
+              result[1] is Map &&
               result[1]['result'] == true;
         } catch (_) {
           return false;

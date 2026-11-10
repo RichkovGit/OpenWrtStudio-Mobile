@@ -240,7 +240,8 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                     if (item.isRunning) {
                       statusColor = Colors.green;
                       statusText = 'Работает';
-                    } else if (!item.installationVerified || !item.serviceStateKnown) {
+                    } else if (!item.installationVerified ||
+                        !item.serviceStateKnown) {
                       statusColor = Colors.grey;
                       statusText = 'Нет данных';
                     } else if (item.isInstalled) {
@@ -248,7 +249,9 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                       statusText = 'Остановлен';
                     } else {
                       statusColor = Colors.grey;
-                      statusText = item.installationVerified ? 'Не установлен' : 'Нет данных';
+                      statusText = item.installationVerified
+                          ? 'Не установлен'
+                          : 'Нет данных';
                     }
 
                     return Card(
@@ -343,7 +346,9 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                             ),
                             if (!item.serviceStateKnown) ...[
                               const SizedBox(height: 8),
-                              const Text('Доступен список процессов. Состояние службы проверить не удалось.'),
+                              const Text(
+                                'Доступен список процессов. Состояние службы проверить не удалось.',
+                              ),
                             ] else if (item.isManuallyStarted) ...[
                               const SizedBox(height: 8),
                               const Text(
@@ -368,7 +373,8 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                else if (!item.isInstalled && item.installationVerified)
+                                else if (!item.isInstalled &&
+                                    item.installationVerified)
                                   FilledButton.tonalIcon(
                                     onPressed: () => _installProtocol(item),
                                     icon: const Icon(Icons.download, size: 18),

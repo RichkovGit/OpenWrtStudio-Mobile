@@ -789,7 +789,11 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                                   ? '🟢 Активен: ${activeRunning.name}'
                                   : _protocolsError != null
                                   ? 'Статус протоколов недоступен'
-                                  : _protocols.any((p) => !p.installationVerified || !p.serviceStateKnown)
+                                  : _protocols.any(
+                                      (p) =>
+                                          !p.installationVerified ||
+                                          !p.serviceStateKnown,
+                                    )
                                   ? 'Часть данных о протоколах недоступна'
                                   : '⚪ Все службы остановлены',
                               style: TextStyle(
@@ -918,7 +922,12 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isSelectedRunning ? 'РАБОТАЕТ' : selectedProto.installationVerified && selectedProto.serviceStateKnown ? 'ОСТАНОВЛЕН' : 'НЕТ ДАННЫХ',
+                            isSelectedRunning
+                                ? 'РАБОТАЕТ'
+                                : selectedProto.installationVerified &&
+                                      selectedProto.serviceStateKnown
+                                ? 'ОСТАНОВЛЕН'
+                                : 'НЕТ ДАННЫХ',
                             style: TextStyle(
                               color: isSelectedRunning
                                   ? Colors.greenAccent
@@ -941,7 +950,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
                     if (!selectedProto.serviceStateKnown) ...[
                       const SizedBox(height: 8),
-                      const Text('Доступен список процессов. Состояние службы проверить не удалось.'),
+                      const Text(
+                        'Доступен список процессов. Состояние службы проверить не удалось.',
+                      ),
                     ] else if (selectedProto.isManuallyStarted) ...[
                       const SizedBox(height: 8),
                       const Text(
