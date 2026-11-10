@@ -295,9 +295,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           }
           _protocols = list;
           final selectedId = _selectedProtocol?.id;
-          _selectedProtocol = active ?? list.where(
-            (p) => p.id == selectedId,
-          ).firstOrNull ?? list.firstOrNull;
+          _selectedProtocol =
+              active ??
+              list.where((p) => p.id == selectedId).firstOrNull ??
+              list.firstOrNull;
           _forkopPresets = presets;
           _isLoadingProtocols = false;
         });
@@ -943,7 +944,8 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                     ],
 
                     // Quick Switch Button if not running
-                    if (!isSelectedRunning && selectedProto.canControlService) ...[
+                    if (!isSelectedRunning &&
+                        selectedProto.canControlService) ...[
                       const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,

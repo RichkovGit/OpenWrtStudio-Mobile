@@ -270,8 +270,9 @@ exit 0
           .firstOrNull;
       if (target == null ||
           !target.canControlService ||
-          protocols.any((p) => p.isManuallyStarted))
+          protocols.any((p) => p.isManuallyStarted)) {
         return false;
+      }
 
       if (currentServiceName != null &&
           currentServiceName.isNotEmpty &&

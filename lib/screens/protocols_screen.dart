@@ -6,7 +6,6 @@ import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/protocol_service.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
-import 'package:luci_mobile/widgets/luci_loading_states.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 
 import 'package:luci_mobile/screens/forkop_screen.dart';
@@ -344,7 +343,8 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                               const Text(
                                 'Запущен вручную на роутере. Управление — через консоль.',
                               ),
-                            ] else if (item.isInstalled && !item.hasService) ...[
+                            ] else if (item.isInstalled &&
+                                !item.hasService) ...[
                               const SizedBox(height: 8),
                               const Text(
                                 'Служба управления не найдена. Запуск и настройка — через консоль роутера.',
@@ -386,7 +386,8 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                   ],
-                                  if (item.isRunning && item.canControlService) ...[
+                                  if (item.isRunning &&
+                                      item.canControlService) ...[
                                     OutlinedButton(
                                       onPressed: () =>
                                           _controlService(item, 'stop'),
