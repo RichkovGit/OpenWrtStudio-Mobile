@@ -268,39 +268,26 @@ exit 0
       final target = protocols
           .where((p) => p.serviceName == targetServiceName)
           .firstOrNull;
-      if (target == null ||
-          !target.canControlService ||
-          protocols.any((p) => p.isManuallyStarted)) {
+      const proxyServices = {'forkop', 'mihomo', 'passwall', 'sing-box'};
+      final conflicts = protocols.where((p) =>
+        p.isRunning && p.serviceName != targetServiceName &&
+        (p.serviceName == currentServiceName ||
+          (proxyServices.contains(targetServiceName) &&
+            proxyServices.contains(p.serviceName))),
+      ).toList();
+      if (target == null || !target.canControlService ||
+          conflicts.any((p) => !p.canControlService)) {
         return false;
       }
-
-      if (currentServiceName != null &&
-          currentServiceName.isNotEmpty &&
-          currentServiceName != targetServiceName) {
+      for (final other in conflicts) {
         final stopped = await controlService(
           routerIp: routerIp,
           sysauth: sysauth,
           useHttps: useHttps,
-          serviceName: currentServiceName,
+          serviceName: other.serviceName,
           action: 'stop',
         );
         if (!stopped) return false;
-      }
-
-      // Conflict avoidance: if target is a transparent proxy, ensure other proxy cores are stopped
-      final proxyServices = ['forkop', 'mihomo', 'passwall', 'sing-box'];
-      if (proxyServices.contains(targetServiceName.toLowerCase())) {
-        for (final other in proxyServices) {
-          if (other != targetServiceName.toLowerCase()) {
-            await controlService(
-              routerIp: routerIp,
-              sysauth: sysauth,
-              useHttps: useHttps,
-              serviceName: other,
-              action: 'stop',
-            );
-          }
-        }
       }
 
       final started = await controlService(
