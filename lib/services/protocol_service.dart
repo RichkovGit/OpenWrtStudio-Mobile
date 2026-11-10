@@ -269,13 +269,18 @@ exit 0
           .where((p) => p.serviceName == targetServiceName)
           .firstOrNull;
       const proxyServices = {'forkop', 'mihomo', 'passwall', 'sing-box'};
-      final conflicts = protocols.where((p) =>
-        p.isRunning && p.serviceName != targetServiceName &&
-        (p.serviceName == currentServiceName ||
-          (proxyServices.contains(targetServiceName) &&
-            proxyServices.contains(p.serviceName))),
-      ).toList();
-      if (target == null || !target.canControlService ||
+      final conflicts = protocols
+          .where(
+            (p) =>
+                p.isRunning &&
+                p.serviceName != targetServiceName &&
+                (p.serviceName == currentServiceName ||
+                    (proxyServices.contains(targetServiceName) &&
+                        proxyServices.contains(p.serviceName))),
+          )
+          .toList();
+      if (target == null ||
+          !target.canControlService ||
           conflicts.any((p) => !p.canControlService)) {
         return false;
       }

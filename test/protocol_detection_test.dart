@@ -368,14 +368,24 @@ void main() {
     expect(api.commands, ['/etc/init.d/openvpn stop']);
   });
 
-  test('an unrelated console mesh process does not block a managed target', () async {
-    final api = ScanApi(scanOutput(services: 'openvpn:stopped', processes: 'tailscaled'));
-    expect(await ProtocolService(apiService: api).switchProtocol(
-      routerIp: 'router', sysauth: 'session', useHttps: false,
-      targetServiceName: 'openvpn',
-    ), isTrue);
-    expect(api.commands, ['/etc/init.d/openvpn start']);
-  });
+  test(
+    'an unrelated console mesh process does not block a managed target',
+    () async {
+      final api = ScanApi(
+        scanOutput(services: 'openvpn:stopped', processes: 'tailscaled'),
+      );
+      expect(
+        await ProtocolService(apiService: api).switchProtocol(
+          routerIp: 'router',
+          sysauth: 'session',
+          useHttps: false,
+          targetServiceName: 'openvpn',
+        ),
+        isTrue,
+      );
+      expect(api.commands, ['/etc/init.d/openvpn start']);
+    },
+  );
 
   test(
     'service control requires successful RPC and process exit code',
