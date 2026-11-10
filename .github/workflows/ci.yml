@@ -48,5 +48,8 @@ jobs:
       - name: Exercise router package-manager scripts
         run: python3 scripts/test-router-installer.py
 
+      - name: Exercise standalone process detection
+        run: python3 scripts/test-protocol-processes.py
+
       - name: Run Tests
         run: flutter test

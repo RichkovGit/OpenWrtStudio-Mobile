@@ -376,6 +376,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   }
 
   Future<void> _toggleProtocolService(ProtocolItem protocol) async {
+    if (!protocol.canControlService) return;
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
@@ -802,7 +803,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                   Switch(
                     value: isSelectedRunning,
                     activeThumbColor: const Color(0xFF00D2FF),
-                    onChanged: (_) => _toggleProtocolService(selectedProto),
+                    onChanged: selectedProto.canControlService
+                        ? (_) => _toggleProtocolService(selectedProto)
+                        : null,
                   ),
               ],
             ),
@@ -920,8 +923,22 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       ),
                     ),
 
+                    if (selectedProto.isManuallyStarted) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Запущен вручную на роутере. Управление — через консоль.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ] else if (!selectedProto.hasService) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Служба управления не найдена. Запуск и настройка — через консоль роутера.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+
                     // Quick Switch Button if not running
-                    if (!isSelectedRunning) ...[
+                    if (!isSelectedRunning && selectedProto.canControlService) ...[
                       const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,

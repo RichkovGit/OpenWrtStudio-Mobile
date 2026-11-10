@@ -6,6 +6,7 @@ import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/models/protocol_item.dart';
 import 'package:luci_mobile/services/protocol_service.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
+import 'package:luci_mobile/widgets/luci_loading_states.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 
 import 'package:luci_mobile/screens/forkop_screen.dart';
@@ -22,6 +23,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
   List<ProtocolItem> _protocols = ProtocolItem.defaultList();
   bool _isLoading = false;
   String? _busyProtocolId;
+  Object? _scanError;
 
   @override
   void didChangeDependencies() {
@@ -82,6 +84,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
 
     setState(() {
       _isLoading = true;
+      _scanError = null;
     });
 
     try {
@@ -100,12 +103,15 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _scanError = e;
+          _protocols = [];
         });
       }
     }
   }
 
   Future<void> _controlService(ProtocolItem item, String action) async {
+    if (!item.canControlService) return;
     final appState = ref.read(appStateProvider);
     final router = appState.selectedRouter;
     final sysauth = appState.sysauth;
@@ -209,7 +215,14 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
         bottom: true,
         child: RefreshIndicator(
           onRefresh: _scanProtocols,
-          child: _isLoading && _protocols.isEmpty
+          child: _scanError != null
+              ? LuciErrorDisplay(
+                  title: 'Не удалось проверить протоколы',
+                  message: apiErrorText(context, _scanError!),
+                  actionLabel: 'Повторить',
+                  onAction: _scanProtocols,
+                )
+              : _isLoading
               ? const Center(child: CircularProgressIndicator())
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
@@ -326,6 +339,17 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                 color: colorScheme.onSurface.withAlpha(200),
                               ),
                             ),
+                            if (item.isManuallyStarted) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Запущен вручную на роутере. Управление — через консоль.',
+                              ),
+                            ] else if (item.isInstalled && !item.hasService) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Служба управления не найдена. Запуск и настройка — через консоль роутера.',
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -344,7 +368,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     icon: const Icon(Icons.download, size: 18),
                                     label: const Text('Установить'),
                                   )
-                                else ...[
+                                else if (item.canControlService) ...[
                                   if (item.id == 'forkop' ||
                                       item.id == 'sing-box') ...[
                                     TextButton.icon(
