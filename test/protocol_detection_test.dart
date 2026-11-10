@@ -129,8 +129,10 @@ void main() {
     final api = ScanApi(scanOutput(processes: 'xray'));
     ServiceContainer.instance.setFactory(_ScanFactory(api));
     addTearDown(() => ServiceContainer.configure(reviewerMode: true));
-    await tester.binding.setSurfaceSize(const Size(360, 1000));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 1000);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
