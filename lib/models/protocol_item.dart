@@ -20,11 +20,13 @@ class ProtocolItem {
   final bool isInstalled;
   final bool isRunning;
   final bool isEnabled;
+  final bool installationVerified;
+  final bool serviceStateKnown;
   final bool hasService;
   final bool isServiceRunning;
 
-  bool get isManuallyStarted => isRunning && !isServiceRunning;
-  bool get canControlService => hasService && !isManuallyStarted;
+  bool get isManuallyStarted => isRunning && serviceStateKnown && !isServiceRunning;
+  bool get canControlService => hasService && serviceStateKnown && !isManuallyStarted;
   final String serviceName;
   final List<String> packageNames;
   final List<String> binaryNames;
@@ -40,6 +42,8 @@ class ProtocolItem {
     this.isRunning = false,
     this.isEnabled = false,
     this.hasService = false,
+    this.installationVerified = true,
+    this.serviceStateKnown = true,
     this.isServiceRunning = false,
     required this.serviceName,
     required this.packageNames,
@@ -95,6 +99,8 @@ class ProtocolItem {
     bool? isRunning,
     bool? isEnabled,
     bool? hasService,
+    bool? installationVerified,
+    bool? serviceStateKnown,
     bool? isServiceRunning,
     String? serviceName,
     List<String>? packageNames,
@@ -111,6 +117,8 @@ class ProtocolItem {
       isRunning: isRunning ?? this.isRunning,
       isEnabled: isEnabled ?? this.isEnabled,
       hasService: hasService ?? this.hasService,
+      installationVerified: installationVerified ?? this.installationVerified,
+      serviceStateKnown: serviceStateKnown ?? this.serviceStateKnown,
       isServiceRunning: isServiceRunning ?? this.isServiceRunning,
       serviceName: serviceName ?? this.serviceName,
       packageNames: packageNames ?? this.packageNames,
@@ -138,6 +146,8 @@ class ProtocolItem {
       isRunning: json['isRunning'] as bool? ?? false,
       isEnabled: json['isEnabled'] as bool? ?? false,
       hasService: json['hasService'] as bool? ?? false,
+      installationVerified: json['installationVerified'] as bool? ?? true,
+      serviceStateKnown: json['serviceStateKnown'] as bool? ?? true,
       isServiceRunning: json['isServiceRunning'] as bool? ?? false,
       serviceName: json['serviceName'] as String? ?? '',
       packageNames:
@@ -164,6 +174,8 @@ class ProtocolItem {
     'isRunning': isRunning,
     'isEnabled': isEnabled,
     'hasService': hasService,
+    'installationVerified': installationVerified,
+    'serviceStateKnown': serviceStateKnown,
     'isServiceRunning': isServiceRunning,
     'serviceName': serviceName,
     'packageNames': packageNames,

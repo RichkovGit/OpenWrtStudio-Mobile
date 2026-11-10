@@ -58,6 +58,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   // Protocols state
   bool _isLoadingProtocols = true;
+  Object? _protocolsError;
   List<ProtocolItem> _protocols = [];
   ProtocolItem? _selectedProtocol;
   bool _isSwitchingProtocol = false;
@@ -245,6 +246,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   Future<void> _loadProtocolsState() async {
     final generation = ++_protocolsGeneration;
+    _protocolsError = null;
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
@@ -303,12 +305,13 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
           _isLoadingProtocols = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted && generation == _protocolsGeneration) {
         setState(() {
           _forkopPresets = [];
           _protocols = [];
           _selectedProtocol = null;
+          _protocolsError = error;
           _isLoadingProtocols = false;
         });
       }
@@ -784,6 +787,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                             Text(
                               activeRunning != null
                                   ? '🟢 Активен: ${activeRunning.name}'
+                                  : _protocolsError != null
+                                  ? 'Статус протоколов недоступен'
+                                  : _protocols.any((p) => !p.installationVerified || !p.serviceStateKnown)
+                                  ? 'Часть данных о протоколах недоступна'
                                   : '⚪ Все службы остановлены',
                               style: TextStyle(
                                 color: activeRunning != null
@@ -911,7 +918,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isSelectedRunning ? 'РАБОТАЕТ' : 'ОСТАНОВЛЕН',
+                            isSelectedRunning ? 'РАБОТАЕТ' : selectedProto.installationVerified && selectedProto.serviceStateKnown ? 'ОСТАНОВЛЕН' : 'НЕТ ДАННЫХ',
                             style: TextStyle(
                               color: isSelectedRunning
                                   ? Colors.greenAccent
@@ -932,7 +939,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       ),
                     ),
 
-                    if (selectedProto.isManuallyStarted) ...[
+                    if (!selectedProto.serviceStateKnown) ...[
+                      const SizedBox(height: 8),
+                      const Text('Доступен список процессов. Состояние службы проверить не удалось.'),
+                    ] else if (selectedProto.isManuallyStarted) ...[
                       const SizedBox(height: 8),
                       const Text(
                         'Запущен вручную на роутере. Управление — через консоль.',

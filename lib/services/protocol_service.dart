@@ -90,8 +90,6 @@ exit 0
     required String sysauth,
     required bool useHttps,
   }) async {
-    final protocols = ProtocolItem.defaultList();
-
     try {
       final res = await apiService.systemExec(
         routerIp,
@@ -114,6 +112,19 @@ exit 0
         throw StateError('Проверка протоколов не завершена');
       }
 
+      return _fromScanOutput(stdout);
+    } on RpcException catch (error) {
+      if (!error.isAccessDenied) rethrow;
+      return _scanViaLuci(routerIp, sysauth, useHttps);
+    }
+  }
+
+  static List<ProtocolItem> _fromScanOutput(
+    String stdout, {
+    bool installationComplete = true,
+    bool servicesComplete = true,
+    Set<String> unknownServices = const {},
+  }) {
       final installedPkgs = <String>{};
       final foundBins = <String>{};
       final serviceStates = <String, String>{}; // 'running' or 'stopped'
@@ -150,6 +161,7 @@ exit 0
         }
       }
 
+      final protocols = ProtocolItem.defaultList();
       // Merge findings with protocols
       return protocols.map((proto) {
         final id = proto.id.toLowerCase();
@@ -181,12 +193,71 @@ exit 0
           isEnabled: hasService,
           hasService: hasService,
           isServiceRunning: serviceStatus == 'running',
+          installationVerified: installationComplete || isInstalled,
+          serviceStateKnown: servicesComplete && !unknownServices.contains(id),
         );
       }).toList();
-    } catch (e) {
-      Logger.error('Failed to scan router protocols via ubus', e);
-      rethrow;
+  }
+
+  Future<List<ProtocolItem>> _scanViaLuci(
+    String ip,
+    String token,
+    bool https,
+  ) async {
+    Future<Map> call(String object, String method) async {
+      final result = validateRpcResult(
+        await apiService.call(ip, token, https, object: object, method: method),
+        object: object,
+        method: method,
+      );
+      if (result.length != 2 || result[1] is! Map) {
+        throw RpcException(object: object, method: method, detail: 'invalid response');
+      }
+      return result[1] as Map;
     }
+
+    // The same read-only method used by LuCI Status -> Processes. Its ACL is
+    // independent of file.exec; do not grant shell access or retry a write.
+    final data = (await call('luci', 'getProcessList'))['result'];
+    final rows = data is List ? data : data is Map ? data.values.toList() : null;
+    if (rows == null || rows.isEmpty || rows.any((row) =>
+        row is! Map || row['COMMAND'] is! String)) {
+      throw StateError('LuCI не вернул достоверный список процессов');
+    }
+    final running = <String>{};
+    final executable = RegExp(r"""^\s*(?:"([^"]+)"|'([^']+)'|(\S+))""");
+    for (final row in rows) {
+      final match = executable.firstMatch(row['COMMAND'] as String);
+      final name = (match?.group(1) ?? match?.group(2) ?? match?.group(3) ?? '')
+          .split('/').last.toLowerCase();
+      if (_daemonNames.values.any((names) => names.contains(name))) running.add(name);
+    }
+    final services = <String>[];
+    final unknown = <String>{};
+    var servicesComplete = false;
+    try {
+      final entries = await call('rc', 'list');
+      if (entries.values.any((entry) => entry is! Map)) {
+        throw StateError('invalid rc.list response');
+      }
+      servicesComplete = true;
+      for (final proto in ProtocolItem.defaultList()) {
+        final entry = entries[proto.serviceName];
+        if (entry is! Map) continue;
+        if (entry['running'] is! bool) unknown.add(proto.id);
+        services.add('${proto.id}:${entry['running'] == true ? 'running' : 'stopped'}');
+      }
+    } catch (_) {
+      // A denied optional service read must not discard permitted process data.
+    }
+    // Keep only recognized executable names. Never retain or log COMMAND,
+    // which may contain credentials in unrelated process arguments.
+    return _fromScanOutput(
+      '===SERVICES===\n${services.join('\n')}\n===PROCS===\n${running.join('\n')}',
+      installationComplete: false,
+      servicesComplete: servicesComplete,
+      unknownServices: unknown,
+    );
   }
 
   static bool _commandSucceeded(dynamic response) {
@@ -242,6 +313,24 @@ exit 0
         params: [cleanAction],
       );
       return _commandSucceeded(res);
+    } on RpcException catch (error) {
+      if (error.isAccessDenied && cleanAction != 'status') {
+        try {
+          final result = validateRpcResult(
+            await apiService.call(
+              routerIp, sysauth, useHttps,
+              object: 'rc', method: 'init',
+              params: {'name': cleanService, 'action': cleanAction},
+            ),
+            object: 'rc', method: 'init',
+          );
+          return result.length == 2 && result[1] is Map &&
+              result[1]['result'] == true;
+        } catch (_) {
+          return false;
+        }
+      }
+      return false;
     } catch (e) {
       Logger.error('Failed to $cleanAction service $cleanService', e);
       return false;

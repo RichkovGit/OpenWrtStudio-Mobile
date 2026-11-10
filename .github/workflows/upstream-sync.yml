@@ -44,12 +44,12 @@ jobs:
         run: |
           flutter build apk --debug --target-platform android-arm64
           mkdir -p android-test
-          cp build/app/outputs/flutter-apk/app-debug.apk android-test/OpenWrtStudio-2.5.26-xray-test-arm64.apk
+          cp build/app/outputs/flutter-apk/app-debug.apk android-test/OpenWrtStudio-2.5.26-xray-rpc-test-arm64.apk
           cp UPSTREAM_SYNC.md android-test/
           cp XRAY_STANDALONE_VALIDATION.md android-test/
           (cd android-test && sha256sum *.apk > SHA256SUMS.txt)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: OpenWrtStudio-Android-xray-test
+          name: OpenWrtStudio-Android-xray-rpc-test
           path: android-test/
           if-no-files-found: error
