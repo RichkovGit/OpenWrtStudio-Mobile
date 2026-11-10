@@ -368,7 +368,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     icon: const Icon(Icons.download, size: 18),
                                     label: const Text('Установить'),
                                   )
-                                else if (item.canControlService) ...[
+                                else ...[
                                   if (item.id == 'forkop' ||
                                       item.id == 'sing-box') ...[
                                     TextButton.icon(
@@ -386,7 +386,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                   ],
-                                  if (item.isRunning) ...[
+                                  if (item.isRunning && item.canControlService) ...[
                                     OutlinedButton(
                                       onPressed: () =>
                                           _controlService(item, 'stop'),
@@ -398,7 +398,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                           _controlService(item, 'restart'),
                                       child: const Text('Перезапуск'),
                                     ),
-                                  ] else ...[
+                                  ] else if (item.canControlService) ...[
                                     OutlinedButton(
                                       onPressed: () =>
                                           _controlService(item, 'start'),

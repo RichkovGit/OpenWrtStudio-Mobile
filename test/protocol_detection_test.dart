@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
 import 'package:luci_mobile/models/router.dart' as model;
 import 'package:luci_mobile/screens/protocols_screen.dart';
+import 'package:luci_mobile/screens/simple_dashboard_screen.dart';
+import 'package:luci_mobile/services/service_factory.dart';
 import 'package:luci_mobile/services/mock_auth_service.dart';
 import 'package:luci_mobile/state/app_state.dart';
 import 'package:luci_mobile/state/app_state_provider.dart';
@@ -30,6 +32,11 @@ class ScanApi extends MockApiService {
   dynamic response;
   dynamic controlResponse = [0, {'code': 0}];
   final commands = <String>[];
+
+  @override
+  Future<dynamic> uciGetAll(String ipAddress, String sysauth, bool useHttps, {
+    required String config, BuildContext? context,
+  }) async => [0, {'values': <String, dynamic>{}}];
 
   @override
   Future<dynamic> systemExec(String ipAddress, String sysauth, bool useHttps, {
@@ -62,6 +69,19 @@ class _ProtocolState extends AppState {
 
   @override
   String? get sysauth => 'session';
+
+  @override
+  String? get activeIp => 'router';
+
+  @override
+  Future<void> fetchDashboardData() async {}
+}
+
+class _ScanFactory extends ReviewerModeServiceFactory {
+  _ScanFactory(this.api);
+  final ScanApi api;
+  @override
+  ScanApi createApiService() => api;
 }
 
 Future<void> _pumpProtocols(WidgetTester tester, ScanApi api) async {
@@ -76,6 +96,35 @@ Future<void> _pumpProtocols(WidgetTester tester, ScanApi api) async {
 }
 
 void main() {
+  testWidgets('simple mode clears stopped console processes on refresh', (tester) async {
+    final api = ScanApi(scanOutput(processes: 'xray'));
+    ServiceContainer.instance.setFactory(_ScanFactory(api));
+    addTearDown(() => ServiceContainer.configure(reviewerMode: true));
+    await tester.binding.setSurfaceSize(const Size(360, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(ProviderScope(
+      overrides: [appStateProvider.overrideWith((ref) => _ProtocolState(api))],
+      child: MaterialApp(
+        localizationsDelegates: luciLocalizationsDelegates,
+        home: SimpleDashboardScreen(onSwitchToExpert: () {}),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('🟢 Активен: Xray-core'), findsOneWidget);
+    final toggle = tester.widget<Switch>(find.byType(Switch));
+    expect(toggle.value, isTrue);
+    expect(toggle.onChanged, isNull);
+    api.response = [0, {'code': 0, 'stdout': scanOutput()}];
+    await tester.widget<RefreshIndicator>(find.byType(RefreshIndicator)).onRefresh();
+    await tester.pumpAndSettle();
+    expect(find.text('🟢 Активен: Xray-core'), findsNothing);
+    expect(find.text('РАБОТАЕТ'), findsNothing);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
+    expect(api.commands, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('console Xray is visible without unusable service buttons', (tester) async {
     final api = ScanApi(scanOutput(processes: 'xray'));
     await _pumpProtocols(tester, api);

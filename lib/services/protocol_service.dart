@@ -102,8 +102,11 @@ exit 0
       );
 
       validateRpcResult(res, object: 'file', method: 'exec');
-      if (res is! List || res.length != 2 || res[1] is! Map ||
-          res[1]['code'] != 0 || res[1]['stdout'] is! String) {
+      if (res is! List ||
+          res.length != 2 ||
+          res[1] is! Map ||
+          res[1]['code'] != 0 ||
+          res[1]['stdout'] is! String) {
         throw StateError('Роутер не подтвердил проверку протоколов');
       }
       final stdout = res[1]['stdout'] as String;
@@ -163,8 +166,9 @@ exit 0
 
         // 2. Check if running
         final serviceStatus = serviceStates[id];
-        final procRunning = (_daemonNames[id] ?? const <String>{})
-            .any(runningProcs.contains);
+        final procRunning = (_daemonNames[id] ?? const <String>{}).any(
+          runningProcs.contains,
+        );
         final isRunning = (serviceStatus == 'running') || procRunning;
 
         // An active service/process guarantees the protocol is installed
@@ -187,8 +191,10 @@ exit 0
 
   static bool _commandSucceeded(dynamic response) {
     validateRpcResult(response, object: 'file', method: 'exec');
-    return response is List && response.length == 2 &&
-        response[1] is Map && response[1]['code'] == 0;
+    return response is List &&
+        response.length == 2 &&
+        response[1] is Map &&
+        response[1]['code'] == 0;
   }
 
   /// Controls service state (start, stop, restart)
@@ -259,11 +265,13 @@ exit 0
         sysauth: sysauth,
         useHttps: useHttps,
       );
-      final target = protocols.where(
-        (p) => p.serviceName == targetServiceName,
-      ).firstOrNull;
-      if (target == null || !target.canControlService ||
-          protocols.any((p) => p.isManuallyStarted)) return false;
+      final target = protocols
+          .where((p) => p.serviceName == targetServiceName)
+          .firstOrNull;
+      if (target == null ||
+          !target.canControlService ||
+          protocols.any((p) => p.isManuallyStarted))
+        return false;
 
       if (currentServiceName != null &&
           currentServiceName.isNotEmpty &&

@@ -270,7 +270,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       final list = available.isNotEmpty ? available : items;
       final active = list.where((p) => p.isRunning).firstOrNull;
 
-      final hasForkop = list.any((p) => p.id == 'forkop' || p.id == 'sing-box');
+      final hasForkop = list.any(
+        (p) => p.isInstalled && (p.id == 'forkop' || p.id == 'sing-box'),
+      );
       List<ForkopNode> presets = [];
 
       if (hasForkop) {
@@ -292,7 +294,10 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             return;
           }
           _protocols = list;
-          _selectedProtocol = active ?? _selectedProtocol ?? list.firstOrNull;
+          final selectedId = _selectedProtocol?.id;
+          _selectedProtocol = active ?? list.where(
+            (p) => p.id == selectedId,
+          ).firstOrNull ?? list.firstOrNull;
           _forkopPresets = presets;
           _isLoadingProtocols = false;
         });
