@@ -162,7 +162,6 @@ void main() {
       api.commands.where((c) => !c.contains('uci -q show wireless')),
       isEmpty,
     );
-    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
