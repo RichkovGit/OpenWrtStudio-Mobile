@@ -51,7 +51,11 @@ class _LogScreenState extends ConsumerState<LogScreen> {
     final service = ref.read(diagnosticsServiceProvider);
     if (session == null || service == null) {
       if (mounted) {
-        setState(() { _entries = []; _error = null; _loading = false; });
+        setState(() {
+          _entries = [];
+          _error = null;
+          _loading = false;
+        });
       }
       return;
     }
@@ -65,12 +69,16 @@ class _LogScreenState extends ConsumerState<LogScreen> {
       final result = _source == _LogSource.system
           ? await service.systemLog(session)
           : await service.kernelLog(session);
-      if (!mounted || generation != _loadGeneration || ref.read(sessionProvider) != session) {
+      if (!mounted ||
+          generation != _loadGeneration ||
+          ref.read(sessionProvider) != session) {
         return;
       }
       setState(() => _entries = LogEntry.parseAll(result));
     } catch (e) {
-      if (!mounted || generation != _loadGeneration || ref.read(sessionProvider) != session) {
+      if (!mounted ||
+          generation != _loadGeneration ||
+          ref.read(sessionProvider) != session) {
         return;
       }
       setState(() {
@@ -80,7 +88,9 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         _error = e;
       });
     } finally {
-      if (mounted && generation == _loadGeneration && ref.read(sessionProvider) == session) {
+      if (mounted &&
+          generation == _loadGeneration &&
+          ref.read(sessionProvider) == session) {
         setState(() => _loading = false);
       }
     }
@@ -134,11 +144,17 @@ class _LogScreenState extends ConsumerState<LogScreen> {
               segments: [
                 ButtonSegment(
                   value: _LogSource.system,
-                  label: FittedBox(fit: BoxFit.scaleDown, child: Text(l10n.systemLog)),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(l10n.systemLog),
+                  ),
                 ),
                 ButtonSegment(
                   value: _LogSource.kernel,
-                  label: FittedBox(fit: BoxFit.scaleDown, child: Text(l10n.kernelLog)),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(l10n.kernelLog),
+                  ),
                 ),
               ],
               selected: {_source},

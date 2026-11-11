@@ -149,9 +149,12 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
                           ? null
                           : () {
                               if (p.kernelLog != null) {
-                                Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (_) => LogScreen(initialKernel: p.kernelLog!),
-                                ));
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        LogScreen(initialKernel: p.kernelLog!),
+                                  ),
+                                );
                               } else {
                                 _runCommand(p.command);
                               }

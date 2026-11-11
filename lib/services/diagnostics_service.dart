@@ -86,14 +86,18 @@ class DiagnosticsService {
     String command,
     List<String> params,
   ) async {
-    final raw = validateRpcResult(await _api.call(
-      session.ipAddress,
-      session.sysauth,
-      session.useHttps,
+    final raw = validateRpcResult(
+      await _api.call(
+        session.ipAddress,
+        session.sysauth,
+        session.useHttps,
+        object: 'file',
+        method: 'exec',
+        params: {'command': command, 'params': params},
+      ),
       object: 'file',
       method: 'exec',
-      params: {'command': command, 'params': params},
-    ), object: 'file', method: 'exec');
+    );
     // `call` has already turned a non-zero ubus status into an RpcException
     // with whatever detail the router sent; only the shape is checked here.
     if (raw is! List || raw.isEmpty) {
@@ -155,11 +159,13 @@ class LogEntry {
   /// viewer that silently hides lines it cannot parse is worse than useless
   /// when you are chasing a problem.
   static LogEntry parse(String line) {
-    final match = RegExp(
-      r'^(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(\w+)\.(\w+)\s+(.*)$',
-    ).firstMatch(line) ?? RegExp(
-      r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(\w+)\.(\w+)\s+(.*)$',
-    ).firstMatch(line);
+    final match =
+        RegExp(
+          r'^(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(\w+)\.(\w+)\s+(.*)$',
+        ).firstMatch(line) ??
+        RegExp(
+          r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(\w+)\.(\w+)\s+(.*)$',
+        ).firstMatch(line);
     if (match == null) return LogEntry(raw: line, message: line);
     return LogEntry(
       raw: line,
