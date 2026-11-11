@@ -64,7 +64,7 @@ class _LogsApi extends MockApiService {
   }
 }
 
-Future<void> pumpLogs(
+Future<void> _pumpLogs(
   WidgetTester tester,
   _LogsApi api, {
   Widget page = const LogScreen(),
@@ -221,7 +221,7 @@ void main() {
     tester,
   ) async {
     final api = _LogsApi();
-    await pumpLogs(tester, api);
+    await _pumpLogs(tester, api);
     expect(find.text('system-entry'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'no-match');
     await tester.pump();
@@ -245,7 +245,7 @@ void main() {
           method: 'systemLog',
           status: 6,
         );
-      await pumpLogs(tester, api, page: const SystemLogsScreen());
+      await _pumpLogs(tester, api, page: const SystemLogsScreen());
       expect(find.text('Could not read the log'), findsOneWidget);
       expect(find.text('The log is empty'), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
