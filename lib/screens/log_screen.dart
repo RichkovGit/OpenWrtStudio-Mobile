@@ -12,6 +12,16 @@ import 'package:luci_mobile/widgets/luci_app_bar.dart';
 
 enum _LogSource { system, kernel }
 
+final _logEntriesProvider = FutureProvider.autoDispose.family<List<LogEntry>, _LogSource>((ref, source) async {
+  final session = ref.watch(sessionProvider);
+  final service = ref.watch(diagnosticsServiceProvider);
+  if (session == null || service == null) return const [];
+  final text = source == _LogSource.system
+      ? await service.systemLog(session)
+      : await service.kernelLog(session);
+  return LogEntry.parseAll(text);
+});
+
 /// The router's system and kernel logs.
 class LogScreen extends ConsumerStatefulWidget {
   const LogScreen({super.key, this.initialKernel = false});
@@ -24,19 +34,10 @@ class LogScreen extends ConsumerStatefulWidget {
 class _LogScreenState extends ConsumerState<LogScreen> {
   _LogSource _source = _LogSource.system;
   final _filter = TextEditingController();
-  bool _loading = false;
-  int _loadGeneration = 0;
-
-  /// Kept as the error, not as a sentence: the wording is looked up when
-  /// it is shown, so it is in the user's language.
-  Object? _error;
-  List<LogEntry> _entries = const [];
-
   @override
   void initState() {
     super.initState();
     _source = widget.initialKernel ? _LogSource.kernel : _LogSource.system;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   @override
@@ -45,73 +46,24 @@ class _LogScreenState extends ConsumerState<LogScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final generation = ++_loadGeneration;
-    final session = ref.read(sessionProvider);
-    final service = ref.read(diagnosticsServiceProvider);
-    if (session == null || service == null) {
-      if (mounted) {
-        setState(() {
-          _entries = [];
-          _error = null;
-          _loading = false;
-        });
-      }
-      return;
-    }
+  void _load() => ref.invalidate(_logEntriesProvider(_source));
 
-    setState(() {
-      _loading = true;
-      _error = null;
-      _entries = [];
-    });
-    try {
-      final result = _source == _LogSource.system
-          ? await service.systemLog(session)
-          : await service.kernelLog(session);
-      if (!mounted ||
-          generation != _loadGeneration ||
-          ref.read(sessionProvider) != session) {
-        return;
-      }
-      setState(() => _entries = LogEntry.parseAll(result));
-    } catch (e) {
-      if (!mounted ||
-          generation != _loadGeneration ||
-          ref.read(sessionProvider) != session) {
-        return;
-      }
-      setState(() {
-        _entries = const [];
-        // Saying "no log entries" when the read failed would suggest the
-        // router had nothing to report, which is the opposite of the truth.
-        _error = e;
-      });
-    } finally {
-      if (mounted &&
-          generation == _loadGeneration &&
-          ref.read(sessionProvider) == session) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  List<LogEntry> get _visible {
+  List<LogEntry> _visible(List<LogEntry> entries) {
     final needle = _filter.text.trim().toLowerCase();
-    if (needle.isEmpty) return _entries;
+    if (needle.isEmpty) return entries;
     return [
-      for (final e in _entries)
+      for (final e in entries)
         if (e.raw.toLowerCase().contains(needle)) e,
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(sessionProvider, (previous, next) {
-      if (previous != next) _load();
-    });
+    final logs = ref.watch(_logEntriesProvider(_source));
+    final loading = logs.isLoading;
+    final entries = loading ? const <LogEntry>[] : logs.asData?.value ?? const <LogEntry>[];
     final l10n = context.l10n;
-    final visible = _visible;
+    final visible = _visible(entries);
 
     return Scaffold(
       appBar: LuciAppBar(
@@ -121,18 +73,18 @@ class _LogScreenState extends ConsumerState<LogScreen> {
           IconButton(
             icon: const Icon(Icons.copy),
             tooltip: l10n.copy,
-            onPressed: _entries.isEmpty
+            onPressed: entries.isEmpty
                 ? null
                 : () => copyToClipboard(
                     context,
-                    _entries.map((e) => e.raw).join('\n'),
+                    entries.map((e) => e.raw).join('\n'),
                     label: l10n.systemLog,
                   ),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: l10n.retry,
-            onPressed: _loading ? null : _load,
+            onPressed: loading ? null : _load,
           ),
         ],
       ),
@@ -158,7 +110,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
                 ),
               ],
               selected: {_source},
-              onSelectionChanged: _loading
+              onSelectionChanged: loading
                   ? null
                   : (s) {
                       setState(() => _source = s.first);
@@ -186,26 +138,28 @@ class _LogScreenState extends ConsumerState<LogScreen> {
             ),
           ),
           const SizedBox(height: LuciSpacing.sm),
-          Expanded(child: _body(context, visible)),
+          Expanded(child: _body(context, visible, logs, entries.isEmpty)),
         ],
       ),
     );
   }
 
-  Widget _body(BuildContext context, List<LogEntry> visible) {
+  Widget _body(BuildContext context, List<LogEntry> visible,
+      AsyncValue<List<LogEntry>> logs, bool empty) {
     final l10n = context.l10n;
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) {
+    if (logs.isLoading) return const Center(child: CircularProgressIndicator());
+    final error = logs.asError?.error;
+    if (error != null) {
       return LuciMessageState(
-        scrollable: false,
+        scrollable: true,
         icon: Icons.error_outline,
         title: l10n.logUnavailable,
-        message: apiErrorText(context, _error!),
+        message: apiErrorText(context, error),
         action: l10n.retry,
         onAction: _load,
       );
     }
-    if (_entries.isEmpty) {
+    if (empty) {
       return LuciMessageState(
         scrollable: false,
         icon: Icons.article_outlined,
