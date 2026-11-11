@@ -14,7 +14,8 @@ enum _LogSource { system, kernel }
 
 /// The router's system and kernel logs.
 class LogScreen extends ConsumerStatefulWidget {
-  const LogScreen({super.key});
+  const LogScreen({super.key, this.initialKernel = false});
+  final bool initialKernel;
 
   @override
   ConsumerState<LogScreen> createState() => _LogScreenState();
@@ -24,6 +25,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
   _LogSource _source = _LogSource.system;
   final _filter = TextEditingController();
   bool _loading = false;
+  int _loadGeneration = 0;
 
   /// Kept as the error, not as a sentence: the wording is looked up when
   /// it is shown, so it is in the user's language.
@@ -33,6 +35,7 @@ class _LogScreenState extends ConsumerState<LogScreen> {
   @override
   void initState() {
     super.initState();
+    _source = widget.initialKernel ? _LogSource.kernel : _LogSource.system;
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -43,22 +46,33 @@ class _LogScreenState extends ConsumerState<LogScreen> {
   }
 
   Future<void> _load() async {
+    final generation = ++_loadGeneration;
     final session = ref.read(sessionProvider);
     final service = ref.read(diagnosticsServiceProvider);
-    if (session == null || service == null) return;
+    if (session == null || service == null) {
+      if (mounted) {
+        setState(() { _entries = []; _error = null; _loading = false; });
+      }
+      return;
+    }
 
     setState(() {
       _loading = true;
       _error = null;
+      _entries = [];
     });
     try {
       final result = _source == _LogSource.system
           ? await service.systemLog(session)
           : await service.kernelLog(session);
-      if (!mounted) return;
-      setState(() => _entries = LogEntry.parseAll(result.output));
+      if (!mounted || generation != _loadGeneration || ref.read(sessionProvider) != session) {
+        return;
+      }
+      setState(() => _entries = LogEntry.parseAll(result));
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration || ref.read(sessionProvider) != session) {
+        return;
+      }
       setState(() {
         _entries = const [];
         // Saying "no log entries" when the read failed would suggest the
@@ -66,7 +80,9 @@ class _LogScreenState extends ConsumerState<LogScreen> {
         _error = e;
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _loadGeneration && ref.read(sessionProvider) == session) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -81,6 +97,9 @@ class _LogScreenState extends ConsumerState<LogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(sessionProvider, (previous, next) {
+      if (previous != next) _load();
+    });
     final l10n = context.l10n;
     final visible = _visible;
 
@@ -115,11 +134,11 @@ class _LogScreenState extends ConsumerState<LogScreen> {
               segments: [
                 ButtonSegment(
                   value: _LogSource.system,
-                  label: Text(l10n.systemLog),
+                  label: FittedBox(fit: BoxFit.scaleDown, child: Text(l10n.systemLog)),
                 ),
                 ButtonSegment(
                   value: _LogSource.kernel,
-                  label: Text(l10n.kernelLog),
+                  label: FittedBox(fit: BoxFit.scaleDown, child: Text(l10n.kernelLog)),
                 ),
               ],
               selected: {_source},

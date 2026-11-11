@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:luci_mobile/services/api_service.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/state/router_session.dart';
+import 'package:luci_mobile/services/router_logs_service.dart';
 
 /// A network tool the router can run on the user's behalf.
 enum DiagnosticTool {
@@ -66,23 +67,13 @@ class DiagnosticsService {
     return _exec(session, tool.path, argsFor(tool, target));
   }
 
-  /// Reads the kernel ring buffer.
-  Future<DiagnosticResult> kernelLog(RouterSession session) async {
-    return _exec(session, '/bin/dmesg', const []);
-  }
+  /// Reads the kernel ring buffer through LuCI's fixed log endpoint.
+  Future<String> kernelLog(RouterSession session) =>
+      RouterLogsService(_api).read(session, kernel: true, lines: 1000);
 
-  /// Reads the system log.
-  ///
-  /// `logread` talks to ubus itself, and on some builds doing that from inside
-  /// an `file.exec` — which is already a ubus call — deadlocks until rpcd
-  /// times out. Callers must be ready for this to fail and say so rather than
-  /// showing an empty log as if the router had nothing to report.
-  Future<DiagnosticResult> systemLog(
-    RouterSession session, {
-    int lines = 200,
-  }) async {
-    return _exec(session, '/sbin/logread', ['-l', '$lines']);
-  }
+  /// Reads syslog; an empty journal is never replaced with a different source.
+  Future<String> systemLog(RouterSession session, {int lines = 200}) =>
+      RouterLogsService(_api).read(session, kernel: false, lines: lines);
 
   /// Runs [command] and returns whatever it printed, whatever it exited with.
   ///
@@ -95,14 +86,14 @@ class DiagnosticsService {
     String command,
     List<String> params,
   ) async {
-    final raw = await _api.call(
+    final raw = validateRpcResult(await _api.call(
       session.ipAddress,
       session.sysauth,
       session.useHttps,
       object: 'file',
       method: 'exec',
       params: {'command': command, 'params': params},
-    );
+    ), object: 'file', method: 'exec');
     // `call` has already turned a non-zero ubus status into an RpcException
     // with whatever detail the router sent; only the shape is checked here.
     if (raw is! List || raw.isEmpty) {
@@ -166,6 +157,8 @@ class LogEntry {
   static LogEntry parse(String line) {
     final match = RegExp(
       r'^(\w{3}\s+\w{3}\s+\d+\s+[\d:]+\s+\d{4})\s+(\w+)\.(\w+)\s+(.*)$',
+    ).firstMatch(line) ?? RegExp(
+      r'^(\d{4}-\d{2}-\d{2}T\S+)\s+(\w+)\.(\w+)\s+(.*)$',
     ).firstMatch(line);
     if (match == null) return LogEntry(raw: line, message: line);
     return LogEntry(

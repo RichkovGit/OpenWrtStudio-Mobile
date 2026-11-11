@@ -78,8 +78,8 @@ android {
         getByName("debug") {
             // Xray-test builds must coexist with the previously shared
             // CI debug APK, whose signing key may differ from this runner's.
-            applicationIdSuffix = ".xrayrpctest"
-            versionNameSuffix = "-xray-rpc-test"
+            applicationIdSuffix = ".logstest"
+            versionNameSuffix = "-logs-test"
             // Debug builds use the default debug signing config
             // No custom keystore required for debug builds
         }

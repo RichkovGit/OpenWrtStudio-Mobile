@@ -7,12 +7,14 @@ class QuickCommand {
   final String description;
   final String command;
   final String icon;
+  final bool? kernelLog;
 
   const QuickCommand({
     required this.title,
     required this.description,
     required this.command,
     required this.icon,
+    this.kernelLog,
   });
 
   static List<QuickCommand> presets() => const [
@@ -42,13 +44,15 @@ class QuickCommand {
     ),
     QuickCommand(
       title: 'View System Log (logread)',
-      description: 'Recent 50 lines from syslog buffer',
+      description: 'Open the system log viewer',
+      kernelLog: false,
       command: 'logread | tail -n 50',
       icon: 'history_edu',
     ),
     QuickCommand(
       title: 'Kernel Messages (dmesg)',
-      description: 'Recent kernel ring buffer messages',
+      description: 'Open the kernel log viewer',
+      kernelLog: true,
       command: 'dmesg | tail -n 50',
       icon: 'terminal',
     ),

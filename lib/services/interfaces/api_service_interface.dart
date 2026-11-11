@@ -28,6 +28,13 @@ abstract class IApiService {
     Map<String, dynamic>? params,
     BuildContext? context,
   });
+  /// Reads only the fixed system/kernel log commands through LuCI CGI-IO.
+  /// The router enforces cgi-io and exact command ACLs independently of ubus.
+  Future<String> readLogDirect(
+    String ipAddress, String sysauth, bool useHttps, {
+    required bool kernel, BuildContext? context,
+  });
+
   // Simplified call method for reviewer mode
   Future<dynamic> callSimple(
     String object,
