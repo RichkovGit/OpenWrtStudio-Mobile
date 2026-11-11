@@ -43,7 +43,9 @@ class _LogsApi extends MockApiService {
     Map<String, dynamic>? params,
     BuildContext? context,
   }) async {
-    expect('$object.$method', 'log.read');
+    if (object != 'log' || method != 'read') {
+      throw StateError('Unexpected RPC in log reader');
+    }
     nativeCalls.add(params);
     if (nativeError != null) throw nativeError!;
     return native;
