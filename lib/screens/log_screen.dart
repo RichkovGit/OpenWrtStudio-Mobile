@@ -12,15 +12,16 @@ import 'package:luci_mobile/widgets/luci_app_bar.dart';
 
 enum _LogSource { system, kernel }
 
-final _logEntriesProvider = FutureProvider.autoDispose.family<List<LogEntry>, _LogSource>((ref, source) async {
-  final session = ref.watch(sessionProvider);
-  final service = ref.watch(diagnosticsServiceProvider);
-  if (session == null || service == null) return const [];
-  final text = source == _LogSource.system
-      ? await service.systemLog(session)
-      : await service.kernelLog(session);
-  return LogEntry.parseAll(text);
-});
+final _logEntriesProvider = FutureProvider.autoDispose
+    .family<List<LogEntry>, _LogSource>((ref, source) async {
+      final session = ref.watch(sessionProvider);
+      final service = ref.watch(diagnosticsServiceProvider);
+      if (session == null || service == null) return const [];
+      final text = source == _LogSource.system
+          ? await service.systemLog(session)
+          : await service.kernelLog(session);
+      return LogEntry.parseAll(text);
+    });
 
 /// The router's system and kernel logs.
 class LogScreen extends ConsumerStatefulWidget {
@@ -61,7 +62,9 @@ class _LogScreenState extends ConsumerState<LogScreen> {
   Widget build(BuildContext context) {
     final logs = ref.watch(_logEntriesProvider(_source));
     final loading = logs.isLoading;
-    final entries = loading ? const <LogEntry>[] : logs.asData?.value ?? const <LogEntry>[];
+    final entries = loading
+        ? const <LogEntry>[]
+        : logs.asData?.value ?? const <LogEntry>[];
     final l10n = context.l10n;
     final visible = _visible(entries);
 
@@ -144,8 +147,12 @@ class _LogScreenState extends ConsumerState<LogScreen> {
     );
   }
 
-  Widget _body(BuildContext context, List<LogEntry> visible,
-      AsyncValue<List<LogEntry>> logs, bool empty) {
+  Widget _body(
+    BuildContext context,
+    List<LogEntry> visible,
+    AsyncValue<List<LogEntry>> logs,
+    bool empty,
+  ) {
     final l10n = context.l10n;
     if (logs.isLoading) return const Center(child: CircularProgressIndicator());
     final error = logs.asError?.error;

@@ -323,13 +323,25 @@ void main() {
         token: 2,
       );
       await tester.pumpAndSettle();
-      expect(find.text('new-router-entry'), findsOneWidget,
-        reason: tester.widgetList<Text>(find.byType(Text)).map((text) => text.data).join('|'));
+      expect(
+        find.text('new-router-entry'),
+        findsOneWidget,
+        reason: tester
+            .widgetList<Text>(find.byType(Text))
+            .map((text) => text.data)
+            .join('|'),
+      );
       api.pending!.complete('old-router-entry');
       await tester.pumpAndSettle();
       expect(find.text('old-router-entry'), findsNothing);
-      expect(find.text('new-router-entry'), findsOneWidget,
-        reason: tester.widgetList<Text>(find.byType(Text)).map((text) => text.data).join('|'));
+      expect(
+        find.text('new-router-entry'),
+        findsOneWidget,
+        reason: tester
+            .widgetList<Text>(find.byType(Text))
+            .map((text) => text.data)
+            .join('|'),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
