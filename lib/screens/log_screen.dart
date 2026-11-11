@@ -21,7 +21,7 @@ final _logEntriesProvider = FutureProvider.autoDispose
           ? await service.systemLog(session)
           : await service.kernelLog(session);
       return LogEntry.parseAll(text);
-    });
+    }, retry: (_, _) => null);
 
 /// The router's system and kernel logs.
 class LogScreen extends ConsumerStatefulWidget {
