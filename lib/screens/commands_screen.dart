@@ -1,3 +1,4 @@
+import 'package:luci_mobile/screens/log_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -146,7 +147,18 @@ class _CommandsScreenState extends ConsumerState<CommandsScreen> {
                       label: Text(p.title),
                       onPressed: _isExecuting
                           ? null
-                          : () => _runCommand(p.command),
+                          : () {
+                              if (p.kernelLog != null) {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        LogScreen(initialKernel: p.kernelLog!),
+                                  ),
+                                );
+                              } else {
+                                _runCommand(p.command);
+                              }
+                            },
                     ),
                   );
                 },

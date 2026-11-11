@@ -58,6 +58,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   // Protocols state
   bool _isLoadingProtocols = true;
+  Object? _protocolsError;
   List<ProtocolItem> _protocols = [];
   ProtocolItem? _selectedProtocol;
   bool _isSwitchingProtocol = false;
@@ -245,6 +246,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
 
   Future<void> _loadProtocolsState() async {
     final generation = ++_protocolsGeneration;
+    _protocolsError = null;
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
@@ -270,7 +272,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
       final list = available.isNotEmpty ? available : items;
       final active = list.where((p) => p.isRunning).firstOrNull;
 
-      final hasForkop = list.any((p) => p.id == 'forkop' || p.id == 'sing-box');
+      final hasForkop = list.any(
+        (p) => p.isInstalled && (p.id == 'forkop' || p.id == 'sing-box'),
+      );
       List<ForkopNode> presets = [];
 
       if (hasForkop) {
@@ -292,17 +296,22 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
             return;
           }
           _protocols = list;
-          _selectedProtocol = active ?? _selectedProtocol ?? list.firstOrNull;
+          final selectedId = _selectedProtocol?.id;
+          _selectedProtocol =
+              active ??
+              list.where((p) => p.id == selectedId).firstOrNull ??
+              list.firstOrNull;
           _forkopPresets = presets;
           _isLoadingProtocols = false;
         });
       }
-    } catch (_) {
+    } catch (error) {
       if (mounted && generation == _protocolsGeneration) {
         setState(() {
           _forkopPresets = [];
           _protocols = [];
           _selectedProtocol = null;
+          _protocolsError = error;
           _isLoadingProtocols = false;
         });
       }
@@ -376,6 +385,7 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
   }
 
   Future<void> _toggleProtocolService(ProtocolItem protocol) async {
+    if (!protocol.canControlService) return;
     final appState = ref.read(appStateProvider);
     final ip = appState.activeIp;
     final token = appState.sysauth;
@@ -777,6 +787,14 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                             Text(
                               activeRunning != null
                                   ? '🟢 Активен: ${activeRunning.name}'
+                                  : _protocolsError != null
+                                  ? 'Статус протоколов недоступен'
+                                  : _protocols.any(
+                                      (p) =>
+                                          !p.installationVerified ||
+                                          !p.serviceStateKnown,
+                                    )
+                                  ? 'Часть данных о протоколах недоступна'
                                   : '⚪ Все службы остановлены',
                               style: TextStyle(
                                 color: activeRunning != null
@@ -802,7 +820,9 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                   Switch(
                     value: isSelectedRunning,
                     activeThumbColor: const Color(0xFF00D2FF),
-                    onChanged: (_) => _toggleProtocolService(selectedProto),
+                    onChanged: selectedProto.canControlService
+                        ? (_) => _toggleProtocolService(selectedProto)
+                        : null,
                   ),
               ],
             ),
@@ -880,13 +900,16 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          selectedProto.name,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                        Expanded(
+                          child: Text(
+                            selectedProto.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
@@ -899,7 +922,12 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            isSelectedRunning ? 'РАБОТАЕТ' : 'ОСТАНОВЛЕН',
+                            isSelectedRunning
+                                ? 'РАБОТАЕТ'
+                                : selectedProto.installationVerified &&
+                                      selectedProto.serviceStateKnown
+                                ? 'ОСТАНОВЛЕН'
+                                : 'НЕТ ДАННЫХ',
                             style: TextStyle(
                               color: isSelectedRunning
                                   ? Colors.greenAccent
@@ -920,8 +948,28 @@ class _SimpleDashboardScreenState extends ConsumerState<SimpleDashboardScreen> {
                       ),
                     ),
 
+                    if (!selectedProto.serviceStateKnown) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Доступен список процессов. Состояние службы проверить не удалось.',
+                      ),
+                    ] else if (selectedProto.isManuallyStarted) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Запущен вручную на роутере. Управление — через консоль.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ] else if (!selectedProto.hasService) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Служба управления не найдена. Запуск и настройка — через консоль роутера.',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ],
+
                     // Quick Switch Button if not running
-                    if (!isSelectedRunning) ...[
+                    if (!isSelectedRunning &&
+                        selectedProto.canControlService) ...[
                       const SizedBox(height: 10),
                       SizedBox(
                         width: double.infinity,

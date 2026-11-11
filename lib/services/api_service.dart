@@ -313,6 +313,99 @@ class RealApiService implements IApiService {
     throw Exception('$operation failed: $detail');
   }
 
+  @override
+  Future<String> readLogDirect(
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required bool kernel,
+    BuildContext? context,
+  }) async {
+    final uri = _buildUrl(ipAddress, useHttps, '/cgi-bin/cgi-exec');
+    final client = _createHttpClient(useHttps, ipAddress, context: context);
+    // Fixed one-shot readers only: these are the commands used by LuCI and
+    // authorized by luci-mod-status-logs. Never pass a shell or user input.
+    final commands = kernel
+        ? const ['/bin/dmesg -r']
+        : const [
+            '/usr/libexec/syslog-wrapper',
+            '/sbin/logread',
+            '/usr/sbin/logread',
+          ];
+    RpcException? failure;
+    for (final command in commands) {
+      final response = await client.post<ResponseBody>(
+        uri.toString(),
+        data: Uri(
+          queryParameters: {
+            'sessionid': sysauth,
+            'command': command,
+            'stderr': '0',
+          },
+        ).query,
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.stream,
+          followRedirects: false,
+          receiveTimeout: const Duration(seconds: 15),
+          validateStatus: (_) => true,
+        ),
+      );
+      final status = response.statusCode ?? 0;
+      if (status != 200) {
+        await response.data?.stream.listen(null).cancel();
+        failure = RpcException(
+          object: 'cgi-io',
+          method: kernel ? 'kernelLog' : 'systemLog',
+          status: status == 401 || status == 403
+              ? 6
+              : status == 404
+              ? 4
+              : null,
+          detail: 'HTTP $status reading $command',
+        );
+        if (status == 403 || status == 404) continue;
+        throw failure;
+      }
+      if (response.data == null) {
+        throw StateError('LuCI returned no log response');
+      }
+      final bytes = <int>[];
+      await for (final chunk in response.data!.stream.timeout(
+        const Duration(seconds: 15),
+      )) {
+        if (bytes.length + chunk.length > 4 * 1024 * 1024) {
+          throw StateError('Log response exceeds 4 MiB');
+        }
+        bytes.addAll(chunk);
+      }
+      final text = utf8.decode(bytes, allowMalformed: true);
+      final contentType =
+          response.headers.value(Headers.contentTypeHeader) ?? '';
+      if (contentType.toLowerCase().contains('text/html') ||
+          RegExp(
+            r'^\s*(?:<!doctype html|<html)',
+            caseSensitive: false,
+          ).hasMatch(text)) {
+        throw const RpcException(
+          object: 'cgi-io',
+          method: 'exec',
+          status: 6,
+          detail: 'LuCI returned a login page instead of log data',
+        );
+      }
+      if (RegExp(
+        r'^Status: [45]\d\d[^\n]*\r?\nContent-Type:',
+        caseSensitive: false,
+      ).hasMatch(text)) {
+        throw StateError('LuCI log reader failed to start');
+      }
+      // CGI-IO returns log text, not a subprocess exit status. Do not invent one.
+      return text;
+    }
+    throw failure ?? StateError('LuCI log reader unavailable');
+  }
+
   Dio _createHttpClient(
     bool useHttps,
     String hostWithPort, {

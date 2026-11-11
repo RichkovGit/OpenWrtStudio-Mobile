@@ -22,6 +22,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
   List<ProtocolItem> _protocols = ProtocolItem.defaultList();
   bool _isLoading = false;
   String? _busyProtocolId;
+  Object? _scanError;
 
   @override
   void didChangeDependencies() {
@@ -82,6 +83,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
 
     setState(() {
       _isLoading = true;
+      _scanError = null;
     });
 
     try {
@@ -100,12 +102,15 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _scanError = e;
+          _protocols = [];
         });
       }
     }
   }
 
   Future<void> _controlService(ProtocolItem item, String action) async {
+    if (!item.canControlService) return;
     final appState = ref.read(appStateProvider);
     final router = appState.selectedRouter;
     final sysauth = appState.sysauth;
@@ -209,7 +214,14 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
         bottom: true,
         child: RefreshIndicator(
           onRefresh: _scanProtocols,
-          child: _isLoading && _protocols.isEmpty
+          child: _scanError != null
+              ? LuciErrorDisplay(
+                  title: 'Не удалось проверить протоколы',
+                  message: apiErrorText(context, _scanError!),
+                  actionLabel: 'Повторить',
+                  onAction: _scanProtocols,
+                )
+              : _isLoading
               ? const Center(child: CircularProgressIndicator())
               : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
@@ -228,12 +240,18 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                     if (item.isRunning) {
                       statusColor = Colors.green;
                       statusText = 'Работает';
+                    } else if (!item.installationVerified ||
+                        !item.serviceStateKnown) {
+                      statusColor = Colors.grey;
+                      statusText = 'Нет данных';
                     } else if (item.isInstalled) {
                       statusColor = Colors.orange;
                       statusText = 'Остановлен';
                     } else {
                       statusColor = Colors.grey;
-                      statusText = 'Не установлен';
+                      statusText = item.installationVerified
+                          ? 'Не установлен'
+                          : 'Нет данных';
                     }
 
                     return Card(
@@ -326,6 +344,23 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                 color: colorScheme.onSurface.withAlpha(200),
                               ),
                             ),
+                            if (!item.serviceStateKnown) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Доступен список процессов. Состояние службы проверить не удалось.',
+                              ),
+                            ] else if (item.isManuallyStarted) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Запущен вручную на роутере. Управление — через консоль.',
+                              ),
+                            ] else if (item.isInstalled &&
+                                !item.hasService) ...[
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Служба управления не найдена. Запуск и настройка — через консоль роутера.',
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -338,13 +373,14 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                else if (!item.isInstalled)
+                                else if (!item.isInstalled &&
+                                    item.installationVerified)
                                   FilledButton.tonalIcon(
                                     onPressed: () => _installProtocol(item),
                                     icon: const Icon(Icons.download, size: 18),
                                     label: const Text('Установить'),
                                   )
-                                else ...[
+                                else if (item.isInstalled) ...[
                                   if (item.id == 'forkop' ||
                                       item.id == 'sing-box') ...[
                                     TextButton.icon(
@@ -362,7 +398,8 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                     ),
                                     const SizedBox(width: 8),
                                   ],
-                                  if (item.isRunning) ...[
+                                  if (item.isRunning &&
+                                      item.canControlService) ...[
                                     OutlinedButton(
                                       onPressed: () =>
                                           _controlService(item, 'stop'),
@@ -374,7 +411,7 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
                                           _controlService(item, 'restart'),
                                       child: const Text('Перезапуск'),
                                     ),
-                                  ] else ...[
+                                  ] else if (item.canControlService) ...[
                                     OutlinedButton(
                                       onPressed: () =>
                                           _controlService(item, 'start'),

@@ -172,6 +172,17 @@ class MockApiService implements IApiService {
   }
 
   @override
+  Future<String> readLogDirect(
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required bool kernel,
+    BuildContext? context,
+  }) async => kernel
+      ? '[0.000000] Linux version (reviewer mode)'
+      : '2026-11-11T00:00:00.000Z daemon.notice netifd: reviewer log';
+
+  @override
   Future<dynamic> call(
     String ipAddress,
     String sysauth,
