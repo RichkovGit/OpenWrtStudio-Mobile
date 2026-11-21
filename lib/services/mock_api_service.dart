@@ -1148,6 +1148,31 @@ class MockApiService implements IApiService {
     BuildContext? context,
   }) async {
     await Future.delayed(const Duration(milliseconds: 500));
+    final script = params.isNotEmpty ? params.last : '';
+    // Reviewer-mode Sentinel: fix-all scripts confirm each repair step,
+    // probe scripts report every configured target as reachable.
+    if (script.contains('OWS_FIX=')) {
+      final stdout = script.contains('svc=')
+          ? 'OWS_FIX=fixed:mihomo\n'
+          : 'OWS_FIX=fixed\n';
+      return [
+        0,
+        {'code': 0, 'stdout': stdout, 'stderr': ''},
+      ];
+    }
+    if (script.contains(':blocked:0')) {
+      final names = RegExp(
+        r"echo '([^']+):online:",
+      ).allMatches(script).map((m) => m.group(1)!);
+      return [
+        0,
+        {
+          'code': 0,
+          'stdout': names.map((n) => '$n:online:42').join('\n'),
+          'stderr': '',
+        },
+      ];
+    }
     // Match rpcd file.exec's transport and process-result envelope.
     return [
       0,

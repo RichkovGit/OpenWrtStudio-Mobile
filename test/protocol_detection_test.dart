@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -643,4 +645,241 @@ void main() {
       );
     },
   );
+
+  group('new standalone protocols', () {
+    test(
+      'shadowsocks, hysteria, tuic and naiveproxy cores are detected',
+      () async {
+        final items = await scan(
+          ScanApi(
+            scanOutput(processes: 'ss-redir\nhysteria\ntuic-client\nnaive'),
+          ),
+        );
+        expect(items.where((p) => p.isRunning).map((p) => p.id).toSet(), {
+          'shadowsocks',
+          'hysteria',
+          'tuic',
+          'naiveproxy',
+        });
+        for (final id in ['shadowsocks', 'hysteria', 'tuic', 'naiveproxy']) {
+          final p = items.singleWhere((p) => p.id == id);
+          expect(p.isInstalled, isTrue);
+          expect(p.isManuallyStarted, isTrue);
+          expect(p.canControlService, isFalse);
+        }
+      },
+    );
+
+    test(
+      'shadowsocks init variants map to one protocol, running wins',
+      () async {
+        final items = await scan(
+          ScanApi(
+            scanOutput(
+              services: 'shadowsocks-libev:stopped\nshadowsocks-rust:running',
+            ),
+          ),
+        );
+        final ss = items.singleWhere((p) => p.id == 'shadowsocks');
+        expect(ss.hasService, isTrue);
+        expect(ss.isRunning, isTrue);
+        expect(ss.isServiceRunning, isTrue);
+        expect(ss.canControlService, isTrue);
+        expect(ss.isManuallyStarted, isFalse);
+      },
+    );
+
+    test('helper names and argument paths are not the new cores', () async {
+      final items = await scan(
+        ScanApi(
+          scanOutput(
+            processes:
+                'ss-helper\nhysteria-helper\n/etc/tuic/config.json\nnaive-helper',
+            bins: '/opt/bin/ss-local',
+          ),
+        ),
+      );
+      expect(items.where((p) => p.isRunning), isEmpty);
+      final ss = items.singleWhere((p) => p.id == 'shadowsocks');
+      expect(ss.isInstalled, isTrue);
+      expect(ss.canControlService, isFalse);
+    });
+
+    test('the scan script gathers evidence for the new protocols', () {
+      const script = ProtocolService.scanScript;
+      for (final token in [
+        'ss-local',
+        'ss-redir',
+        'ss-server',
+        'sslocal',
+        'ssserver',
+        'ss-manager',
+        'hysteria',
+        'tuic-client',
+        'tuic-server',
+        'naive',
+        'shadowsocks-libev',
+        'shadowsocks-rust',
+      ]) {
+        expect(script, contains(token));
+      }
+    });
+
+    test('LuCI fallback sees the new daemons and rc aliases', () async {
+      final api = _NativeApi()
+        ..processes = [
+          0,
+          {
+            'result': [
+              {
+                'PID': '7',
+                'COMMAND': '/usr/bin/hysteria server -c /etc/hysteria.yaml',
+              },
+            ],
+          },
+        ]
+        ..services = [
+          0,
+          {
+            'shadowsocks-rust': {'running': true},
+          },
+        ];
+      final items = await scan(api);
+      final hysteria = items.singleWhere((p) => p.id == 'hysteria');
+      expect(hysteria.isRunning, isTrue);
+      expect(hysteria.isManuallyStarted, isTrue);
+      final ss = items.singleWhere((p) => p.id == 'shadowsocks');
+      expect(ss.hasService, isTrue);
+      expect(ss.canControlService, isTrue);
+      expect(ss.isRunning, isTrue);
+    });
+
+    test('shadowsocks control resolves the installed init variant', () async {
+      final api = ScanApi('');
+      expect(
+        await ProtocolService(apiService: api).controlService(
+          routerIp: 'router',
+          sysauth: 'session',
+          useHttps: false,
+          serviceName: 'shadowsocks',
+          action: 'restart',
+        ),
+        isTrue,
+      );
+      final command = api.commands.single;
+      expect(command, startsWith('/bin/sh -c svc='));
+      expect(
+        command,
+        contains('for s in shadowsocks-rust shadowsocks-libev shadowsocks'),
+      );
+      expect(command, endsWith('restart'));
+    });
+
+    test('denied shell falls back to rc.init under any alias', () async {
+      final api = _NativeApi();
+      expect(
+        await ProtocolService(apiService: api).controlService(
+          routerIp: 'router',
+          sysauth: 'session',
+          useHttps: false,
+          serviceName: 'shadowsocks',
+          action: 'start',
+        ),
+        isTrue,
+      );
+      expect(api.nativeCalls, contains('rc.init'));
+      // The shell attempt was made and denied before the fallback ran.
+      expect(api.commands, hasLength(1));
+    });
+
+    test(
+      'switching between the new proxy cores stops the running one',
+      () async {
+        final api = ScanApi(
+          scanOutput(services: 'hysteria:running\nshadowsocks-rust:stopped'),
+        );
+        expect(
+          await ProtocolService(apiService: api).switchProtocol(
+            routerIp: 'router',
+            sysauth: 'session',
+            useHttps: false,
+            targetServiceName: 'shadowsocks',
+            currentServiceName: 'hysteria',
+          ),
+          isTrue,
+        );
+        expect(api.commands.first, '/etc/init.d/hysteria stop');
+        expect(api.commands.last, startsWith('/bin/sh -c svc='));
+        expect(api.commands.last, endsWith('start'));
+      },
+    );
+  });
+
+  testWidgets('a scan from the previous router is not shown after a switch', (
+    tester,
+  ) async {
+    final api = _DelayedScanApi();
+    final state = _SwitchableProtocolState(api);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appStateProvider.overrideWith((ref) => state)],
+        child: const MaterialApp(
+          localizationsDelegates: luciLocalizationsDelegates,
+          home: ProtocolsScreen(),
+        ),
+      ),
+    );
+    await tester.pump(); // the scan is in flight
+
+    state.switchRouter();
+    api.pending.complete([
+      0,
+      {'code': 0, 'stdout': scanOutput(processes: 'xray')},
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Работает'), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+}
+
+class _DelayedScanApi extends ScanApi {
+  _DelayedScanApi() : super('');
+  final pending = Completer<dynamic>();
+
+  @override
+  Future<dynamic> systemExec(
+    String ipAddress,
+    String sysauth,
+    bool useHttps, {
+    required String command,
+    List<String> params = const [],
+    BuildContext? context,
+  }) async {
+    if (command == '/bin/sh' && params.contains(ProtocolService.scanScript)) {
+      return pending.future;
+    }
+    return super.systemExec(
+      ipAddress,
+      sysauth,
+      useHttps,
+      command: command,
+      params: params,
+      context: context,
+    );
+  }
+}
+
+class _SwitchableProtocolState extends _ProtocolState {
+  _SwitchableProtocolState(super.api);
+  int _token = 0;
+
+  @override
+  int get sessionToken => _token;
+
+  void switchRouter() {
+    _token++;
+    notifyListeners();
+  }
 }

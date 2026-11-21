@@ -887,5 +887,63 @@
         "type": "String"
       }
     }
-  }
+  },
+  "sentinelTitle": "Sentinel Watchdog",
+  "sentinelAllGood": "Tunneling is active",
+  "sentinelIssuesFound": "Connectivity problems detected",
+  "sentinelTargetsAvailable": "{online} of {total} checkpoint services reachable",
+  "@sentinelTargetsAvailable": {
+    "placeholders": {
+      "online": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "sentinelCheck": "Diagnostics",
+  "sentinelFixAll": "Fix everything",
+  "sentinelFixProgress": "Step {current} of {total}: {step}",
+  "@sentinelFixProgress": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "step": {
+        "type": "String"
+      }
+    }
+  },
+  "sentinelFixStepDns": "Restart DNS (dnsmasq)",
+  "sentinelFixStepBypass": "Restart bypass engine",
+  "sentinelFixStepFirewall": "Reload firewall",
+  "sentinelFixReportTitle": "Repair report",
+  "sentinelFixFixed": "Fixed",
+  "sentinelFixFailed": "Not fixed",
+  "sentinelFixSkipped": "Skipped (not installed)",
+  "sentinelFixSummary": "Fixed: {fixed}. Failed: {failed}. Skipped: {skipped}.",
+  "@sentinelFixSummary": {
+    "placeholders": {
+      "fixed": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "sentinelCheckFailed": "Could not check connectivity",
+  "sentinelTargetSection": "Checkpoint targets",
+  "sentinelStatusOnline": "Online",
+  "sentinelStatusBlocked": "Blocked",
+  "sentinelStatusTimeout": "Timeout",
+  "sentinelStatusPending": "Checking…",
+  "sentinelStatusUnknown": "Unknown"
 }

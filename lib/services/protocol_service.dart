@@ -16,18 +16,18 @@ echo "===PKGS==="
 if command -v apk >/dev/null 2>&1; then
   apk info 2>/dev/null
 elif command -v opkg >/dev/null 2>&1; then
-  opkg list-installed 2>/dev/null | grep -E "(forkop|amneziawg|wireguard|sing-box|mihomo|passwall|openvpn|tailscale|zerotier|xray)" | awk '{print $1}'
+  opkg list-installed 2>/dev/null | grep -E "(forkop|amneziawg|wireguard|sing-box|mihomo|passwall|openvpn|tailscale|zerotier|xray|shadowsocks|hysteria|tuic|naive)" | awk '{print $1}'
 fi
 
 echo "===BINS==="
-for b in forkop /usr/bin/forkop awg awg-quick wg wg-quick sing-box mihomo clash passwall openvpn tailscale tailscaled zerotier-one zerotier-cli xray xray-core /etc/mihomo/mihomo; do
+for b in forkop /usr/bin/forkop awg awg-quick wg wg-quick sing-box mihomo clash passwall openvpn tailscale tailscaled zerotier-one zerotier-cli xray xray-core /etc/mihomo/mihomo ss-local ss-redir ss-server sslocal ssserver ss-manager hysteria tuic-client tuic-server naive; do
   if command -v "$b" >/dev/null 2>&1 || [ -x "$b" ]; then
     echo "$b"
   fi
 done
 
 echo "===SERVICES==="
-for s in forkop amneziawg wireguard sing-box mihomo passwall openvpn tailscale zerotier xray; do
+for s in forkop amneziawg wireguard sing-box mihomo passwall openvpn tailscale zerotier xray shadowsocks shadowsocks-libev shadowsocks-rust hysteria tuic naiveproxy; do
   if [ -x "/etc/init.d/$s" ]; then
     if "/etc/init.d/$s" status >/dev/null 2>&1; then
       echo "$s:running"
@@ -65,7 +65,7 @@ for proc in /proc/[0-9]*; do
     exe=$(cat "$proc/comm" 2>/dev/null)
   fi
   case "$exe" in
-    forkop|sing-box|mihomo|clash|passwall|openvpn|tailscaled|zerotier-one|xray|xray-core)
+    forkop|sing-box|mihomo|clash|passwall|openvpn|tailscaled|zerotier-one|xray|xray-core|ss-local|ss-redir|ss-server|sslocal|ssserver|ss-manager|hysteria|tuic-client|tuic-server|naive)
       printf '%s\n' "$exe";;
   esac
 done
@@ -82,7 +82,26 @@ exit 0
     'tailscale': {'tailscaled'},
     'zerotier': {'zerotier-one'},
     'xray': {'xray', 'xray-core'},
+    'shadowsocks': {
+      'ss-local',
+      'ss-redir',
+      'ss-server',
+      'sslocal',
+      'ssserver',
+      'ss-manager',
+    },
+    'hysteria': {'hysteria'},
+    'tuic': {'tuic-client', 'tuic-server'},
+    'naiveproxy': {'naive'},
   };
+
+  /// Init-script names a protocol may be managed under, when they differ
+  /// from its id. Shadowsocks ships one init script per core variant.
+  static const _serviceAliases = <String, Set<String>>{
+    'shadowsocks': {'shadowsocks-rust', 'shadowsocks-libev', 'shadowsocks'},
+  };
+
+  static Set<String> _serviceNamesFor(String id) => _serviceAliases[id] ?? {id};
 
   /// Scans installed packages and real running executables on the router.
   Future<List<ProtocolItem>> scanProtocols({
@@ -174,10 +193,18 @@ exit 0
         (b) => foundBins.contains(b.toLowerCase()),
       );
       final hasModule = kernelModules.contains(id);
-      final hasService = serviceStates.containsKey(id);
+      final serviceNames = _serviceNamesFor(id);
+      final hasService = serviceNames.any(serviceStates.containsKey);
 
-      // 2. Check if running
-      final serviceStatus = serviceStates[id];
+      // 2. Check if running. With several init scripts (shadowsocks cores),
+      // a running one wins over a stopped one.
+      final statuses = serviceNames
+          .map((name) => serviceStates[name])
+          .whereType<String>()
+          .toList();
+      final serviceStatus = statuses.contains('running')
+          ? 'running'
+          : statuses.firstOrNull;
       final procRunning = (_daemonNames[id] ?? const <String>{}).any(
         runningProcs.contains,
       );
@@ -255,8 +282,17 @@ exit 0
       }
       servicesComplete = true;
       for (final proto in ProtocolItem.defaultList()) {
-        final entry = entries[proto.serviceName];
-        if (entry is! Map) continue;
+        Map? entry;
+        for (final name in _serviceNamesFor(proto.id)) {
+          final candidate = entries[name];
+          if (candidate is! Map) continue;
+          entry ??= candidate;
+          if (candidate['running'] == true) {
+            entry = candidate;
+            break;
+          }
+        }
+        if (entry == null) continue;
         if (entry['running'] is! bool) unknown.add(proto.id);
         services.add(
           '${proto.id}:${entry['running'] == true ? 'running' : 'stopped'}',
@@ -320,6 +356,27 @@ exit 0
         return _commandSucceeded(res);
       }
 
+      final aliases = _serviceAliases[cleanService];
+      if (aliases != null) {
+        // The init script's name depends on the installed core variant;
+        // control the first one that exists. The names are compile-time
+        // constants, so embedding them in the script is shell-safe.
+        final names = aliases.join(' ');
+        final res = await apiService.systemExec(
+          routerIp,
+          sysauth,
+          useHttps,
+          command: '/bin/sh',
+          params: [
+            '-c',
+            'svc=""; for s in $names; do '
+                'if [ -x "/etc/init.d/\$s" ]; then svc="\$s"; break; fi; done; '
+                '[ -n "\$svc" ] && "/etc/init.d/\$svc" $cleanAction',
+          ],
+        );
+        return _commandSucceeded(res);
+      }
+
       final res = await apiService.systemExec(
         routerIp,
         sysauth,
@@ -330,25 +387,31 @@ exit 0
       return _commandSucceeded(res);
     } on RpcException catch (error) {
       if (error.isAccessDenied && cleanAction != 'status') {
-        try {
-          final result = validateRpcResult(
-            await apiService.call(
-              routerIp,
-              sysauth,
-              useHttps,
+        // Aliased services may be registered under any of their init names.
+        for (final name in _serviceNamesFor(cleanService)) {
+          try {
+            final result = validateRpcResult(
+              await apiService.call(
+                routerIp,
+                sysauth,
+                useHttps,
+                object: 'rc',
+                method: 'init',
+                params: {'name': name, 'action': cleanAction},
+              ),
               object: 'rc',
               method: 'init',
-              params: {'name': cleanService, 'action': cleanAction},
-            ),
-            object: 'rc',
-            method: 'init',
-          );
-          return result.length == 2 &&
-              result[1] is Map &&
-              result[1]['result'] == true;
-        } catch (_) {
-          return false;
+            );
+            if (result.length == 2 &&
+                result[1] is Map &&
+                result[1]['result'] == true) {
+              return true;
+            }
+          } catch (_) {
+            continue;
+          }
         }
+        return false;
       }
       return false;
     } catch (e) {
@@ -377,7 +440,17 @@ exit 0
       final target = protocols
           .where((p) => p.serviceName == targetServiceName)
           .firstOrNull;
-      const proxyServices = {'forkop', 'mihomo', 'passwall', 'sing-box'};
+      const proxyServices = {
+        'forkop',
+        'mihomo',
+        'passwall',
+        'sing-box',
+        'xray',
+        'shadowsocks',
+        'hysteria',
+        'tuic',
+        'naiveproxy',
+      };
       final conflicts = protocols
           .where(
             (p) =>

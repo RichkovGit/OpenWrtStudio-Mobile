@@ -8,6 +8,7 @@ import 'package:luci_mobile/services/event_log.dart';
 import 'package:luci_mobile/services/background_worker.dart';
 import 'package:luci_mobile/services/background_monitor.dart';
 import 'package:luci_mobile/utils/uci_values.dart';
+import 'package:luci_mobile/utils/ipv4.dart';
 import 'package:luci_mobile/services/secure_storage_service.dart';
 import 'package:luci_mobile/services/router_service.dart';
 import 'package:luci_mobile/services/throughput_service.dart';
@@ -225,10 +226,21 @@ class AppState extends ChangeNotifier {
   }
 
   // --- Client Management Methods ---
+
+  /// A MAC address in the only form the client shell commands accept.
+  ///
+  /// These commands interpolate the MAC into a root shell on the router.
+  /// Anything but a plain colon-separated MAC - quotes, semicolons, `$(...)`
+  /// - would be executed there, so it is refused before a command is built.
+  static final RegExp _macAddressPattern = RegExp(
+    r'^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$',
+  );
+
   Future<bool> kickClient(String mac, {int banTimeSeconds = 30}) async {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
+    if (!_macAddressPattern.hasMatch(mac)) return false;
     final api =
         _apiService ?? ServiceContainer.instance.factory.createApiService();
     final banTimeMs = banTimeSeconds * 1000;
@@ -255,6 +267,7 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
+    if (!_macAddressPattern.hasMatch(mac)) return false;
     final api =
         _apiService ?? ServiceContainer.instance.factory.createApiService();
     final cleanMac = mac.replaceAll(':', '_');
@@ -322,11 +335,15 @@ class AppState extends ChangeNotifier {
     final ip = activeIp;
     final token = sysauth;
     if (ip == null || token == null) return false;
+    // The reservation is written through a root shell: a MAC or address
+    // carrying shell syntax would be executed on the router, and a hostname
+    // with quotes or substitutions would break out of its UCI argument.
+    if (!_macAddressPattern.hasMatch(mac)) return false;
+    if (!isValidIpv4(ipAddr)) return false;
     final api =
         _apiService ?? ServiceContainer.instance.factory.createApiService();
-    final cleanName = name.trim().isEmpty
-        ? 'StaticDevice'
-        : name.trim().replaceAll(' ', '_');
+    final sanitized = name.trim().replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '_');
+    final cleanName = sanitized.isEmpty ? 'StaticDevice' : sanitized;
     try {
       final cmd =
           'for s in \$(uci show dhcp | grep -i "$mac" | cut -d\'.\' -f2 | cut -d\'=\' -f1 | sort -u); do '

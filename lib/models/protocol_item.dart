@@ -89,6 +89,24 @@ class ProtocolItem {
     'xray' => [
       ['xray-core', 'xray'],
     ],
+    // The rust core is preferred: only it speaks the SS-2022
+    // (2022-blake3-aes-*) ciphers; libev is the fallback for older feeds.
+    'shadowsocks' => [
+      [
+        'shadowsocks-rust',
+        'shadowsocks-libev-ss-redir',
+        'shadowsocks-libev-ss-local',
+      ],
+    ],
+    'hysteria' => [
+      ['hysteria'],
+    ],
+    'tuic' => [
+      ['tuic-client'],
+    ],
+    'naiveproxy' => [
+      ['naiveproxy'],
+    ],
     _ => [],
   };
 
@@ -299,6 +317,63 @@ class ProtocolItem {
       packageNames: ['xray-core', 'xray'],
       binaryNames: ['xray', 'xray-core'],
       configName: 'xray',
+    ),
+    const ProtocolItem(
+      id: 'shadowsocks',
+      name: 'Shadowsocks / SS-2022',
+      category: ProtocolCategory.proxy,
+      description:
+          'Lightweight encrypted proxy. The rust core supports the modern SS-2022 (2022-blake3) ciphers.',
+      serviceName: 'shadowsocks',
+      packageNames: [
+        'shadowsocks-rust',
+        'shadowsocks-libev-ss-redir',
+        'shadowsocks-libev-ss-local',
+        'shadowsocks-libev-ss-server',
+        'luci-app-shadowsocks',
+      ],
+      binaryNames: [
+        'ss-local',
+        'ss-redir',
+        'ss-server',
+        'sslocal',
+        'ssserver',
+        'ss-manager',
+      ],
+      configName: 'shadowsocks',
+    ),
+    const ProtocolItem(
+      id: 'hysteria',
+      name: 'Hysteria 2',
+      category: ProtocolCategory.proxy,
+      description:
+          'QUIC-based proxy optimized for lossy networks. Standalone hysteria core speaking the v2 protocol.',
+      serviceName: 'hysteria',
+      packageNames: ['hysteria'],
+      binaryNames: ['hysteria'],
+      configName: 'hysteria',
+    ),
+    const ProtocolItem(
+      id: 'tuic',
+      name: 'TUIC v5',
+      category: ProtocolCategory.proxy,
+      description:
+          'QUIC-based TLS proxy with 0-RTT handshake. Standalone TUIC v5 client core.',
+      serviceName: 'tuic',
+      packageNames: ['tuic-client', 'tuic-server'],
+      binaryNames: ['tuic-client', 'tuic-server'],
+      configName: 'tuic',
+    ),
+    const ProtocolItem(
+      id: 'naiveproxy',
+      name: 'NaiveProxy',
+      category: ProtocolCategory.proxy,
+      description:
+          'Proxy disguising traffic as ordinary HTTPS using the Chromium network stack, resistant to DPI.',
+      serviceName: 'naiveproxy',
+      packageNames: ['naiveproxy'],
+      binaryNames: ['naive'],
+      configName: 'naiveproxy',
     ),
   ];
 }

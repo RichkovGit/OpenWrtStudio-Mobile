@@ -36,9 +36,13 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
 
   Future<void> _switchProtocol(ProtocolItem target) async {
     final appState = ref.read(appStateProvider);
-    final router = appState.selectedRouter;
+    // The address that actually answered at login, not the profile's
+    // primary one: after a fallback the primary may be unreachable.
+    final ip = appState.activeIp;
     final sysauth = appState.sysauth;
-    if (router == null || sysauth == null) return;
+    if (ip == null || sysauth == null) return;
+    final useHttps = appState.useHttps;
+    final token = appState.sessionToken;
 
     setState(() {
       _busyProtocolId = target.id;
@@ -47,39 +51,42 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
     final currentRunning = _protocols.where((p) => p.isRunning).firstOrNull;
 
     final success = await _protocolService.switchProtocol(
-      routerIp: router.activeAddress,
+      routerIp: ip,
       sysauth: sysauth,
-      useHttps: router.activeUseHttps,
+      useHttps: useHttps,
       targetServiceName: target.serviceName,
       currentServiceName: currentRunning?.serviceName,
     );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Протокол ${target.name} активирован'
-                : 'Ошибка переключения на ${target.name}',
-          ),
-          backgroundColor: success ? Colors.green : Colors.red,
-          behavior: SnackBarBehavior.floating,
+    // A router switch or re-login while the command was in flight owns the
+    // screen now; this result belongs to the previous session.
+    if (!mounted || appState.sessionToken != token) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Протокол ${target.name} активирован'
+              : 'Ошибка переключения на ${target.name}',
         ),
-      );
-      await _scanProtocols();
-      if (mounted) {
-        setState(() {
-          _busyProtocolId = null;
-        });
-      }
+        backgroundColor: success ? Colors.green : Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    await _scanProtocols();
+    if (mounted) {
+      setState(() {
+        _busyProtocolId = null;
+      });
     }
   }
 
   Future<void> _scanProtocols() async {
     final appState = ref.read(appStateProvider);
-    final router = appState.selectedRouter;
+    final ip = appState.activeIp;
     final sysauth = appState.sysauth;
-    if (router == null || sysauth == null) return;
+    if (ip == null || sysauth == null) return;
+    final useHttps = appState.useHttps;
+    final token = appState.sessionToken;
 
     setState(() {
       _isLoading = true;
@@ -88,23 +95,28 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
 
     try {
       final items = await _protocolService.scanProtocols(
-        routerIp: router.activeAddress,
+        routerIp: ip,
         sysauth: sysauth,
-        useHttps: router.activeUseHttps,
+        useHttps: useHttps,
       );
-      if (mounted) {
+      // The previous router's scan must not be shown as the new one's.
+      if (mounted && appState.sessionToken == token) {
         setState(() {
           _protocols = items;
           _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && appState.sessionToken == token) {
         setState(() {
           _isLoading = false;
           _scanError = e;
           _protocols = [];
         });
+      }
+    } finally {
+      if (mounted && appState.sessionToken != token) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -112,39 +124,40 @@ class _ProtocolsScreenState extends ConsumerState<ProtocolsScreen> {
   Future<void> _controlService(ProtocolItem item, String action) async {
     if (!item.canControlService) return;
     final appState = ref.read(appStateProvider);
-    final router = appState.selectedRouter;
+    final ip = appState.activeIp;
     final sysauth = appState.sysauth;
-    if (router == null || sysauth == null) return;
+    if (ip == null || sysauth == null) return;
+    final useHttps = appState.useHttps;
+    final token = appState.sessionToken;
 
     setState(() {
       _busyProtocolId = item.id;
     });
 
     final success = await _protocolService.controlService(
-      routerIp: router.activeAddress,
+      routerIp: ip,
       sysauth: sysauth,
-      useHttps: router.activeUseHttps,
+      useHttps: useHttps,
       serviceName: item.serviceName,
       action: action,
     );
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            success
-                ? 'Служба ${item.name}: команда $action выполнена'
-                : 'Ошибка выполнения $action для ${item.name}',
-          ),
-          behavior: SnackBarBehavior.floating,
+    if (!mounted || appState.sessionToken != token) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? 'Служба ${item.name}: команда $action выполнена'
+              : 'Ошибка выполнения $action для ${item.name}',
         ),
-      );
-      await _scanProtocols();
-      if (mounted) {
-        setState(() {
-          _busyProtocolId = null;
-        });
-      }
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    await _scanProtocols();
+    if (mounted) {
+      setState(() {
+        _busyProtocolId = null;
+      });
     }
   }
 

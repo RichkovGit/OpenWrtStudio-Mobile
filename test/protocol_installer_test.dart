@@ -16,6 +16,28 @@ void main() {
       ['xray-core', 'xray'],
     ]);
   });
+  test('new protocol install groups prefer capable cores', () {
+    final list = ProtocolItem.defaultList();
+    expect(
+      list.singleWhere((p) => p.id == 'shadowsocks').installPackageGroups,
+      [
+        [
+          'shadowsocks-rust',
+          'shadowsocks-libev-ss-redir',
+          'shadowsocks-libev-ss-local',
+        ],
+      ],
+    );
+    expect(list.singleWhere((p) => p.id == 'hysteria').installPackageGroups, [
+      ['hysteria'],
+    ]);
+    expect(list.singleWhere((p) => p.id == 'tuic').installPackageGroups, [
+      ['tuic-client'],
+    ]);
+    expect(list.singleWhere((p) => p.id == 'naiveproxy').installPackageGroups, [
+      ['naiveproxy'],
+    ]);
+  });
   test('background installation polls to a confirmed success', () async {
     final api = _Api(['__OWS_RUNNING__\nfetching', '__OWS_DONE__=0\nverified']);
     final result = await _install(api);
