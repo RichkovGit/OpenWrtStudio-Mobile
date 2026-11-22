@@ -2,13 +2,22 @@
 
 <div align="center">
   <h3>Расширенный мобильный клиент для OpenWrt на базе LuCI Mobile</h3>
-  <p>Все возможности стокового LuCI Mobile + мощный арсенал OpenWrt Studio прямо на вашем смартфоне.</p>
+  <p>Диагностика и управление собственным роутером OpenWrt прямо на смартфоне.</p>
+  <p><b>Текущая версия: 2.5.28</b> · Android 7.0+ · ARM64, ARMv7, x86_64</p>
 </div>
 
 ## Скачать
 
-- [Android APK и Linux-пакеты — последний выпуск](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest).
-- [Windows EXE и Portable — отдельный репозиторий](https://github.com/RichkovGit/OpenWrtStudio/releases/latest).
+| Платформа | Загрузка |
+| --- | --- |
+| Большинство современных Android-телефонов | [APK ARM64](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest/download/app-arm64-v8a-release.apk) |
+| 32-битные ARM-устройства | [APK ARMv7](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest/download/app-armeabi-v7a-release.apk) |
+| Android-эмуляторы и x86_64 | [APK x86_64](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest/download/app-x86_64-release.apk) |
+| Windows | [EXE и Portable](https://github.com/RichkovGit/OpenWrtStudio/releases/latest) |
+
+[Все Android- и Linux-сборки, контрольные суммы SHA-256](https://github.com/RichkovGit/OpenWrtStudio-Mobile/releases/latest).
+
+OpenWrt Studio Mobile — независимый сторонний проект. Он не связан с OpenWrt Project и не поддерживается им; LuCI Mobile используется как открытая основа.
 
 Исправления по отчёту SmartBox Giga/OpenWrt 25.12.6 описаны в [DEVICE_REPORT_2512.md](DEVICE_REPORT_2512.md). Проверка на самом SmartBox ещё требуется; температура зависит от датчиков, доступных в прошивке.
 
@@ -19,6 +28,10 @@
 Новые протоколы: Shadowsocks/SS-2022, Hysteria 2, TUIC v5, NaiveProxy. Кнопка «Исправить всё» в Sentinel: DNS + движок обхода + firewall с прогрессом и отчётом по каждому шагу. Усилена безопасность клиентских команд и надёжность проверок связности.
 
 Подробности: [изменения 2.5.28](RELEASE_NOTES.md).
+
+### Статус проверки
+
+Обнаружение новых протоколов, управление службами и оркестрация «Исправить всё» проверены тестами с mock-роутером. Работа этих функций на реальном оборудовании пока не подтверждена. Нужны отчёты владельцев разных моделей роутеров и прошивок — [шаблон тестового отчёта](../../issues/new?template=field_test.yml).
 
 ## 📸 Скриншоты интерфейса
 

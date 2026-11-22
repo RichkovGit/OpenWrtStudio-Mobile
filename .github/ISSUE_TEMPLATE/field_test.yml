@@ -1,0 +1,80 @@
+name: Отчёт теста на реальном роутере
+description: Помогите подтвердить работу OpenWrt Studio 2.5.28 на реальном оборудовании
+title: "[Полевой тест]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за проверку. Приложите только журналы без паролей, ключей, ссылок подписок, публичных IP и других чувствительных данных.
+  - type: input
+    id: router
+    attributes:
+      label: Модель роутера
+      placeholder: Например, Cudy WR3000S
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Прошивка и версия OpenWrt
+      placeholder: Например, OpenWrt 24.10.4
+    validations:
+      required: true
+  - type: input
+    id: app_version
+    attributes:
+      label: Версия OpenWrt Studio
+      placeholder: 2.5.28
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: Проверенное ядро или протокол
+      options:
+        - Shadowsocks / SS-2022
+        - Hysteria 2
+        - TUIC v5
+        - NaiveProxy
+        - Xray
+        - «Исправить всё» / Sentinel
+        - Другой сценарий
+    validations:
+      required: true
+  - type: input
+    id: init_service
+    attributes:
+      label: Init-служба и способ запуска
+      placeholder: Например, procd /etc/init.d/sing-box, запуск вручную
+    validations:
+      required: true
+  - type: dropdown
+    id: shell
+    attributes:
+      label: Доступ к shell через RPC
+      options:
+        - Разрешён
+        - Запрещён ACL
+        - Не проверял
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Что проверяли и что получилось
+      description: Опишите ожидаемое и фактическое поведение, шаги воспроизведения и итоговое состояние роутера.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Журнал без секретов
+      description: Удалите пароли, ключи, ссылки подписок, IP-адреса и полные конфигурации.
+      render: text
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Проверка данных
+      options:
+        - label: Я удалил(а) пароли, ключи, ссылки подписок и другие чувствительные данные.
+          required: true
