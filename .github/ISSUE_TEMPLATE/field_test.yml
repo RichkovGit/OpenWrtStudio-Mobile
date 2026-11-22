@@ -1,6 +1,7 @@
 name: Отчёт теста на реальном роутере
 description: Помогите подтвердить работу OpenWrt Studio 2.5.28 на реальном оборудовании
 title: "[Полевой тест]: "
+labels: ["field-testing"]
 body:
   - type: markdown
     attributes:
